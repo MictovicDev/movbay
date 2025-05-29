@@ -1,0 +1,58 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+ENV/
+.venv/
+.ENV/
+
+# Django migrations
+**/migrations/
+**/migrations/*.pyc
+
+# Flask instance folder
+instance/
+
+# Local settings
+*.local
+*.env
+.env.*
+
+# VSCode settings
+.vscode/
+
+# macOS
+.DS_Store
+
+# Logs and databases
+*.log
+*.sqlite3
+*.db
+
+# Gunicorn and Nginx
+*.pid
+
+# Pytest cache
+.pytest_cache/
+.cache/
+
+# mypy, coverage, and other tools
+.mypy_cache/
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.pyre/
+
+# Node (if using npm/yarn in frontend)
+node_modules/
+dist/
+build/
+
+# System files
+Thumbs.db
+ehthumbs.db

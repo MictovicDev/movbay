@@ -1,0 +1,104 @@
+from rest_framework import generics
+from rest_framework.response import Response
+from rest_framework import status
+from .serializers import RegisterSerializer, ActivateAccountSerializer
+from django.contrib.auth import get_user_model
+from .serializers import (
+    UserTokenObtainPairSerializer
+)
+from rest_framework_simplejwt.views import TokenObtainPairView
+from users.utils.otp import OTPManager
+from users.utils.email import EmailManager
+from celery import shared_task
+from django.template.loader import render_to_string
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
+
+
+User = get_user_model()
+
+
+@shared_task
+def send_welcome_email_async(from_email, to_emails, subject, html_content):
+    sender = EmailManager(from_email, to_emails, subject, html_content)
+    sender.send_email()
+    
+    
+class UserTokenObtainPairView(TokenObtainPairView):
+    serializer_class = UserTokenObtainPairSerializer
+
+
+print('hello')
+class RegisterView(generics.ListCreateAPIView):
+    queryset = User.objects.all()
+    permission_classes = [AllowAny]
+    serializer_class = RegisterSerializer
+    queryset = User.objects.all()
+    
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            otp_m = OTPManager()
+            secret = otp_m.get_secret()
+            otp = otp_m.generate_otp()
+            print(otp)
+            user = serializer.save()
+            user.secret = secret
+            user.save()
+            html_content = render_to_string('emails/welcome.html', {'user': user, 'otp': otp})
+            send_welcome_email_async.delay(from_email='noreply@movbay.com',
+                                           to_emails=user.email,
+                                           subject='Welcome TO MovBay',
+                                           html_content=html_content)
+            token = UserTokenObtainPairSerializer().get_token(user)
+            return Response({
+                "message": "Registration successful",
+                "user": {
+                    "username": user.username,
+                    "email": user.email,
+                    "phone_number": str(user.phone_number),
+                    "user_type": user.user_type
+                },
+                'token': {
+                'access': str(token.access_token),
+                'refresh': str(token),
+            }        
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class ActivateAccountView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = ActivateAccountSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)  # will raise 400 if invalid
+
+        email = serializer.validated_data['email']
+        otp_code = serializer.validated_data['otp']
+
+        try:
+            user = User.objects.get(email=email)
+            user_secret = user.secret
+            token = UserTokenObtainPairSerializer().get_token(user)
+            if not user.is_active:
+                if OTPManager(user_secret).verify_otp(otp_code):
+                    user.is_active = True
+                    user.save()
+                    return Response({
+                        'user': user.email,
+                        'token':  {
+                            'access': str(token.access_token),
+                            'refresh': str(token),
+                        }
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response({'message': 'Invalid or expired OTP'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                    return Response({'message': 'Already Verified, Login'}, status=status.HTTP_400_BAD_REQUEST)
+
+        except User.DoesNotExist:
+            return Response({'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)

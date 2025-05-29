@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: movbay_database
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - movbay_network
+    command: >
+      postgres -c 'max_connections=50'
+      -c 'shared_buffers=256MB'
+      -c 'effective_cache_size=1GB'
+      -c 'maintenance_work_mem=64MB'
+      -c 'checkpoint_completion_target=0.9'
+      -c 'wal_buffers=16MB'
+      -c 'default_statistics_target=100'
+
+  redis:
+    image: redis:7-alpine
+    container_name: movbay_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - movbay_network
+    command: >
+      redis-server --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1 --save 300 10 --save 60 10000
+
+  web:
+    build: .
+    container_name: movbay_web
+    restart: unless-stopped
+    volumes:
+      - ./movbay:/app/movbay
+      - static_volume:/app/movbay/staticfiles
+      - media_volume:/app/movbay/media
+    environment:
+      - DEBUG=${DEBUG}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE}
+      - SECRET_KEY=${SECRET_KEY}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+    depends_on:
+      - db
+      - redis
+    networks:
+      - movbay_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  nginx:
+    image: nginx:alpine
+    container_name: movbay_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - static_volume:/var/www/html/static
+      - media_volume:/var/www/html/media
+    depends_on:
+      - web
+    networks:
+      - movbay_network
+
+  celery:
+    build: .
+    container_name: movbay_celery
+    command: celery -A movbay worker --loglevel=info
+    volumes:
+      - ./movbay:/app/movbay
+    depends_on:
+      - redis
+      - db
+    environment:
+      - DEBUG=${DEBUG}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE}
+      - SECRET_KEY=${SECRET_KEY}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+    networks:
+      - movbay_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
+
+networks:
+  movbay_network:
+    driver: bridge
