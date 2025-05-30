@@ -24,8 +24,10 @@ class EmailManager():
         try:
             sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
             response = sg.send(message)
+            print(response.body)
+            print(response.status)
         except Exception as e:
-            print(e)
+            print(f"Error {e}")
                 
         
         

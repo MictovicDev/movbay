@@ -13,22 +13,18 @@ from celery import shared_task
 from django.template.loader import render_to_string
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
-
+from .tasks import send_welcome_email_async
 
 User = get_user_model()
 
 
-@shared_task
-def send_welcome_email_async(from_email, to_emails, subject, html_content):
-    sender = EmailManager(from_email, to_emails, subject, html_content)
-    sender.send_email()
+
     
     
 class UserTokenObtainPairView(TokenObtainPairView):
     serializer_class = UserTokenObtainPairSerializer
 
 
-print('hello')
 class RegisterView(generics.ListCreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
@@ -42,7 +38,6 @@ class RegisterView(generics.ListCreateAPIView):
             otp_m = OTPManager()
             secret = otp_m.get_secret()
             otp = otp_m.generate_otp()
-            print(otp)
             user = serializer.save()
             user.secret = secret
             user.save()
@@ -67,6 +62,8 @@ class RegisterView(generics.ListCreateAPIView):
             }, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
     
     
 class ActivateAccountView(generics.GenericAPIView):
