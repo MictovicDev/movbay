@@ -10,9 +10,7 @@ ENV/
 .venv/
 .ENV/
 
-# Django migrations
-**/migrations/
-**/migrations/*.pyc
+
 
 # Flask instance folder
 instance/
