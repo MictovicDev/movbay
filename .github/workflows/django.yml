@@ -1,35 +1,35 @@
-name: Deploy to MovBay Server
+# name: Deploy to MovBay Server
 
-on:
-  push:
-    branches: [ main ]
+# on:
+#   push:
+#     branches: [ main ]
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v3
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cd /var/www/movbay
+#       - name: Deploy via SSH
+#         uses: appleboy/ssh-action@v1.0.0
+#         with:
+#           host: ${{ secrets.SERVER_HOST }}
+#           username: ${{ secrets.SERVER_USER }}
+#           key: ${{ secrets.SERVER_SSH_KEY }}
+#           script: |
+#             cd /var/www/movbay
 
-            # Pull the latest code
-            git fetch origin
-            git reset --hard origin/main
+#             # Pull the latest code
+#             git fetch origin
+#             git reset --hard origin/main
 
-            #rebuild the image
-            docker-compose down
-            docker-compose up -d --build
+#             #rebuild the image
+#             docker-compose down
+#             docker-compose up -d --build
 
-            # make migrations
-            docker-compose run --rm web python manage.py makemigrations --noinput
-            docker-compose run --rm web python manage.py migrate --noinput
-            docker-compose run --rm web python manage.py collectstatic --noinput
+#             # make migrations
+#             docker-compose run --rm web python manage.py makemigrations --noinput
+#             docker-compose run --rm web python manage.py migrate --noinput
+#             docker-compose run --rm web python manage.py collectstatic --noinput
