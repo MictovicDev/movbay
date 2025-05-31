@@ -20,6 +20,8 @@ COPY gunicorn_config.py /app/
 # Copy movbay folder into /app/movbay
 COPY movbay/ /app/movbay/
 
+COPY requirements.txt .
+
 # Install Python dependencies (requirements.txt is inside movbay/)
 RUN pip install --no-cache-dir -r requirements.txt
 

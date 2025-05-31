@@ -3,7 +3,11 @@ from .models import (Store,
                      Order,
                      Delivery,
                      Product,
-                     StoreStatus)
+                     StoreStatus,
+                     ProductImage)
+
+from .utils.helpers import upload_single_image
+from concurrent.futures import ThreadPoolExecutor
 
 class StoreSerializer(serializers.ModelSerializer):
     
@@ -51,10 +55,21 @@ class StoreSerializer(serializers.ModelSerializer):
        
 
 
+
+
+
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ['id', 'image', 'image_url', 'order']
+
+
 class ProductSerializer(serializers.ModelSerializer):
     verified = serializers.BooleanField(read_only=True)
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
     updated_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
+    images = serializers.ListField(required=True, write_only=True)
+    product_images = ProductImageSerializer(many=True)
     
     class Meta:
         model = Product
@@ -63,17 +78,31 @@ class ProductSerializer(serializers.ModelSerializer):
           
     def create(self, validated_data):
         user = self.context['request'].user 
+        images = validated_data.pop('images')
         store = user.store
         product = Product.objects.create(store=store, **validated_data)
-        if validated_data['auto_post_to_story'] == True:
-            StoreStatus.objects.create(store=store,
-                                       content=validated_data['description'],
-                                       image1=validated_data['image1'], 
-                                       image2=validated_data['image2'],
-                                       image3=validated_data['image3'])
+        if images:
+        # Prepare data for parallel upload
+            upload_data = [
+                {
+                    'file': img,
+                    'product_id': product.id,
+                    'order': idx
+                }
+                for idx, img in enumerate(images)
+            ]
+            
+            # Upload in parallel (max 3 concurrent uploads)
+            uploaded_images = []
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                results = executor.map(upload_single_image, upload_data)
+                uploaded_images = [img for img in results if img is not None]
+
+            if uploaded_images:
+                ProductImage.objects.bulk_create(uploaded_images)
         return product
  
-
+ 
 
 class DeliverySerializer(serializers.ModelSerializer):
     class Meta:

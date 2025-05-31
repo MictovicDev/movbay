@@ -1,7 +1,3 @@
-from django.db import models
-
-# Create your models here.
-from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -11,7 +7,7 @@ import string
 from stores.utils.helpers import user_file_path, validate_video_file_extension
 import random
 from django.db import models
-from cloudinary.models import CloudinaryField
+import cloudinary
 
 
 User = get_user_model()
@@ -26,9 +22,9 @@ class Store(models.Model):
     owner = models.OneToOneField(User, on_delete=models.CASCADE, blank=True, null=True, db_index=True)
     address1 = models.TextField()
     address2 = models.TextField()
-    store_image = CloudinaryField('image', blank=True, null=True)
-    nin = CloudinaryField('image', blank=True, null=True)
-    cac = CloudinaryField('file', blank=True, null=True)
+    store_image = models.ImageField('store/', blank=True, null=True)
+    nin = models.ImageField('store', blank=True, null=True)
+    cac = models.ImageField('store', blank=True, null=True)
     followers = models.ManyToManyField(User, through='StoreFollower', related_name='followed_stores')
     
     def __str__(self):
@@ -46,10 +42,6 @@ class Store(models.Model):
 
 class Product(models.Model):
     
-    def user_file_path(self, filename):
-        # uploads/user_<id>/<filename>
-        return f"Store/Products/Videos/user_{self.store.name}/{filename}"
-    
     CONDITION = [
         ('New', 'New'),
         ('Used', 'Used'),
@@ -60,10 +52,7 @@ class Product(models.Model):
     category = models.CharField(max_length=250, blank=True, null=True)
     brand = models.CharField(max_length=250, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
-    image1 = models.ImageField(upload_to='Store/Products/Images/', blank=True, null=True)
-    image2 = models.ImageField(upload_to='Store/Products/Images/', blank=True, null=True)
-    image3 = models.ImageField(upload_to='Store/Products/Images/', blank=True, null=True)
-    product_video = CloudinaryField('video', blank=True, null=True)
+    product_video = models.ImageField('video', blank=True, null=True)
     name = models.CharField(max_length=250, blank=True, null=True, db_index=True)
     original_price = models.PositiveBigIntegerField(default=0)
     discounted_price = models.PositiveBigIntegerField(default=0)
@@ -89,6 +78,31 @@ class Product(models.Model):
         ordering = ['-verified', 'name']
 
 
+
+class ProductImage(models.Model):
+    product = models.ForeignKey(Product, related_name='product_images', on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='temp/', blank=True, null=True)
+    image_url = models.URLField(blank=True)
+    
+        
+    # def save(self, *args, **kwargs):
+    #     super().save(*args, **kwargs)
+        
+    #     if self.image and not self.image_url:
+    #         try:
+    #             upload_result = cloudinary.uploader.upload(
+    #                 self.image.path,
+    #                 folder=f'products/{self.product.id}',
+    #                 transformation={'quality': 'auto', 'fetch_format': 'auto'}
+    #             )
+    #             self.image_url = upload_result['secure_url']
+    #             self.image.delete(save=False)  # Remove local file
+    #             super().save(update_fields=['image_url'])
+    #         except Exception as e:
+    #             print(f"Error uploading image: {e}")
+                
+                
+                
 
 class Cart(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='carts')
