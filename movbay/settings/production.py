@@ -1,7 +1,5 @@
 from .base import *
 import os
-from pathlib import Path
-from dotenv import load_dotenv
 import dj_database_url
 
 
