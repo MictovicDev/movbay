@@ -5,14 +5,7 @@ from dotenv import load_dotenv
 import dj_database_url
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-
-load_dotenv(BASE_DIR / ".env")
-
-env = os.getenv("DJANGO_ENV","production")  # default to development
-
-# DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
 DEBUG = True
 #ALLOWED_HOSTS = ['*']
 ALLOWED_HOSTS = ['api.movbay.com', '162.0.231.122', 'www.movbay.com', 'movbay.com']
@@ -69,6 +62,7 @@ else:
     # Keep your existing database configuration
     pass
 
+print('Called Production')
 # Redis configuratio
 CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
@@ -85,3 +79,4 @@ CACHES = {
         }
     }
 }
+print("Loaded PRODUCTION settings") 

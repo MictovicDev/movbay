@@ -1,6 +1,6 @@
 from .base import *
 
-DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
+DEBUG = True
 
 ALLOWED_HOSTS = ['localhost']
 
@@ -13,7 +13,7 @@ DATABASES = {
 
 CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 
-print(CELERY_BROKER_URL)
+
 
 CACHES = {
     "default": {
@@ -21,3 +21,5 @@ CACHES = {
         "LOCATION": "unique-snowflake",  # Just a unique identifier for the cache instance
     }
 }
+
+print("Loaded DEVELOPMENT settings") 
