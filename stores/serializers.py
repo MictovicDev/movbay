@@ -10,6 +10,8 @@ from .utils.helpers import upload_single_image
 from concurrent.futures import ThreadPoolExecutor
 
 class StoreSerializer(serializers.ModelSerializer):
+    # cac = serializers.ImageField()
+    nin = serializers.ImageField()
     
     class Meta:
         model = Store
@@ -61,7 +63,7 @@ class StoreSerializer(serializers.ModelSerializer):
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ['id', 'image', 'image_url', 'order']
+        fields = ['id', 'image', 'image_url']
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -69,12 +71,12 @@ class ProductSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
     updated_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
     images = serializers.ListField(required=True, write_only=True)
-    product_images = ProductImageSerializer(many=True)
+    product_images = ProductImageSerializer(many=True, required=False)
     
     class Meta:
         model = Product
         exclude = ['store']
-        # fields = '__all__'
+        
           
     def create(self, validated_data):
         user = self.context['request'].user 
@@ -82,20 +84,16 @@ class ProductSerializer(serializers.ModelSerializer):
         store = user.store
         product = Product.objects.create(store=store, **validated_data)
         if images:
-        # Prepare data for parallel upload
             upload_data = [
                 {
                     'file': img,
                     'product_id': product.id,
-                    'order': idx
                 }
-                for idx, img in enumerate(images)
+                for img in images
             ]
-            
-            # Upload in parallel (max 3 concurrent uploads)
-            uploaded_images = []
             with ThreadPoolExecutor(max_workers=3) as executor:
                 results = executor.map(upload_single_image, upload_data)
+                                   ##expresesion                       #condition
                 uploaded_images = [img for img in results if img is not None]
 
             if uploaded_images:

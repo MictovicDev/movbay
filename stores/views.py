@@ -69,8 +69,6 @@ class ProductDetailView(generics.RetrieveAPIView):
     serializer_class = ProductSerializer
     
     
-    print('hello')
-    
 class DeleteProductView(generics.DestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer

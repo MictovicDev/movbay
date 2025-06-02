@@ -21,18 +21,17 @@ def validate_video_file_extension(value):
         raise ValidationError(f"Max file size is {max_size_mb} MB")
     
 
-def upload_single_image(image_data, ProductImage):
-    """Helper function for parallel upload"""
+def upload_single_image(image_data):
     try:
+        from stores.models import ProductImage  # Lazy import to prevent circular import
+
         upload_result = cloudinary.uploader.upload(
-            image_data,
+            image_data["file"],
             folder=f'products/{image_data["product_id"]}',
-            transformation={'quality': 'auto', 'fetch_format': 'auto'}
         )
         return ProductImage(
             product_id=image_data['product_id'],
             image_url=upload_result['secure_url'],
-            order=image_data['order']
         )
     except Exception as e:
         print(f"Upload failed: {e}")

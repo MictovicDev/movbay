@@ -8,6 +8,7 @@ from stores.utils.helpers import user_file_path, validate_video_file_extension
 import random
 from django.db import models
 import cloudinary
+from cloudinary.models import CloudinaryField
 
 
 User = get_user_model()
@@ -22,9 +23,9 @@ class Store(models.Model):
     owner = models.OneToOneField(User, on_delete=models.CASCADE, blank=True, null=True, db_index=True)
     address1 = models.TextField()
     address2 = models.TextField()
-    store_image = models.ImageField('store/', blank=True, null=True)
-    nin = models.ImageField('store', blank=True, null=True)
-    cac = models.ImageField('store', blank=True, null=True)
+    store_image = CloudinaryField('store/pp', blank=True, null=True)
+    nin = CloudinaryField('store/nin', blank=True, null=True)
+    cac = CloudinaryField('store/cac', blank=True, null=True)
     followers = models.ManyToManyField(User, through='StoreFollower', related_name='followed_stores')
     
     def __str__(self):
@@ -42,40 +43,45 @@ class Store(models.Model):
 
 class Product(models.Model):
     
-    CONDITION = [
+    PRODUCT_CONDITION = [
         ('New', 'New'),
         ('Used', 'Used'),
         ('Refurbished', 'Refurbished')
+    ]
+    
+    DELIVERY_CHOICES = [
+        ('Movbay_Express', 'Movbay_Express'),
+        ('Speedy_Dispatch', 'Speedy_Dispatch'),
+        ('Pickup_Hub', 'Pickup_Hub')
     ]
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products', db_index=True)
     title = models.CharField(max_length=40, blank=True, null=True)
     category = models.CharField(max_length=250, blank=True, null=True)
     brand = models.CharField(max_length=250, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
-    product_video = models.ImageField('video', blank=True, null=True)
-    name = models.CharField(max_length=250, blank=True, null=True, db_index=True)
+    product_video = models.FileField('videos', blank=True, null=True)
     original_price = models.PositiveBigIntegerField(default=0)
     discounted_price = models.PositiveBigIntegerField(default=0)
-    condition =  models.CharField(choices=CONDITION, max_length=300, blank=True, null=True)
+    condition =  models.CharField(choices=PRODUCT_CONDITION, max_length=300, blank=True, null=True)
     verified = models.BooleanField(default=False, db_index=True)
     stock_available = models.PositiveBigIntegerField(blank=True, null=True)
     size = models.CharField(max_length=250, blank=True, null=True)
     pickup_available = models.BooleanField(default=True)
     delivery_available = models.BooleanField(default=True)
+    delivery_type = models.CharField(max_length=250, choices=DELIVERY_CHOICES, blank=True, null=True)
     auto_post_to_story = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return f"{self.store.name if self.store else 'No Store'} - {self.name or 'Unnamed Product'}"
+        return f"{self.store.name if self.store else 'No Store'} - {self.title or 'Unnamed Product'}"
 
     class Meta:
         indexes = [
             models.Index(fields=['store']),
-            models.Index(fields=['name']),
             models.Index(fields=['verified']),
         ]
-        ordering = ['-verified', 'name']
+        ordering = ['-verified']
 
 
 
@@ -84,23 +90,6 @@ class ProductImage(models.Model):
     image = models.ImageField(upload_to='temp/', blank=True, null=True)
     image_url = models.URLField(blank=True)
     
-        
-    # def save(self, *args, **kwargs):
-    #     super().save(*args, **kwargs)
-        
-    #     if self.image and not self.image_url:
-    #         try:
-    #             upload_result = cloudinary.uploader.upload(
-    #                 self.image.path,
-    #                 folder=f'products/{self.product.id}',
-    #                 transformation={'quality': 'auto', 'fetch_format': 'auto'}
-    #             )
-    #             self.image_url = upload_result['secure_url']
-    #             self.image.delete(save=False)  # Remove local file
-    #             super().save(update_fields=['image_url'])
-    #         except Exception as e:
-    #             print(f"Error uploading image: {e}")
-                
                 
                 
 
