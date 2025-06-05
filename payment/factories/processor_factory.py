@@ -1,11 +1,11 @@
-from ..processors import FlutterwaveProcessor, PaystackProcessor
+from ..processors import FlutterWaveProcessor, PayStackProcessor
 
 class ProcessorFactory:
     @staticmethod
     def create_processor(processor_type):
         processors = {
-            'flutterwave': FlutterwaveProcessor,
-            'paystack': PaystackProcessor,
+            'flutterwave': FlutterWaveProcessor,
+            'paystack': PayStackProcessor,
         }
         
         processor_class = processors.get(processor_type)
