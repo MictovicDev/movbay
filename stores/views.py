@@ -10,11 +10,18 @@ from .serializers import StoreSerializer, OrderSerializer, ProductSerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import RetrieveDestroyAPIView
+from rest_framework.throttling import AnonRateThrottle
+
+
+
+class CustomAnonRateThrottle(AnonRateThrottle):
+    rate = '5/minute'  # Limit to 5 requests per minute
 
 
 
 
 class StoreListCreateView(generics.ListCreateAPIView):
+    throttle_classes = [CustomAnonRateThrottle]
     queryset = Store.objects.all()
     serializer_class = StoreSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -24,6 +31,7 @@ class StoreListCreateView(generics.ListCreateAPIView):
     
     
 class OrderListCreateView(generics.ListCreateAPIView):
+    throttle_classes = [CustomAnonRateThrottle]
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -32,31 +40,16 @@ class OrderListCreateView(generics.ListCreateAPIView):
     
     
 class OrderDetailView(generics.RetrieveDestroyAPIView):
+    throttle_classes = [CustomAnonRateThrottle]
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     
-     
-class ConfirmOrderView(APIView):
-    pass
     
-class DashBoardView(APIView):
-    pass
+        
     
-class CancelOrderView(APIView):
-    def delete(self, request, pk):
-        try:
-            order = Order.objects.get(pk=pk)
-            if order.status == 'CANCELLED':
-                return Response({'detail': 'Order already cancelled.'}, status=400)
-            order.status = 'CANCELLED'
-            order.save()
-            return Response({'detail': 'Order cancelled successfully.'}, status=200)
-        except Order.DoesNotExist:
-            return Response({'detail': 'Order not found.'}, status=404)
-        
-        
         
 class ProductListCreateView(generics.ListCreateAPIView):
+    throttle_classes = [CustomAnonRateThrottle]
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -65,6 +58,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
     
     
 class ProductDetailView(generics.RetrieveAPIView):
+    throttle_classes = [CustomAnonRateThrottle]
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     

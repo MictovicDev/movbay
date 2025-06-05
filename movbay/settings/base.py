@@ -31,6 +31,11 @@ INSTALLED_APPS = [
     ##my apps
     'users',
     'stores',
+    'logistics',
+    'wallet',
+    'payment',
+    'scanner',
+   
     
     ##third party apps
     'rest_framework',
@@ -40,6 +45,7 @@ INSTALLED_APPS = [
     'cloudinary_storage',
     'corsheaders',
     'debug_toolbar',
+   
 ]
 
 
@@ -152,7 +158,15 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
-    )
+    ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/day',
+        'user': '1000/day',
+    }
 
 }
 
@@ -198,7 +212,7 @@ STATICFILES_DIRS = [
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+#MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

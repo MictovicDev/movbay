@@ -7,6 +7,7 @@ import secrets
 from django.utils import timezone
 from datetime import timedelta
 from phonenumber_field.modelfields import PhoneNumberField
+import uuid
 
 
 
@@ -50,7 +51,7 @@ class User(AbstractBaseUser):
 
 class PasswordResetToken(models.Model):
     """Store tokens for password reset"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
     token = models.CharField(max_length=64, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -79,5 +80,46 @@ class PasswordResetToken(models.Model):
 
 
 
-class Profile(models.Model):
-    image = models.ImageField(upload_to='Profile/pictures')
+class LoginAttempt(models.Model):
+    email = models.EmailField()
+    success = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True)
+
+    def __str__(self):
+        return f"Login attempt for {self.email} at {self.timestamp} ({'Success' if self.success else 'Failed'})"
+
+    @classmethod
+    def check_failed_attempts(cls, email, time_window_minutes=15, max_attempts=5):
+        from django.utils import timezone
+        from datetime import timedelta
+        time_threshold = timezone.now() - timedelta(minutes=time_window_minutes)
+        failed_attempts = cls.objects.filter(
+            email=email, success=False, timestamp__gte=time_threshold
+        ).count()
+        return failed_attempts >= max_attempts
+    
+    
+
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_profile')
+    
+    def __str__(self):
+        return f"{self.user.email} - Customer Profile"
+    
+   
+
+
+   
+
+class RiderProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='rider_profile')
+    license_number = models.CharField(max_length=50, unique=True)
+    vehicle_type = models.CharField(max_length=50)
+    is_available = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.user.email} - Driver Profile"
+

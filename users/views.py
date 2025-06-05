@@ -10,28 +10,47 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from users.utils.otp import OTPManager
 from users.utils.email import EmailManager
 from celery import shared_task
+from rest_framework.throttling import AnonRateThrottle
 from django.template.loader import render_to_string
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from .tasks import send_welcome_email_async
+from .models import LoginAttempt
 
 User = get_user_model()
 
 
+class CustomAnonRateThrottle(AnonRateThrottle):
+    rate = '5/minute'  # Limit to 5 requests per minute
 
-    
     
 class UserTokenObtainPairView(TokenObtainPairView):
     serializer_class = UserTokenObtainPairSerializer
+    throttle_classes = [CustomAnonRateThrottle]
+    
+    def post(self, request, *args, **kwargs):
+            email = request.data.get('email')
+            ip_address = request.META.get('REMOTE_ADDR')
+
+            try:
+                response = super().post(request, *args, **kwargs)
+                return response
+            except Exception as e:
+                # Log failed login attempt
+                LoginAttempt.objects.create(email=email, success=False, ip_address=ip_address)
+                return Response(
+                    {"error": str(e) or "Invalid credentials"},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
 
 
 class RegisterView(generics.ListCreateAPIView):
+    throttle_classes = [CustomAnonRateThrottle]
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = RegisterSerializer
     queryset = User.objects.all()
     
-
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
@@ -67,6 +86,7 @@ class RegisterView(generics.ListCreateAPIView):
     
     
 class ActivateAccountView(generics.GenericAPIView):
+    throttle_classes = [CustomAnonRateThrottle]
     permission_classes = [AllowAny]
     serializer_class = ActivateAccountSerializer
 
