@@ -18,7 +18,7 @@ User = get_user_model()
 
 
 class Store(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=250, blank=True, null=True, db_index=True)
     category = models.CharField(max_length=250, blank=True, null=True, db_index=True)
     store_image = models.ImageField(upload_to='Store/PP', blank=True, null=True)
@@ -57,7 +57,7 @@ class Product(models.Model):
         ('Speedy_Dispatch', 'Speedy_Dispatch'),
         ('Pickup_Hub', 'Pickup_Hub')
     ]
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products', db_index=True)
     title = models.CharField(max_length=40, blank=True, null=True)
     category = models.CharField(max_length=250, blank=True, null=True)
@@ -101,7 +101,7 @@ class ProductImage(models.Model):
                 
 
 class Cart(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='carts')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -178,7 +178,7 @@ class Delivery(models.Model):
         ('Pickup_Hub', 'Pickup_Hub')
     ]
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     delivery_method = models.CharField(max_length=250, choices=DELIVERY_CHOICES)
     recipient_name = models.CharField(max_length=250)
     phone_number = PhoneNumberField(blank=True, null=True)
@@ -204,7 +204,7 @@ class Order(models.Model):
         ('Cancelled', 'Cancelled')
        
     ]
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     products = models.ForeignKey(Product, on_delete=models.CASCADE, blank=True, null=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
     confirmed = models.BooleanField(default=False)

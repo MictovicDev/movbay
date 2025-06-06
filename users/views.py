@@ -54,33 +54,37 @@ class RegisterView(generics.ListCreateAPIView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            otp_m = OTPManager()
-            secret = otp_m.get_secret()
-            otp = otp_m.generate_otp()
-            user = serializer.save()
-            user.secret = secret
-            user.save()
-            html_content = render_to_string('emails/welcome.html', {'user': user, 'otp': otp})
-            send_welcome_email_async.delay(from_email='noreply@movbay.com',
-                                           to_emails=user.email,
-                                           subject='Welcome TO MovBay',
-                                           html_content=html_content)
-            token = UserTokenObtainPairSerializer().get_token(user)
-            return Response({
-                "message": "Registration successful",
-                "user": {
-                    "username": user.username,
-                    "email": user.email,
-                    "phone_number": str(user.phone_number),
-                    "user_type": user.user_type
-                },
-                'token': {
-                'access': str(token.access_token),
-                'refresh': str(token),
-            }        
-            }, status=status.HTTP_201_CREATED)
-
+            try:
+                otp_m = OTPManager()
+                secret = otp_m.get_secret()
+                otp = otp_m.generate_otp()
+                user = serializer.save()
+                user.secret = secret
+                user.save()
+                html_content = render_to_string('emails/welcome.html', {'user': user, 'otp': otp})
+                send_welcome_email_async.delay(from_email='noreply@movbay.com',
+                                            to_emails=user.email,
+                                            subject='Welcome TO MovBay',
+                                            html_content=html_content)
+                token = UserTokenObtainPairSerializer().get_token(user)
+                
+                return Response({
+                    "message": "Registration successful",
+                    "user": {
+                        "username": user.username,
+                        "email": user.email,
+                        "phone_number": str(user.phone_number),
+                        "user_type": user.user_type
+                    },
+                    'token': {
+                    'access': str(token.access_token),
+                    'refresh': str(token),
+                }        
+                }, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                print(e)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
     
     
     

@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'cloudinary_storage',
     'corsheaders',
     'debug_toolbar',
+    'channels'
    
 ]
 
@@ -80,8 +81,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'movbay.wsgi.application'
-
+#WSGI_APPLICATION = 'movbay.wsgi.application'
+ASGI_APPLICATION = 'movbay.asgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -105,7 +106,7 @@ cloudinary.config(
     secure=True
 )
 
-print(CLOUDINARY_STORAGE.get('CLOUD_NAME'))
+
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 

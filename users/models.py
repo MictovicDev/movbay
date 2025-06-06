@@ -110,10 +110,7 @@ class UserProfile(models.Model):
         return f"{self.user.email} - Customer Profile"
     
    
-
-
-   
-
+  
 class RiderProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='rider_profile')
     license_number = models.CharField(max_length=50, unique=True)
@@ -122,4 +119,3 @@ class RiderProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - Driver Profile"
-

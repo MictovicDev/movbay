@@ -1,8 +1,9 @@
 from ..processors import FlutterWaveProcessor, PayStackProcessor
 
 class ProcessorFactory:
+    
     @staticmethod
-    def create_processor(processor_type):
+    def create_processor(processor_type, url):
         processors = {
             'flutterwave': FlutterWaveProcessor,
             'paystack': PayStackProcessor,
@@ -12,4 +13,4 @@ class ProcessorFactory:
         if not processor_class:
             raise ValueError(f"Unknown processor: {processor_type}")
         
-        return processor_class()
+        return processor_class(url=url)

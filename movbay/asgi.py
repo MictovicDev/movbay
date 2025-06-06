@@ -8,9 +8,28 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 """
 
 import os
-
+from pathlib import Path
+from dotenv import load_dotenv
 from django.core.asgi import get_asgi_application
+import os
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.auth import AuthMiddlewareStack
+import stores.routing
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'movbay.settings')
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+load_dotenv(BASE_DIR / ".env")
 
-application = get_asgi_application()
+django_env = os.getenv('DJANGO_ENV')
+
+print('Me' + django_env)
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', f"movbay.settings.{django_env}")
+
+
+application = ProtocolTypeRouter({
+    "http": get_asgi_application(),  # Handles standard HTTP requests
+    "websocket": AuthMiddlewareStack(
+        URLRouter(
+            stores.routing.websocket_urlpatterns  # Adjust to your app's WebSocket routes
+        )
+    ),
+})

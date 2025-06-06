@@ -6,5 +6,5 @@ class PaymentProcessor(ABC):
         pass
     
     @abstractmethod
-    def create_dedicated_account(self, amount):
+    def create_dedicated_account(self, data):
         pass

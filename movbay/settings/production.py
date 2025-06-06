@@ -78,3 +78,15 @@ CACHES = {
     }
 }
 print("Loaded PRODUCTION settings") 
+
+
+# settings.py
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [("redis", 6379)],  # Use the hostname 'redis' and port 6379
+        },
+    },
+}
