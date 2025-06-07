@@ -95,7 +95,8 @@ class ProductSerializer(serializers.ModelSerializer):
                 "product_id": product.id
             }
             print(image.name)
-            upload_single_image.delay(image_data)
+            res = upload_single_image.delay(image_data)
+            print("TASK DISPATCHED:", res.id)
         return product
  
  

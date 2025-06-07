@@ -101,7 +101,7 @@ class ProductImage(models.Model):
     def __str__(self):
         return f"{self.product.title} - {self.image_url}"
                 
-                
+
 
 class Cart(models.Model):
     #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

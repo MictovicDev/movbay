@@ -9,8 +9,8 @@ from .models import Store, Order, Product
 from .serializers import StoreSerializer, OrderSerializer, ProductSerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
-from rest_framework.generics import RetrieveDestroyAPIView
 from rest_framework.throttling import AnonRateThrottle
+from django.db.models import Prefetch
 
 
 
@@ -50,11 +50,12 @@ class OrderDetailView(generics.RetrieveDestroyAPIView):
         
 class ProductListCreateView(generics.ListCreateAPIView):
     throttle_classes = [CustomAnonRateThrottle]
-    queryset = Product.objects.all()
     serializer_class = ProductSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
     
+    def get_queryset(self):
+        return Product.objects.select_related('store').prefetch_related('store__owner').all()
     
     
 class ProductDetailView(generics.RetrieveAPIView):
