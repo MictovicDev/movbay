@@ -97,6 +97,9 @@ class ProductImage(models.Model):
     image = models.ImageField(upload_to='temp/', blank=True, null=True)
     image_url = models.URLField(blank=True)
     
+    
+    def __str__(self):
+        return f"{self.product.title} - {self.image_url}"
                 
                 
 

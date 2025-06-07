@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -125,5 +125,27 @@
     });
   </script>
 
+</body>
+</html> -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <p>Open the browser console to see messages.</p>
+
+    <script>
+        const socket = new WebSocket("wss://api.movbay.com/ws/some_path/");
+
+        socket.onopen = () => console.log("✅ Connected!");
+        socket.onmessage = (e) => console.log("📨 Message from server:", e.data);
+        socket.onerror = (e) => console.error("❌ WebSocket error:", e);
+        socket.onclose = () => console.log("🔌 Disconnected");
+    </script>
 </body>
 </html>

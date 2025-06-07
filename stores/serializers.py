@@ -6,8 +6,10 @@ from .models import (Store,
                      StoreStatus,
                      ProductImage)
 
-from .utils.helpers import upload_single_image
-from concurrent.futures import ThreadPoolExecutor
+from .tasks import upload_single_image
+from base64 import b64encode
+
+
 
 class StoreSerializer(serializers.ModelSerializer):
     # cac = serializers.ImageField()
@@ -77,27 +79,23 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         exclude = ['store']
         
+    def upload_images(images, product_id):
+        pass
+        
           
     def create(self, validated_data):
         user = self.context['request'].user 
         images = validated_data.pop('images')
         store = user.store
         product = Product.objects.create(store=store, **validated_data)
-        if images:
-            upload_data = [
-                {
-                    'file': img,
-                    'product_id': product.id,
-                }
-                for img in images
-            ]
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                results = executor.map(upload_single_image, upload_data)
-                                   ##expresesion                       #condition
-                uploaded_images = [img for img in results if img is not None]
-
-            if uploaded_images:
-                ProductImage.objects.bulk_create(uploaded_images)
+        for image in images:
+            image_data = {
+                "file_content": b64encode(image.read()).decode("utf-8"),
+                "filename": image.name,
+                "product_id": product.id
+            }
+            print(image.name)
+            upload_single_image.delay(image_data)
         return product
  
  

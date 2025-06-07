@@ -62,7 +62,7 @@ else:
 
 print('Called Production')
 # Redis configuratio
-CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
@@ -71,7 +71,7 @@ SESSION_CACHE_ALIAS = 'default'
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv("REDIS_URL", "redis://localhost:6379/1"),
+        "LOCATION": os.getenv("REDIS_URL", "redis://redis:6379/1"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
