@@ -104,7 +104,9 @@ class LoginAttempt(models.Model):
 
 
 class UserProfile(models.Model):
+    profile_picture = models.ImageField(upload_to='PP/{self.user.username}',blank=True, null=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_profile')
+    address = models.CharField(max_length=250, blank=True, null=True)
     
     def __str__(self):
         return f"{self.user.email} - Customer Profile"

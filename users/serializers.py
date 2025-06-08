@@ -6,7 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.hashers import check_password
 from phonenumber_field.serializerfields import PhoneNumberField
 from django.contrib.auth import get_user_model
-from .models import LoginAttempt
+from .models import LoginAttempt, UserProfile
 
 
 User = get_user_model()
@@ -94,3 +94,16 @@ class UserTokenObtainPairSerializer(TokenObtainPairSerializer):
 class ActivateAccountSerializer(serializers.Serializer):
     email = serializers.EmailField()
     otp = serializers.CharField(max_length=10) 
+    
+    
+    
+
+class UserProfileSerialzer(serializers.ModelSerializer):
+    fullname= serializers.CharField(source='user.fullname', required=False)
+    username= serializers.CharField(source='user.username', required=False)
+    phone_number = serializers.CharField(source='phone_number', required=False)
+    
+
+    class Meta:
+        model = UserProfile
+        fields = ['fullname', 'username',  'phone_number', 'address', 'profile_picture', 'address'] 

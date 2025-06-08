@@ -3,11 +3,13 @@ from .models import (Store,
                      Order,
                      Delivery,
                      Product,
-                     StoreStatus,
+                     Status,
                      ProductImage)
 
 from .tasks import upload_single_image
 from base64 import b64encode
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 
 
@@ -85,9 +87,12 @@ class ProductSerializer(serializers.ModelSerializer):
           
     def create(self, validated_data):
         user = self.context['request'].user 
-        images = validated_data.pop('images')
+        
+        images = validated_data.pop('images', [])
+        post_to_story = validated_data.pop('auto_post_to_story', False) 
         store = user.store
         product = Product.objects.create(store=store, **validated_data)
+        
         for image in images:
             image_data = {
                 "file_content": b64encode(image.read()).decode("utf-8"),
@@ -97,6 +102,8 @@ class ProductSerializer(serializers.ModelSerializer):
             print(image.name)
             res = upload_single_image.delay(image_data)
             print("TASK DISPATCHED:", res.id)
+        if post_to_story:
+           Status.objects.create(store=store, image=images[0])
         return product
  
  

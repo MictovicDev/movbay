@@ -147,15 +147,20 @@ class StoreFollower(models.Model):
     
     
 
-class StoreStatus(models.Model):
+class Status(models.Model):
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='statuses', db_index=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, db_index=True, blank=True, null=True)
+    image = models.ImageField(upload_to='store/', blank=True, null=True)
     content = models.TextField(blank=True, null=True)
-    image1 = models.ImageField(upload_to='Store/Status', blank=True, null=True)
-    image2 = models.ImageField(upload_to='Store/Status', blank=True, null=True)
-    image3 = models.ImageField(upload_to='Store/Status', blank=True, null=True)
-    image4 = models.ImageField(upload_to='Store/Status', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
+    
+    class Meta:
+        unique_together = ('store', 'product')
+        indexes = [
+            models.Index(fields=['store']),
+            models.Index(fields=['product']),
+        ]
 
     def is_active(self):
         return timezone.now() < self.expires_at
@@ -167,6 +172,9 @@ class StoreStatus(models.Model):
         if not self.expires_at:
             self.expires_at = timezone.now() + timedelta(hours=24)
         super().save(*args, **kwargs)
+
+
+                
 
 def generate_order_id(size=8, prefix="MOV"):
     chars = string.ascii_uppercase + string.digits

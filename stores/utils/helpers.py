@@ -1,8 +1,8 @@
 from django.core.exceptions import ValidationError
 import os
 from celery import shared_task
-import cloudinary
-from concurrent.futures import ThreadPoolExecutor
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 
 def user_file_path(instance, filename):
@@ -22,38 +22,19 @@ def validate_video_file_extension(value):
     
 
 
+def notify_status_created(status):
+    channel_layer = get_channel_layer()
+    group_name = f"store_{status.store.id}_statuses"
 
-
-
-# @shared_task
-# def upload_product_images(product_id, images, ProductImage):
-#     """Background task to upload images"""
-#     uploaded_images = []
-    
-#     for image_data in images:
-#         try:
-#             # Decode base64 image or handle file path
-#             upload_result = cloudinary.uploader.upload(
-#                 image_data,
-#                 transformation={'quality': 'auto', 'fetch_format': 'auto'}
-#             )
-            
-#             uploaded_images.append({
-#                 'product_id': product_id,
-#                 'image_url': upload_result['secure_url'],
-#             })
-#         except Exception as e:
-#             print(f"Upload failed: {e}")
-#     if uploaded_images:
-#         product_images = [
-#             ProductImage(
-#                 product=img['product_id'],
-#                 image_url=img['image_url'],
-#                 order=img['order'],
-#                 status='completed'
-#             )
-#             for img in uploaded_images
-#         ]
-#         ProductImage.objects.bulk_create(product_images)
-    
-#     return len(uploaded_images)
+    async_to_sync(channel_layer.group_send)(
+        group_name,
+        {
+            "type": "status.created",
+            "status": {
+                "id": status.id,
+                "image": status.image.url,  # or status.image if it’s a URL already
+                "store": status.store.id,
+                "created_at": status.created_at.isoformat(),
+            },
+        },
+    )
