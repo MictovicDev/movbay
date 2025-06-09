@@ -8,7 +8,7 @@ from django.utils import timezone
 from datetime import timedelta
 from phonenumber_field.modelfields import PhoneNumberField
 import uuid
-
+from cloudinary.models import CloudinaryField
 
 
 class User(AbstractBaseUser):
@@ -104,7 +104,7 @@ class LoginAttempt(models.Model):
 
 
 class UserProfile(models.Model):
-    profile_picture = models.ImageField(upload_to='PP/{self.user.username}',blank=True, null=True)
+    profile_picture = CloudinaryField('image', blank=True, null=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_profile')
     address = models.CharField(max_length=250, blank=True, null=True)
     

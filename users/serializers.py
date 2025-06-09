@@ -96,14 +96,39 @@ class ActivateAccountSerializer(serializers.Serializer):
     otp = serializers.CharField(max_length=10) 
     
     
-    
+class UserSerializer(serializers.ModelSerializer):
 
-class UserProfileSerialzer(serializers.ModelSerializer):
-    fullname= serializers.CharField(source='user.fullname', required=False)
-    username= serializers.CharField(source='user.username', required=False)
-    phone_number = serializers.CharField(source='phone_number', required=False)
-    
+    class Meta:
+        model = User
+        fields = ('username', 'fullname', 'phone_number')
+
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', required=False)
+    fullname = serializers.CharField(source='user.fullname', required=False)
+    phone_number = serializers.CharField(source='user.phone_number', required=False)
+    address = serializers.CharField(required=False)
+    profile_picture = serializers.ImageField(required=False)
 
     class Meta:
         model = UserProfile
-        fields = ['fullname', 'username',  'phone_number', 'address', 'profile_picture', 'address'] 
+        fields = ['username', 'fullname', 'phone_number', 'address', 'profile_picture']
+        
+        
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', None)
+
+        # Update user profile fields
+        instance.address = validated_data.get('address', instance.address)
+        instance.profile_picture = validated_data.get('profile_picture', instance.profile_picture)
+        instance.save()
+
+        # Update nested user fields
+        if user_data:
+            user = instance.user  # assuming UserProfile has OneToOneField to User
+            for attr, value in user_data.items():
+                setattr(user, attr, value)
+            user.save()
+
+        return instance

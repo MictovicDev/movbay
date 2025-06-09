@@ -4,7 +4,7 @@ from rest_framework import status
 from .serializers import RegisterSerializer, ActivateAccountSerializer
 from django.contrib.auth import get_user_model
 from .serializers import (
-    UserTokenObtainPairSerializer
+    UserTokenObtainPairSerializer, UserProfileSerializer
 )
 from rest_framework_simplejwt.views import TokenObtainPairView
 from users.utils.otp import OTPManager
@@ -173,42 +173,31 @@ class ActivateAccountView(generics.GenericAPIView):
 
 
 class ProfileView(generics.RetrieveUpdateAPIView):
-    # throttle_classes = [CustomAnonRateThrottle]
-    queryset = UserProfile
+    queryset = UserProfile.objects.select_related('user') 
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = ActivateAccountSerializer
+    serializer_class = UserProfileSerializer
     
     def get_object(self):
-        return UserProfile.objects.get(user=self.request.user)
+        return self.queryset.get(user=self.request.user)
     
     def retrieve(self, request, *args, **kwargs):
-        cache_key = f"user_profile:{request.user.id}"
-        
-        cached_profile = redis_client.get(cache_key)
-        
-        if cached_profile:
-            import json
-            return Response(json.loads(cached_profile))
-        
-        ## if not in cache
-        profile = self.get_object()
-        serializer = self.get_serializer(profile)
-        
-        redis_client.set(cache_key, serializer.data, ex=3600)  # TTL: 1 hour
-        return Response(serializer.data)
-    
-    def update(self, request, *args, **kwargs):
-        profile = self.get_object()
-        serializer = self.get_serializer(profile, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-
-        # Invalidate cache
-        cache_key = f"user_profile:{request.user.id}"
-        redis_client.delete(cache_key)
-
-        return Response(serializer.data)
+        import json
+        try:
+            cache_key = f"user_profile:{request.user.id}"
+            cached_profile = redis_client.get(cache_key)
+            # redis_client.delete(cache_key)
+            if cached_profile:
+                return Response(json.loads(cached_profile))
+            
+            ## if not in cache
+            profile = self.get_object()
+            serializer = self.get_serializer(profile)
+            redis_client.set(cache_key, json.dumps(serializer.data), ex=3600)
+            return Response(serializer.data)
+        except Exception as e:
+            print(e)
+            
         
         
         
