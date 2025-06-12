@@ -29,7 +29,7 @@ class Store(models.Model):
     store_image = CloudinaryField('store/pp', blank=True, null=True)
     nin = CloudinaryField('store/nin', blank=True, null=True)
     cac = CloudinaryField('store/cac', blank=True, null=True)
-    followers = models.ManyToManyField(User, through='StoreFollower', related_name='followed_stores')
+    verified = models.BooleanField(default=False)
     
     def __str__(self):
         return f"{self.name or 'Unnamed'} Store"
@@ -215,7 +215,7 @@ class Order(models.Model):
         ('Cancelled', 'Cancelled')
        
     ]
-    #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='orders')
     products = models.ForeignKey(Product, on_delete=models.CASCADE, blank=True, null=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
     confirmed = models.BooleanField(default=False)

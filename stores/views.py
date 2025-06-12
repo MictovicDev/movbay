@@ -11,6 +11,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.throttling import AnonRateThrottle
 from django.db.models import Prefetch
+from rest_framework import status
+from django.db.models import Count
+from .permissions import IsProductOwner
 
 
 
@@ -38,6 +41,13 @@ class OrderListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     
+    def get_queryset(self):
+        user = self.request.user
+        status = self.request.GET.get('status', 'new')
+        return Order.objects.filter(user=user, status=status)
+        
+    
+    
     
 class OrderDetailView(generics.RetrieveDestroyAPIView):
     throttle_classes = [CustomAnonRateThrottle]
@@ -58,14 +68,46 @@ class ProductListCreateView(generics.ListCreateAPIView):
         return Product.objects.select_related('store').prefetch_related('store__owner').all()
     
     
-class ProductDetailView(generics.RetrieveAPIView):
+class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     throttle_classes = [CustomAnonRateThrottle]
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    permission_classes = [IsProductOwner, permissions.IsAuthenticated]
     
     
-class DeleteProductView(generics.DestroyAPIView):
-    queryset = Product.objects.all()
+    
+class UserProductListView(generics.ListAPIView):
+    throttle_classes = [CustomAnonRateThrottle]
     serializer_class = ProductSerializer
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]  # login required
+
+    def get_queryset(self):
+        user = self.request.user
+        return Product.objects.filter(store__owner=user)
+    
+    
+class DashBoardView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        store = Store.objects.select_related('owner').prefetch_related(
+            Prefetch('products')
+        ).annotate(
+            product_count=Count('products'),
+            order_count=Count('orders'),
+            followers_count=Count('store_followers')
+        ).get(owner=user)
+        
+        serializer = StoreSerializer(store)
+        print(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+    
+# class DeleteProductView(generics.DestroyAPIView):
+#     queryset = Product.objects.all()
+#     serializer_class = ProductSerializer
     
     

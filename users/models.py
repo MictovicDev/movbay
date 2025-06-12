@@ -16,18 +16,21 @@ class User(AbstractBaseUser):
         ("User","User"),
         ("Rider","Rider")
     )
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    fullname = models.CharField(max_length=250, blank=True, null=True)
-    username = models.CharField(max_length=250, unique=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_index=True)
+    fullname = models.CharField(max_length=250, blank=True, null=True, db_index=True)
+    username = models.CharField(max_length=250, unique=True, db_index=True)
     email = models.EmailField(
         unique=True,
-        validators=[EmailValidator(message="Enter a valid email address")]
+        db_index=True,
+        validators=[EmailValidator(message="Enter a valid email address"),]
     )
     is_active = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
     phone_number = PhoneNumberField(region='NG', blank=True, null=True)
     user_type = models.CharField(choices=roles, max_length=5, blank=True, null=True)
     secret = models.CharField(max_length=500, blank=True, null=True)
+    
+    
     
     objects = UserManager()
 

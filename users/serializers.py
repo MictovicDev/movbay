@@ -7,6 +7,7 @@ from django.contrib.auth.hashers import check_password
 from phonenumber_field.serializerfields import PhoneNumberField
 from django.contrib.auth import get_user_model
 from .models import LoginAttempt, UserProfile
+from django.contrib.auth import authenticate
 
 
 User = get_user_model()
@@ -43,51 +44,40 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class UserTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = 'email'
-    
-    @classmethod
-    def get_token(cls, user):
-        token = super().get_token(user)
-        # Add custom claims to token
-        token['email'] = user.email
-        token['user_type'] = user.user_type
-        return token
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[self.username_field] = serializers.CharField()
         self.fields.pop('username', None)
 
-        
     def validate(self, attrs):
-        email = attrs.get('email')
-        password = attrs.get('password')
-
-        # Check for too many failed attempts
-        if LoginAttempt.check_failed_attempts(email):
-            raise serializers.ValidationError(
-                {"error": "Too many failed login attempts. Please try again later."}
-            )
-
-        # Validate credentials
-        data = super().validate(attrs)
-
-        # Log successful login
-        ip_address = self.context['request'].META.get('REMOTE_ADDR')
-        LoginAttempt.objects.create(email=email, success=True, ip_address=ip_address)
+        # Use Django's authenticate to handle user validation
+        credentials = {
+            'email': attrs.get('email'),
+            'password': attrs.get('password')
+        }
+        user = authenticate(**credentials)
         
+        if user is None:
+            raise serializers.ValidationError('Invalid credentials', code='authentication')
+
+        # Generate token and add custom claims
+        refresh = self.get_token(user)
         return {
-            "id": str(self.user.id),
-            "username": self.user.username,
-            "usertype": self.user.user_type,
-            "token": {
-                "access": data["access"],
-                "refresh": data["refresh"],
+            'id': str(user.id),
+            'username': user.username,
+            'usertype': user.user_type,
+            'token': {
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
             },
         }
-    
+
     @classmethod
     def get_token(cls, user):
-        token = RefreshToken.for_user(user)
+        token = super().get_token(user)
+        token['email'] = user.email
+        token['user_type'] = user.user_type
         return token
 
 

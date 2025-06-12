@@ -16,10 +16,13 @@ from channels.layers import get_channel_layer
 class StoreSerializer(serializers.ModelSerializer):
     # cac = serializers.ImageField()
     nin = serializers.ImageField()
+    product_count = serializers.IntegerField(read_only=True)
+    order_count = serializers.IntegerField(read_only=True)
+    followers_count = serializers.IntegerField(read_only=True)
     
     class Meta:
         model = Store
-        fields =  ('name', 'category', 'description', 'address1', 'address2', 'cac', 'nin')
+        fields =  ('name', 'category', 'description','product_count', 'order_count','address1','followers_count', 'address2', 'cac', 'nin')
 
     def validate_cac(self, value):
         if value:

@@ -20,10 +20,12 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework import permissions
 from .models import UserProfile
-from .utils.redis_cli import redis_client
 from django.contrib.auth.hashers import check_password
 from rest_framework_simplejwt.tokens import RefreshToken
+import logging
 
+
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
@@ -31,65 +33,58 @@ class CustomAnonRateThrottle(AnonRateThrottle):
     rate = '5/minute'  # Limit to 5 requests per minute
 
     
-class UserTokenObtainPairView(TokenObtainPairView):
-    serializer_class = UserTokenObtainPairSerializer
-    throttle_classes = [CustomAnonRateThrottle]
 
-
-    def post(self, request, *args, **kwargs):
+class UserTokenView(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
-        ip_address = request.META.get('REMOTE_ADDR')
-
+        print(email)
+        # Add input validation
+        if not email or not password:
+            return Response(
+                {"error": "Email and password are required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         try:
-            # 1. Try to fetch user from Redis cache
-            user_data = redis_client.hgetall(f"user:{email}")
-            print(user_data)
-            if user_data:
-                # 2. Verify password hash from cache
-                if check_password(password, user_data['password']):
-                    user = User.objects.get(email=email)
-
-                    # 3. Generate token
-                    refresh = RefreshToken.for_user(user)
-                    return Response({
-                        "id": str(user.id),
-                        "username": user.username,
-                        "token": {
-                            "access": str(refresh.access_token),
-                            "refresh": str(refresh),
-                        },
-                    })
-
-            # 4. Fallback: fetch from DB
+            # Get user from database
             user = User.objects.get(email=email)
+            logger.info(f"User found: {user.email}")
+            
+            # Check password
+            if not user.check_password(password):
+                logger.warning(f"Invalid password for user: {email}")
+                raise Exception("Invalid credentials")
 
-            if user and user.check_password(password):
-                # 5. Cache user data for future (avoid sensitive info)
-                redis_client.hset(f"user:{email}", mapping={
-                    "password": user.password,  # hashed password
-                    "id": str(user.id),
-                    "email": user.email,
-                })
-                redis_client.expire(f"user:{email}", 3600)  # 1 hour
+            # Check if user is active
+            if not user.is_active:
+                logger.warning(f"Inactive user attempted login: {email}")
+                raise Exception("Account is inactive")
+            refresh = RefreshToken.for_user(user)
+            logger.info(f"Successful login for user: {email}")
+            
+            return Response({
+                "id": str(user.id),
+                "username": user.username,
+                "token": {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                },
+            })
 
-                # 6. Generate token
-                refresh = RefreshToken.for_user(user)
-                return Response({
-                        "id": str(user.id),
-                        "username": user.username,
-                        "token": {
-                            "access": str(refresh.access_token),
-                            "refresh": str(refresh),
-                        },
-                })
-
-            raise Exception("Invalid credentials")
-
+        except User.DoesNotExist:
+            logger.warning(f"Login attempt with non-existent email: {email}")
+            return Response(
+                {"error": "Invalid credentials"}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
         except Exception as e:
-            # Log failed attempt
-            LoginAttempt.objects.create(email=email, success=False, ip_address=ip_address)
-            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+            logger.error(f"Login error for {email}: {str(e)}")
+            return Response(
+                {"error": "Invalid credentials"}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
 
 class RegisterView(generics.ListCreateAPIView):
     throttle_classes = [CustomAnonRateThrottle]
@@ -137,7 +132,7 @@ class RegisterView(generics.ListCreateAPIView):
     
     
 class ActivateAccountView(generics.GenericAPIView):
-    throttle_classes = [CustomAnonRateThrottle]
+    # throttle_classes = [CustomAnonRateThrottle]
     permission_classes = [AllowAny]
     serializer_class = ActivateAccountSerializer
 

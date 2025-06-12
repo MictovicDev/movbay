@@ -203,7 +203,13 @@ CSRF_TRUSTED_ORIGINS = [
     # Add any other domains you want to trust
 ]
 
-
+# settings.py
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+]
 
 INTERNAL_IPS = ['127.0.0.1']
 
