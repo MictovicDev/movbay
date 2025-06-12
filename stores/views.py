@@ -24,7 +24,6 @@ class CustomAnonRateThrottle(AnonRateThrottle):
 
 
 class StoreListCreateView(generics.ListCreateAPIView):
-    throttle_classes = [CustomAnonRateThrottle]
     queryset = Store.objects.all()
     serializer_class = StoreSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -34,16 +33,16 @@ class StoreListCreateView(generics.ListCreateAPIView):
     
     
 class OrderListCreateView(generics.ListCreateAPIView):
-    throttle_classes = [CustomAnonRateThrottle]
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
     
     
+    
     def get_queryset(self):
         user = self.request.user
-        status = self.request.GET.get('status', 'new')
+        status = self.request.GET.get('status', 'New_Orders')
         return Order.objects.filter(user=user, status=status)
         
     

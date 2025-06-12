@@ -120,9 +120,10 @@ class DeliverySerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
+    status = serializers.CharField(read_only=True)
     class Meta:
         model = Order
-        fields = ['product', 'user', 'delivery']
+        fields = ['product', 'user', 'delivery', 'status']
         
 
     def create(self, validated_data):
