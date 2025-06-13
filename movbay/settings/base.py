@@ -45,7 +45,8 @@ INSTALLED_APPS = [
     'cloudinary_storage',
     'corsheaders',
     'debug_toolbar',
-    'channels'
+    'channels',
+    'drf_yasg'
    
 ]
 
