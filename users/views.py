@@ -66,6 +66,7 @@ class UserTokenView(APIView):
             return Response({
                 "id": str(user.id),
                 "username": user.username,
+                "user_type": user.user_type,
                 "token": {
                     "access": str(refresh.access_token),
                     "refresh": str(refresh),

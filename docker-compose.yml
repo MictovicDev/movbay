@@ -61,7 +61,7 @@ services:
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - static_volume:/var/www/html/static
+      - static_volume:/app/movbay/staticfiles
       - media_volume:/var/www/html/media
     depends_on:
       - web

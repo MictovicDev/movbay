@@ -3,7 +3,6 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 import debug_toolbar
-
 from django.contrib import admin
 from django.urls import path, re_path
 from rest_framework import permissions
@@ -12,12 +11,11 @@ from drf_yasg import openapi
 
 schema_view = get_schema_view(
    openapi.Info(
-      title="Your API Title",
+      title="MOVBAY API",
       default_version='v1',
-      description="Your API description here",
-      terms_of_service="https://www.google.com/policies/terms/",
-      contact=openapi.Contact(email="your@email.com"),
-      license=openapi.License(name="BSD License"),
+      description="MOVBAY API",
+      contact=openapi.Contact(email="movbay.services@gmail.com"),
+      license=openapi.License(name="Movbay"),
    ),
    public=True,
    permission_classes=[permissions.AllowAny],
