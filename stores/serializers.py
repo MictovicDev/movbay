@@ -6,10 +6,11 @@ from .models import (Store,
                      Status,
                      ProductImage)
 
-from .tasks import upload_single_image
+from .tasks import upload_single_image, create_cart
 from base64 import b64encode
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+
 
 
 
@@ -19,10 +20,11 @@ class StoreSerializer(serializers.ModelSerializer):
     product_count = serializers.IntegerField(read_only=True)
     order_count = serializers.IntegerField(read_only=True)
     followers_count = serializers.IntegerField(read_only=True)
+    store_image = serializers.ImageField()
     
     class Meta:
         model = Store
-        fields =  ('name', 'category', 'description','product_count', 'order_count','address1','followers_count', 'address2', 'cac', 'nin')
+        fields =  ('name', 'category', 'description','product_count', 'order_count','address1','followers_count','store_image', 'address2', 'cac', 'nin')
 
     def validate_cac(self, value):
         if value:
@@ -112,10 +114,10 @@ class ProductSerializer(serializers.ModelSerializer):
  
 
 class DeliverySerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
     class Meta:
         model = Delivery
-        fields = '__all__'
-        
+        fields = ['delivery_method','fullname', 'phone_number', 'email', 'user', 'delivery_address', 'alternative_address', 'landmark', 'city', 'state', 'postal_code']
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -128,7 +130,9 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         delivery_data = validated_data.pop('delivery')
+        cart = validated_data.pop('cart')
+        user = self.request.user
+        create_cart.delay(cart, user)
         delivery = Delivery.objects.create(**delivery_data)
         order = Order.objects.create(delivery=delivery, **validated_data)
         return order
-

@@ -5,8 +5,8 @@ from django.shortcuts import render
 from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Store, Order, Product
-from .serializers import StoreSerializer, OrderSerializer, ProductSerializer
+from .models import Store, Order, Product, Delivery
+from .serializers import StoreSerializer, OrderSerializer, ProductSerializer, DeliverySerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.throttling import AnonRateThrottle
@@ -31,6 +31,42 @@ class StoreListCreateView(generics.ListCreateAPIView):
     
     
     
+class StoreDetailView(APIView):
+    """
+    View to list all users in the system.
+
+    * Requires token authentication.
+    * Only admin users are able to access this view.
+    """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsProductOwner, permissions.IsAuthenticated]
+    
+    def get(self, request, format=None):
+        pass
+        # try:
+        #     if request.user.store:
+        #         Store.objects.get(owner=request.user)
+        #         s
+        # return Response(usernames)
+    
+    
+class DeliveryDetailsCreateView(generics.CreateAPIView):
+    serializer_class = DeliverySerializer
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+
+    def get_queryset(self):
+        return Delivery.objects.all()
+
+    def get(self, request):
+        try:
+            delivery = Delivery.objects.get(user=request.user)
+            serializer = self.get_serializer(delivery)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({"Message": {str(e)}})
+    
     
 class OrderListCreateView(generics.ListCreateAPIView):
     queryset = Order.objects.all()
@@ -47,16 +83,13 @@ class OrderListCreateView(generics.ListCreateAPIView):
         
     
     
-    
 class OrderDetailView(generics.RetrieveDestroyAPIView):
     throttle_classes = [CustomAnonRateThrottle]
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     
     
-        
-    
-        
+              
 class ProductListCreateView(generics.ListCreateAPIView):
     throttle_classes = [CustomAnonRateThrottle]
     serializer_class = ProductSerializer
@@ -88,7 +121,7 @@ class UserProductListView(generics.ListAPIView):
     
 class DashBoardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
     def get(self, request):
         user = request.user
         store = Store.objects.select_related('owner').prefetch_related(
@@ -105,8 +138,5 @@ class DashBoardView(APIView):
     
     
     
-# class DeleteProductView(generics.DestroyAPIView):
-#     queryset = Product.objects.all()
-#     serializer_class = ProductSerializer
-    
+#
     

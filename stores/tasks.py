@@ -1,6 +1,7 @@
 from celery import shared_task
 import base64
 from io import BytesIO
+from .models import Cart, CartItem
 from cloudinary.uploader import upload
 
 @shared_task
@@ -24,3 +25,12 @@ def upload_single_image(image_data):
     except Exception as e:
         print(f"Upload failed: {e}")
         return None
+
+
+
+@shared_task
+def create_cart(cart, user):
+    for item in cart:
+        Cart.objects.create(user=user)
+        CartItem.objects.create()
+       

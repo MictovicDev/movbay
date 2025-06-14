@@ -23,7 +23,7 @@ class Store(models.Model):
     category = models.CharField(max_length=250, blank=True, null=True, db_index=True)
     store_image = models.ImageField(upload_to='Store/PP', blank=True, null=True)
     description = models.TextField()
-    owner = models.OneToOneField(User, on_delete=models.CASCADE, blank=True, null=True, db_index=True)
+    owner = models.OneToOneField(User, on_delete=models.CASCADE, blank=True, null=True, db_index=True, related_name='store')
     address1 = models.TextField()
     address2 = models.TextField()
     store_image = CloudinaryField('store/pp', blank=True, null=True)
@@ -89,8 +89,6 @@ class Product(models.Model):
 
 
 
-
-
 class ProductImage(models.Model):
     
     product = models.ForeignKey(Product, related_name='product_images', on_delete=models.CASCADE)
@@ -103,31 +101,32 @@ class ProductImage(models.Model):
                 
 
 
-# class Cart(models.Model):
-#     #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-#     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='carts')
-#     created_at = models.DateTimeField(auto_now_add=True)
+class Cart(models.Model):
+    #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='carts')
+    created_at = models.DateTimeField(auto_now_add=True)
 
-#     def __str__(self):
-#         return f"{self.user.username}'s Cart"
+    def __str__(self):
+        return f"{self.user.username}'s Cart"
 
-#     def total_items(self):
-#         return sum(item.quantity for item in self.items.all())
+    def total_items(self):
+        return sum(item.quantity for item in self.items.all())
 
-#     def total_price(self):
-#         return sum(item.total_price() for item in self.items.all())
+    def total_price(self):
+        return sum(item.total_price() for item in self.items.all())
 
 
-# class CartItem(models.Model):
-#     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
-#     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-#     quantity = models.PositiveIntegerField(default=1)
 
-#     def total_price(self):
-#         return self.product.discounted_price * self.quantity
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
 
-#     def __str__(self):
-#         return f"{self.product.name} x {self.quantity}"
+    def total_price(self):
+        return self.product.discounted_price * self.quantity
+
+    def __str__(self):
+        return f"{self.product.name} x {self.quantity}"
     
     
 class StoreFollower(models.Model):
@@ -191,16 +190,17 @@ class Delivery(models.Model):
     
     #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     delivery_method = models.CharField(max_length=250, choices=DELIVERY_CHOICES)
-    recipient_name = models.CharField(max_length=250)
+    fullname = models.CharField(max_length=250, blank=True, null=True)
     phone_number = PhoneNumberField(blank=True, null=True)
     email = models.EmailField(
         validators=[EmailValidator(message="Enter a valid email address")]
     )
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
     delivery_address = models.TextField()
     landmark = models.CharField(max_length=250, blank=True, null=True)
     city = models.CharField(max_length=250, blank=True, null=True)
     state = models.CharField(max_length=250, blank=True, null=True)
+    alternative_address = models.CharField(max_length=250, blank=True, null=True)
     postal_code = models.PositiveBigIntegerField()
     
     
@@ -208,18 +208,19 @@ class Delivery(models.Model):
 class Order(models.Model):
     
     STATUS_CHOICES = [
-        ('New_Orders', 'New_Orders'),
-        ('Processing', 'Processing'),
-        ('Out_for_delivery', 'Out_for_delivery'),
-        ('Completed', 'Completed'),
-        ('Cancelled', 'Cancelled')
+        ('new', 'New_Orders'),
+        ('processing', 'Processing'),
+        ('out_for_delivery', 'Out_for_delivery'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled')
        
     ]
     store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='orders')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, blank=True, null=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
     confirmed = models.BooleanField(default=False)
-    delivery = models.ForeignKey(Delivery, verbose_name=("delivery_details"), on_delete=models.CASCADE)
+    status = models.CharField(max_length=250, choices=STATUS_CHOICES, default='new', blank=True, null=True)
+    delivery = models.ForeignKey(Delivery, verbose_name=("delivery_details"), on_delete=models.CASCADE, blank=True, null=True)
     
     def save(self, *args, **kwargs):
         if not self.order_id:
