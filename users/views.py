@@ -186,7 +186,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
             print(profile)
             serializer = self.get_serializer(profile)
             print(serializer)
-            redis_client.set(cache_key, json.dumps(serializer.data), ex=3600)
+            # redis_client.set(cache_key, json.dumps(serializer.data), ex=3600)
             return Response(serializer.data)
         except Exception as e:
             return Response(str(e))
