@@ -21,8 +21,9 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework import permissions
 from .models import UserProfile
 from django.contrib.auth.hashers import check_password
-from rest_framework_simplejwt.tokens import RefreshToken
 import logging
+from .utils.redis_cli import redis_client
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 
 logger = logging.getLogger(__name__)
@@ -36,54 +37,48 @@ class CustomAnonRateThrottle(AnonRateThrottle):
 
 class UserTokenView(APIView):
     permission_classes = [AllowAny]
+
     def post(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
-        print(email)
-        # Add input validation
+
         if not email or not password:
             return Response(
-                {"error": "Email and password are required"}, 
+                {"error": "Email and password are required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
         try:
-            # Get user from database
             user = User.objects.get(email=email)
             logger.info(f"User found: {user.email}")
-            
-            # Check password
-            if not user.check_password(password):
-                logger.warning(f"Invalid password for user: {email}")
-                raise Exception("Invalid credentials")
 
-            # Check if user is active
-            if not user.is_active:
-                logger.warning(f"Inactive user attempted login: {email}")
-                raise Exception("Account is inactive")
-            refresh = RefreshToken.for_user(user)
-            logger.info(f"Successful login for user: {email}")
-            
-            return Response({
-                "id": str(user.id),
-                "username": user.username,
-                "user_type": user.user_type,
-                "token": {
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh),
-                },
+            # Authenticate manually using the serializer
+            serializer = TokenObtainPairSerializer(data={
+                "email": user.email,  # use "username" unless you've overridden USERNAME_FIELD
+                "password": password
             })
+
+            if serializer.is_valid():
+                return Response({
+                    "id": str(user.id),
+                    "email": user.email,
+                    "user_type": getattr(user, 'user_type', None),
+                    "token": serializer.validated_data
+                })
+            else:
+                return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
 
         except User.DoesNotExist:
             logger.warning(f"Login attempt with non-existent email: {email}")
             return Response(
-                {"error": "Invalid credentials"}, 
+                {"error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
         except Exception as e:
             logger.error(f"Login error for {email}: {str(e)}")
             return Response(
-                {"error": "Invalid credentials"}, 
-                status=status.HTTP_401_UNAUTHORIZED
+                {"error": "Login failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
@@ -180,19 +175,21 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     def retrieve(self, request, *args, **kwargs):
         import json
         try:
-            cache_key = f"user_profile:{request.user.id}"
-            cached_profile = redis_client.get(cache_key)
+            # cache_key = f"user_profile:{request.user.id}"
+            # cached_profile = redis_client.get(cache_key)
             # redis_client.delete(cache_key)
-            if cached_profile:
-                return Response(json.loads(cached_profile))
+            # if cached_profile:
+            #     return Response(json.loads(cached_profile))
             
             ## if not in cache
             profile = self.get_object()
+            print(profile)
             serializer = self.get_serializer(profile)
+            print(serializer)
             redis_client.set(cache_key, json.dumps(serializer.data), ex=3600)
             return Response(serializer.data)
         except Exception as e:
-            print(e)
+            return Response(str(e))
             
         
         

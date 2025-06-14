@@ -8,7 +8,8 @@ from phonenumber_field.serializerfields import PhoneNumberField
 from django.contrib.auth import get_user_model
 from .models import LoginAttempt, UserProfile
 from django.contrib.auth import authenticate
-
+from .tasks import save_profile_picture
+from rest_framework.response import Response
 
 User = get_user_model()
 
@@ -108,17 +109,36 @@ class UserProfileSerializer(serializers.ModelSerializer):
         
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', None)
-
-        # Update user profile fields
         instance.address = validated_data.get('address', instance.address)
-        instance.profile_picture = validated_data.get('profile_picture', instance.profile_picture)
+        profile_picture = validated_data.pop('profile_picture', None)
         instance.save()
+        
+        try:
+            from .utils.redis_cli import redis_client
+            cache_key = f"user_profile:{instance.user.id}"
+            print(cache_key)
+            redis_client.delete(cache_key)
+        except Exception as e:
+            # Optionally log this error
+            print(f"Failed to invalidate Redis cache: {str(e)}")
 
-        # Update nested user fields
+        
         if user_data:
-            user = instance.user  # assuming UserProfile has OneToOneField to User
+            print(True)
+            user = instance.user
+            model_fields = {f.name for f in user._meta.get_fields()}
             for attr, value in user_data.items():
-                setattr(user, attr, value)
+                if attr in model_fields:
+                    print(attr, value)
+                    setattr(user, attr, value)
             user.save()
-
+            
+        if profile_picture:
+            # Get raw file bytes and name
+            file_data = profile_picture.read()
+            file_name = profile_picture.name
+            save_profile_picture.delay(instance.id, file_data, file_name),
+            
+        instance.refresh_from_db()
+        instance.user.refresh_from_db()
         return instance
