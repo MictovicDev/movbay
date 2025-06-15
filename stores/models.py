@@ -9,7 +9,6 @@ import random
 from django.db import models
 import cloudinary
 from users.models import UserProfile
-import uuid
 from cloudinary.models import CloudinaryField
 
 
@@ -201,6 +200,12 @@ class Delivery(models.Model):
     city = models.CharField(max_length=250, blank=True, null=True)
     state = models.CharField(max_length=250, blank=True, null=True)
     alternative_address = models.CharField(max_length=250, blank=True, null=True)
+    alternative_name = models.CharField(max_length=250, blank=True, null=True)
+    alternative_number = PhoneNumberField(region='NG', blank=True, null=True)
+    alternative_email = models.EmailField(
+        db_index=True,
+        validators=[EmailValidator(message="Enter a valid email address")], blank=True, null=True
+    )
     postal_code = models.PositiveBigIntegerField()
     
     

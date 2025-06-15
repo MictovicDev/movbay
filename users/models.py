@@ -26,7 +26,7 @@ class User(AbstractBaseUser):
     )
     is_active = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
-    phone_number = PhoneNumberField(region='NG', blank=True, null=True)
+    phone_number = PhoneNumberField(blank=True, null=True)
     user_type = models.CharField(choices=roles, max_length=5, blank=True, null=True)
     secret = models.CharField(max_length=500, blank=True, null=True)
     
