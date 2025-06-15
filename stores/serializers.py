@@ -6,17 +6,19 @@ from .models import (Store,
                      Status,
                      ProductImage)
 
-from .tasks import upload_single_image, create_cart
+from .tasks import upload_single_image, create_cart, upload_store_files
 from base64 import b64encode
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from rest_framework.response import Response
+from rest_framework import status
 
 
 
 
 class StoreSerializer(serializers.ModelSerializer):
-    # cac = serializers.ImageField()
-    nin = serializers.ImageField()
+    cac = serializers.FileField()
+    nin = serializers.FileField()
     product_count = serializers.IntegerField(read_only=True)
     order_count = serializers.IntegerField(read_only=True)
     followers_count = serializers.IntegerField(read_only=True)
@@ -46,23 +48,41 @@ class StoreSerializer(serializers.ModelSerializer):
             
     def validate_nin(self, value):
         if value: 
-            if not value.content_type.startswith('image/'):
-                raise serializers.ValidationError("This field only accepts image files (jpg, png, gif, etc).")
-        
-            valid_extensions = ['.jpg', '.jpeg', '.png', '.gif']
+            valid_extensions = ['.jpg', '.jpeg', '.png', '.gif', 'pdf']
             if not any(value.name.lower().endswith(ext) for ext in valid_extensions):
                 raise serializers.ValidationError("File extension not supported. Allowed: jpg, jpeg, png, gif.")
             return value
         else:
             return value
-        
-
+    
     def create(self, validated_data):
         request = self.context.get('request')
-        user = request.user if request and request.user.is_authenticated else None
-
-        validated_data['owner'] = user
-        return Store.objects.create(**validated_data)
+        try:
+            if request.user.is_authenticated:
+                user = request.user
+                cac = validated_data.pop('cac')
+                nin = validated_data.pop('nin')
+                store_image = validated_data.pop('store_image')
+                files = {
+                    "cac": cac.read(),
+                    "nin": nin.read(),
+                    "store_image": store_image.read()
+                }
+                validated_data['owner'] = user
+                try:
+                    store = Store.objects.create(**validated_data)
+                except Exception as e:
+                    raise e
+                upload_store_files.delay(store.id, files)
+                return store
+            else:
+                return Response({"Message": "User is not Authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+        except Exception as e:
+            raise e
+            
+        
+        
+       
        
 
 
@@ -77,6 +97,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     verified = serializers.BooleanField(read_only=True)
+    store = StoreSerializer(read_only=True)
     created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
     updated_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
     images = serializers.ListField(required=True, write_only=True)
@@ -84,7 +105,7 @@ class ProductSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Product
-        exclude = ['store']
+        fields = '__all__'
         
     def upload_images(images, product_id):
         pass

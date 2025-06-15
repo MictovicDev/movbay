@@ -31,6 +31,8 @@ class StoreListCreateView(generics.ListCreateAPIView):
     
     
     
+    
+    
 class StoreDetailView(APIView):
     """
     View to list all users in the system.
@@ -134,7 +136,7 @@ class DashBoardView(APIView):
             ).get(owner=user)
             serializer = StoreSerializer(store)
         except Exception as e:
-            return Response({"message": {"User has no store"}}, status=status.HTTP_404_NOT_FOUND)
+            return Response([], status=status.HTTP_404_NOT_FOUND)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     

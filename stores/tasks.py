@@ -3,6 +3,9 @@ import base64
 from io import BytesIO
 from .models import Cart, CartItem
 from cloudinary.uploader import upload
+import os
+import cloudinary
+from .models import Store
 
 @shared_task
 def upload_single_image(image_data):
@@ -27,6 +30,35 @@ def upload_single_image(image_data):
         return None
 
 
+
+@shared_task
+def upload_store_files( store_id, file_data):
+    try:
+        try:
+            store = Store.objects.get(id=store_id)
+        except Store.DoesNotExist:
+            print('Store Does not exist')
+        if file_data:
+            for file in file_data:
+                public_id = f"store_details/{store_id}"
+                upload_result = cloudinary.uploader.upload(
+                file_data[file],
+                public_id=public_id,             
+                overwrite=True              
+            )
+                image_url = upload_result.get("secure_url")
+                if file == 'cac':
+                    store.cac = image_url
+                    store.save()
+                elif file == 'nin':
+                    store.nin = image_url
+                    store.save()
+                else:
+                    store.store_image = image_url
+                    store.save()    
+    except Exception as e:
+        print(f"Error saving profile picture: {str(e)}")
+    
 
 @shared_task
 def create_cart(cart, user):

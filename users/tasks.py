@@ -31,5 +31,7 @@ def save_profile_picture(profile_id, file_data, file_name):
             profile.save()
     except Exception as e:
         print(f"Error saving profile picture: {str(e)}")
+        
+
 
     
