@@ -139,7 +139,14 @@ class DeliverySerializer(serializers.ModelSerializer):
     class Meta:
         model = Delivery
         fields = ['delivery_method','fullname', 'phone_number', 'email', 'user', 'delivery_address', 'alternative_address', 'landmark', 'city', 'state', 'postal_code']
-
+        
+    def create(self, validated_data):
+        user = self.context['request'].user 
+        validated_data['user'] = user
+        delivery = Delivery.objects.create(**validated_data)
+        return delivery
+           
+            
 
 class OrderSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
@@ -151,9 +158,6 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         delivery_data = validated_data.pop('delivery')
-        cart = validated_data.pop('cart')
-        user = self.request.user
-        create_cart.delay(cart, user)
-        delivery = Delivery.objects.create(**delivery_data)
-        order = Order.objects.create(delivery=delivery, **validated_data)
-        return order
+        pass
+    
+    

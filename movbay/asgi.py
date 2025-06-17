@@ -15,6 +15,8 @@ import os
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 import stores.routing
+import chat.routing
+from chat.middleware import JWTAuthMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -27,9 +29,9 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', f"movbay.settings.{django_env}")
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),  # Handles standard HTTP requests
-    "websocket": AuthMiddlewareStack(
+    "websocket": JWTAuthMiddleware(
         URLRouter(
-            stores.routing.websocket_urlpatterns  # Adjust to your app's WebSocket routes
+            stores.routing.websocket_urlpatterns + chat.routing.websocket_urlpatterns
         )
     ),
 })
