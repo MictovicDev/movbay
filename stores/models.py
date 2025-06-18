@@ -63,6 +63,7 @@ class Product(models.Model):
     brand = models.CharField(max_length=250, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     product_video = models.FileField('videos', blank=True, null=True)
+    video_url = models.URLField(blank=True, null=True)
     original_price = models.PositiveBigIntegerField(default=0)
     discounted_price = models.PositiveBigIntegerField(default=0)
     condition =  models.CharField(choices=PRODUCT_CONDITION, max_length=300, blank=True, null=True)

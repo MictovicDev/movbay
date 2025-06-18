@@ -8,7 +8,7 @@ from .models import (Store,
                      StoreFollow
                      )
 
-from .tasks import upload_single_image, create_cart, upload_store_files
+from .tasks import upload_single_image,upload_store_files, upload_video
 from base64 import b64encode
 from rest_framework.response import Response
 from rest_framework import status
@@ -25,9 +25,7 @@ class StoreFollowSerializer(serializers.ModelSerializer):
     
 
 
-class StoreSerializer(serializers.ModelSerializer):
-    cac = serializers.FileField()
-    nin = serializers.FileField()
+class DashboardSerializer(serializers.ModelSerializer):
     product_count = serializers.IntegerField(read_only=True)
     order_count = serializers.IntegerField(read_only=True)
     followers_count = serializers.IntegerField(read_only=True)
@@ -36,7 +34,17 @@ class StoreSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Store
-        fields =  ('name', 'category', 'description','product_count', 'order_count','address1','followers_count','following_count','store_image', 'address2', 'cac', 'nin')
+        fields = ['product_count', 'order_count','description', 'followers_count', 'following_count', 'store_image']
+    
+
+class StoreSerializer(serializers.ModelSerializer):
+    cac = serializers.FileField()
+    nin = serializers.FileField()
+    store_image = serializers.ImageField()
+    
+    class Meta:
+        model = Store
+        fields =  ('name', 'category', 'description','address1','store_image', 'address2', 'cac', 'nin')
 
     def validate_cac(self, value):
         if value:
@@ -111,17 +119,30 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = '__all__'
         
+    def validate_product_video(self, value):
+        if value:
+            print(value.content_type)
+            if value.content_type != 'video/mp4':
+                raise serializers.ValidationError("Upload a Video file.")
+        
+            max_size = 200 * 1024 * 1024  # 50 MB
+            if value.size > max_size:
+                raise serializers.ValidationError("Video file too large. Max size is 20MB.")
+            return value
+        else:
+            raise serializers.ValidationError("No Video File")
+        
     def upload_images(images, product_id):
         pass
         
           
     def create(self, validated_data):
         user = self.context['request'].user 
-        
         images = validated_data.pop('images', [])
         post_to_story = validated_data.pop('auto_post_to_story', False)
-        video = validated_data.pop('video', None)
+        product_video = validated_data.pop('product_video', None)
         store = user.store
+        print(store, validated_data)
         product = Product.objects.create(store=store, **validated_data)
         
         for image in images:
@@ -130,10 +151,9 @@ class ProductSerializer(serializers.ModelSerializer):
                 "filename": image.name,
                 "product_id": product.id
             }
-            print(image.name)
             res = upload_single_image.delay(image_data)
-        res = upload_video.delay(video, product.id)
-        print("TASK DISPATCHED:", res.id)
+        video = b64encode(product_video.read()).decode('utf-8')
+        upload_video.delay(video, product.id)
         if post_to_story:
            Status.objects.create(store=store, image=images[0])
         return product

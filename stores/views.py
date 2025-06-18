@@ -13,7 +13,7 @@ from django.db.models import Count
 from .permissions import IsProductOwner
 from .models import StoreFollow
 from django.contrib.auth import get_user_model
-from .serializers import StoreFollowSerializer, UserSerializer
+from .serializers import StoreFollowSerializer, UserSerializer, DashboardSerializer
 
 User = get_user_model()
 
@@ -30,26 +30,6 @@ class StoreListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     
-    
-    
-    
-# class StoreDetailView(APIView):
-#     """
-#     View to list all users in the system.
-
-#     * Requires token authentication.
-#     * Only admin users are able to access this view.
-#     """
-#     authentication_classes = [JWTAuthentication, SessionAuthentication]
-#     permission_classes = [IsProductOwner, permissions.IsAuthenticated]
-    
-#     def get(self, request, format=None):
-#         pass
-#         # try:
-#         #     if request.user.store:
-#         #         Store.objects.get(owner=request.user)
-#         #         s
-#         # return Response(usernames)
     
     
 class DeliveryDetailsCreateView(generics.CreateAPIView):
@@ -175,8 +155,9 @@ class DashBoardView(APIView):
                 product_count=Count('products'),
                 order_count=Count('orders'),
                 following_count=Count('following_set'),
-                followers_count=Count('following_set'))
-            serializer = StoreSerializer(store, many=True)
+                followers_count=Count('following_set')).get(owner=user)
+            print(store)
+            serializer = DashboardSerializer(store)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(str(e), status=status.HTTP_404_NOT_FOUND)

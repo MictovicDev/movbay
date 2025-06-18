@@ -6,6 +6,10 @@ from cloudinary.uploader import upload
 import os
 import cloudinary
 from .models import Store
+import logging
+import requests
+
+logger = logging.getLogger(__name__)
 
 @shared_task
 def upload_single_image(image_data):
@@ -30,27 +34,53 @@ def upload_single_image(image_data):
         return None
     
     
-@shared_task
-def upload_video(video_data, product_id):
+# @shared_task
+# def upload_video(video_data, product_id):
+#     try:
+#         video_bytes = base64.b64decode(video_data["file_content"])
+#         logger.info(video_bytes)
+#         video_file = BytesIO(video_bytes)
+#         logger.info(video_file)
+#         video_file.name = video_data["filename"]
+#         product = Product.objects.get(id=product_id)
+#         upload_result = upload(
+#             video_file,
+#             folder=f'products/{video_data["product_id"]}',
+#         )
+#         product.video_url =  upload_result[['secure_url']]
+#         product.save()
+#         return product.id
+#     except Exception as e:
+#         print(f"Upload failed: {e}")
+#         return None
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=10)  # Retry 3 times, 10 seconds apart
+def upload_video(self, video_data, product_id):
     try:
-        from stores.models import ProductImage
-        # Decode the base64 string back to bytes
         video_bytes = base64.b64decode(video_data["file_content"])
-        image_file = BytesIO(video_bytes)
-        image_file.name = video_data["filename"]
-        product = Product.objects.get(id=product_id)
+        video_file = BytesIO(video_bytes)
+        video_file.name = video_data["filename"]
+
+        # Simulated upload function that might fail
         upload_result = upload(
-            image_file,
+            video_file,
             folder=f'products/{video_data["product_id"]}',
         )
-        product.product_video =  'hello'
-        product_image = ProductImage.objects.create(
-            product_id=video_data['product_id'],
-            image_url=upload_result['secure_url'],
-        )
-        return product_image.id
+        logger.info(f"upload_result: {upload_result} ({type(upload_result)})")
+        # Update the model
+        product = Product.objects.get(id=product_id)
+        product.video_url = upload_result["secure_url"]
+        product.save()
+
+        return product.id
+
+    except (requests.exceptions.RequestException, ConnectionError) as e:
+        logger.warning(f"Temporary network error: {e}, retrying...")
+        raise self.retry(exc=e)
+
     except Exception as e:
-        print(f"Upload failed: {e}")
+        logger.error(f"Upload failed permanently: {e}")
         return None
 
 
