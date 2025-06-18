@@ -9,6 +9,13 @@ from .models import Store
 import logging
 import requests
 
+import logging
+
+# Configure logger if not already done
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 @shared_task
@@ -34,45 +41,33 @@ def upload_single_image(image_data):
         return None
     
     
-# @shared_task
-# def upload_video(video_data, product_id):
-#     try:
-#         video_bytes = base64.b64decode(video_data["file_content"])
-#         logger.info(video_bytes)
-#         video_file = BytesIO(video_bytes)
-#         logger.info(video_file)
-#         video_file.name = video_data["filename"]
-#         product = Product.objects.get(id=product_id)
-#         upload_result = upload(
-#             video_file,
-#             folder=f'products/{video_data["product_id"]}',
-#         )
-#         product.video_url =  upload_result[['secure_url']]
-#         product.save()
-#         return product.id
-#     except Exception as e:
-#         print(f"Upload failed: {e}")
-#         return None
 
-
-@shared_task(bind=True, max_retries=3, default_retry_delay=10)  # Retry 3 times, 10 seconds apart
+@shared_task(bind=True, max_retries=3, default_retry_delay=10)
 def upload_video(self, video_data, product_id):
+    logger.info(f"Starting video upload for product_id: {product_id}")
+    
     try:
-        video_bytes = base64.b64decode(video_data["file_content"])
+        product = Product.objects.get(id=product_id)
+        logger.debug("Decoding base64 video data")
+        video_bytes = base64.b64decode(video_data)
         video_file = BytesIO(video_bytes)
-        video_file.name = video_data["filename"]
-
-        # Simulated upload function that might fail
+        video_file.name =  product.title
+        
+        
+        logger.info("Uploading to cloud storage")
         upload_result = upload(
             video_file,
-            folder=f'products/{video_data["product_id"]}',
+            folder=f'products/video/{product_id}',
+            resource_type="video"
         )
         logger.info(f"upload_result: {upload_result} ({type(upload_result)})")
-        # Update the model
-        product = Product.objects.get(id=product_id)
+        
+        logger.debug("Updating product model")
+        
         product.video_url = upload_result["secure_url"]
         product.save()
-
+        
+        logger.info(f"Successfully uploaded video for product {product.id}")
         return product.id
 
     except (requests.exceptions.RequestException, ConnectionError) as e:
@@ -82,9 +77,8 @@ def upload_video(self, video_data, product_id):
     except Exception as e:
         logger.error(f"Upload failed permanently: {e}")
         return None
-
-
-
+    
+    
 @shared_task
 def upload_store_files( store_id, file_data):
     try:

@@ -34,7 +34,7 @@ class DashboardSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Store
-        fields = ['product_count', 'order_count','description', 'followers_count', 'following_count', 'store_image']
+        fields = '__all__'
     
 
 class StoreSerializer(serializers.ModelSerializer):
