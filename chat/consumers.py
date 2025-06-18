@@ -10,7 +10,7 @@ from django.utils import timezone
 class ChatConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.redis_client = redis.Redis.from_url(settings.REDIS_URL)
+        self.redis_client = redis.Redis.from_url("redis://localhost:6379/0")
         self.debounce_delay = 2
         self.user = None
         self.user_group_name = None
@@ -19,7 +19,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Handle WebSocket connection"""
         # Get user from URL or token
         self.user = self.scope["user"]
-        
+        print(self.user)
         if self.user.is_anonymous:
             # Reject anonymous users
             await self.close()
@@ -27,7 +27,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         
         # Create user-specific group name
         self.user_group_name = f"user_{self.user.id}"
-        
+        print(f"user_{self.user.id}")
         # Join user group for personal notifications
         await self.channel_layer.group_add(
             self.user_group_name,

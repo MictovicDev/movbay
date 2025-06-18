@@ -127,22 +127,40 @@ class CartItem(models.Model):
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"
     
+
+
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
     
-class StoreFollower(models.Model):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='store_followers', db_index=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='store_followings', db_index=True)
+    # Users this profile is following
+    following = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        related_name="followers",
+        blank=True
+    )
+
+    def __str__(self):
+        return f"{self.follower.username} follows {self.following.username}"
+    
+    
+ 
+class StoreFollow(models.Model):
+    follower = models.ForeignKey(User, related_name='following_set', on_delete=models.CASCADE, db_index=True)
+    following = models.ForeignKey(User, related_name='followers_set', on_delete=models.CASCADE, db_index=True)
     followed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('store', 'user')
+        unique_together = ('follower', 'following')
         indexes = [
-            models.Index(fields=['store']),
-            models.Index(fields=['user']),
+            models.Index(fields=['follower']),
+            models.Index(fields=['following']),
         ]
 
     def __str__(self):
-        return f"{self.user.username} follows {self.store.name}"
+        return f"{self.follower.username} follows {self.following}"
     
+
     
 
 class Status(models.Model):

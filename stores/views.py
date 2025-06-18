@@ -1,7 +1,4 @@
 from django.shortcuts import render
-
-# Create your views here.
-from django.shortcuts import render
 from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -14,8 +11,11 @@ from django.db.models import Prefetch
 from rest_framework import status
 from django.db.models import Count
 from .permissions import IsProductOwner
+from .models import StoreFollow
+from django.contrib.auth import get_user_model
+from .serializers import StoreFollowSerializer, UserSerializer
 
-
+User = get_user_model()
 
 class CustomAnonRateThrottle(AnonRateThrottle):
     rate = '5/minute'  # Limit to 5 requests per minute
@@ -33,23 +33,23 @@ class StoreListCreateView(generics.ListCreateAPIView):
     
     
     
-class StoreDetailView(APIView):
-    """
-    View to list all users in the system.
+# class StoreDetailView(APIView):
+#     """
+#     View to list all users in the system.
 
-    * Requires token authentication.
-    * Only admin users are able to access this view.
-    """
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
-    permission_classes = [IsProductOwner, permissions.IsAuthenticated]
+#     * Requires token authentication.
+#     * Only admin users are able to access this view.
+#     """
+#     authentication_classes = [JWTAuthentication, SessionAuthentication]
+#     permission_classes = [IsProductOwner, permissions.IsAuthenticated]
     
-    def get(self, request, format=None):
-        pass
-        # try:
-        #     if request.user.store:
-        #         Store.objects.get(owner=request.user)
-        #         s
-        # return Response(usernames)
+#     def get(self, request, format=None):
+#         pass
+#         # try:
+#         #     if request.user.store:
+#         #         Store.objects.get(owner=request.user)
+#         #         s
+#         # return Response(usernames)
     
     
 class DeliveryDetailsCreateView(generics.CreateAPIView):
@@ -103,13 +103,53 @@ class ProductListCreateView(generics.ListCreateAPIView):
     
     
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
-    throttle_classes = [CustomAnonRateThrottle]
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [IsProductOwner, permissions.IsAuthenticated]
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    
+    
+class UserProductDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+    permission_classes = [IsProductOwner, permissions.IsAuthenticated]
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+
+ 
+class StoreFollowView(APIView):
+    permission_classes = [IsProductOwner, permissions.IsAuthenticated]
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    
+    
+    def post(self, request, pk):
+        try:
+            user = User.objects.get(id=pk)
+        except User.DoesNotExist:
+            return Response({"Message": "User Does not Exit"}, status=status.HTTP_404_NOT_FOUND)
+        store_follow, created = StoreFollow.objects.get_or_create(
+            follower=user,  # the person being followed
+            following=request.user  # the person following
+        )
+        serializer = StoreFollowSerializer(store_follow)
+        return Response({
+            "message": "Follow Successful",
+            "data": serializer.data
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        
+        
+        
+        
+class StoreFollowers(APIView):
+    def get(self, request):
+        user = request.user
+        followers = user.followers_set.select_related('follower')
+        users = [follow.follower for follow in followers]
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data)
     
     
     
+
 class UserProductListView(generics.ListAPIView):
     throttle_classes = [CustomAnonRateThrottle]
     serializer_class = ProductSerializer

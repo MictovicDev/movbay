@@ -3,5 +3,5 @@ from . import views
 
 
 urlpatterns = [
-     path('', views.ChatBoxView.as_view(), name='chats')
+     path('', views.ChatBoxAsyncView.as_view(), name='chats')
 ]

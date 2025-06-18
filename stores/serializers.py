@@ -4,16 +4,25 @@ from .models import (Store,
                      Delivery,
                      Product,
                      Status,
-                     ProductImage)
+                     ProductImage,
+                     StoreFollow
+                     )
 
 from .tasks import upload_single_image, create_cart, upload_store_files
 from base64 import b64encode
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
 from rest_framework.response import Response
 from rest_framework import status
+from users.serializers import UserSerializer
 
 
+
+
+class StoreFollowSerializer(serializers.ModelSerializer):
+     follower = UserSerializer()
+     class Meta:
+        model = StoreFollow
+        fields =  ('id', 'following','follower')
+    
 
 
 class StoreSerializer(serializers.ModelSerializer):
@@ -82,12 +91,6 @@ class StoreSerializer(serializers.ModelSerializer):
             
         
         
-       
-       
-
-
-
-
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -115,7 +118,8 @@ class ProductSerializer(serializers.ModelSerializer):
         user = self.context['request'].user 
         
         images = validated_data.pop('images', [])
-        post_to_story = validated_data.pop('auto_post_to_story', False) 
+        post_to_story = validated_data.pop('auto_post_to_story', False)
+        video = validated_data.pop('video', None)
         store = user.store
         product = Product.objects.create(store=store, **validated_data)
         
@@ -127,6 +131,7 @@ class ProductSerializer(serializers.ModelSerializer):
             }
             print(image.name)
             res = upload_single_image.delay(image_data)
+            # res = upload_video.delay(video)
             print("TASK DISPATCHED:", res.id)
         if post_to_story:
            Status.objects.create(store=store, image=images[0])
