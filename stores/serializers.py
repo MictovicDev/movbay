@@ -31,11 +31,12 @@ class StoreSerializer(serializers.ModelSerializer):
     product_count = serializers.IntegerField(read_only=True)
     order_count = serializers.IntegerField(read_only=True)
     followers_count = serializers.IntegerField(read_only=True)
+    following_count = serializers.IntegerField(read_only=True)
     store_image = serializers.ImageField()
     
     class Meta:
         model = Store
-        fields =  ('name', 'category', 'description','product_count', 'order_count','address1','followers_count','store_image', 'address2', 'cac', 'nin')
+        fields =  ('name', 'category', 'description','product_count', 'order_count','address1','followers_count','following_count','store_image', 'address2', 'cac', 'nin')
 
     def validate_cac(self, value):
         if value:
@@ -131,8 +132,8 @@ class ProductSerializer(serializers.ModelSerializer):
             }
             print(image.name)
             res = upload_single_image.delay(image_data)
-            # res = upload_video.delay(video)
-            print("TASK DISPATCHED:", res.id)
+        res = upload_video.delay(video, product.id)
+        print("TASK DISPATCHED:", res.id)
         if post_to_story:
            Status.objects.create(store=store, image=images[0])
         return product

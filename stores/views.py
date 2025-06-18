@@ -164,19 +164,21 @@ class UserProductListView(generics.ListAPIView):
 class DashBoardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [JWTAuthentication, SessionAuthentication]
+    
     def get(self, request):
         try:
             user = request.user
+            print(user)
             store = Store.objects.select_related('owner').prefetch_related(
                 Prefetch('products')
             ).annotate(
                 product_count=Count('products'),
                 order_count=Count('orders'),
-                followers_count=Count('store_followers')
-            ).get(owner=user)
-            serializer = StoreSerializer(store)
+                following_count=Count('following_set'),
+                followers_count=Count('following_set'))
+            serializer = StoreSerializer(store, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response([], status=status.HTTP_404_NOT_FOUND)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(str(e), status=status.HTTP_404_NOT_FOUND)
     
     

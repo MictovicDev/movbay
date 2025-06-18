@@ -146,8 +146,8 @@ class Profile(models.Model):
     
  
 class StoreFollow(models.Model):
-    follower = models.ForeignKey(User, related_name='following_set', on_delete=models.CASCADE, db_index=True)
-    following = models.ForeignKey(User, related_name='followers_set', on_delete=models.CASCADE, db_index=True)
+    follower = models.ForeignKey(Store, related_name='following_set', on_delete=models.CASCADE, db_index=True, blank=True, null=True)
+    following = models.ForeignKey(Store, related_name='followers_set', on_delete=models.CASCADE, db_index=True, blank=True, null=True)
     followed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

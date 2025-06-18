@@ -1,7 +1,7 @@
 from celery import shared_task
 import base64
 from io import BytesIO
-from .models import Cart, CartItem
+from .models import Cart, CartItem, Product
 from cloudinary.uploader import upload
 import os
 import cloudinary
@@ -31,20 +31,21 @@ def upload_single_image(image_data):
     
     
 @shared_task
-def upload_video(video_data):
+def upload_video(video_data, product_id):
     try:
         from stores.models import ProductImage
         # Decode the base64 string back to bytes
-        image_bytes = base64.b64decode(image_data["file_content"])
-        image_file = BytesIO(image_bytes)
-        image_file.name = image_data["filename"]
-
+        video_bytes = base64.b64decode(video_data["file_content"])
+        image_file = BytesIO(video_bytes)
+        image_file.name = video_data["filename"]
+        product = Product.objects.get(id=product_id)
         upload_result = upload(
             image_file,
-            folder=f'products/{image_data["product_id"]}',
+            folder=f'products/{video_data["product_id"]}',
         )
+        product.product_video =  'hello'
         product_image = ProductImage.objects.create(
-            product_id=image_data['product_id'],
+            product_id=video_data['product_id'],
             image_url=upload_result['secure_url'],
         )
         return product_image.id
