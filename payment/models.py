@@ -1,6 +1,7 @@
 # models.py
 from django.db import models
 from django.contrib.auth import get_user_model
+import uuid
 
 User = get_user_model()
 
@@ -60,3 +61,5 @@ class Transactions(models.Model):
     
     def __str__(self):
         return f"{self.owner.username} Transactions"
+    
+  

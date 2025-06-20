@@ -48,9 +48,6 @@ class StoreSerializer(serializers.ModelSerializer):
 
     def validate_cac(self, value):
         if value:
-            if value.content_type != 'application/pdf':
-                raise serializers.ValidationError("The CAC document must be a PDF file.")
-        
         # Alternatively, check file extension if content_type is not reliable
             if not value.name.lower().endswith('.pdf'):
                 raise serializers.ValidationError("The CAC document must have a .pdf extension.")

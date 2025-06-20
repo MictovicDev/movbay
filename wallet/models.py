@@ -11,6 +11,6 @@ class Wallet(models.Model):
     total_withdrawal = models.PositiveBigIntegerField(default=0)
     
     
-class WalletHistory(models.Model):
+class WalletTransactions(models.Model):
     content = models.TextField()
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE)

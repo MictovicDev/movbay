@@ -16,9 +16,8 @@ logger = logging.getLogger(__name__)
 
 class PaystackProvider(PaymentProvider):
     def __init__(self):
-        from django.conf import settings
-        self.secret_key = settings.PAYSTACK_SECRET_KEY
-        self.public_key = settings.PAYSTACK_PUBLIC_KEY
+        self.secret_key = os.getenv('PAYSTACK_SECRET_KEY')
+        self.public_key = os.getenv('PAYSTACK_PUBLIC_KEY')
         self.base_url = "https://api.paystack.co"
     
     def _get_headers(self):
@@ -33,12 +32,12 @@ class PaystackProvider(PaymentProvider):
         
         payload = {
             'email': transaction_data['email'],
-            'amount': int(transaction_data['amount'] * 100),  # Convert to kobo
+            'amount': int(Decimal(transaction_data['amount'])  * 100), #in kobo
             'currency': transaction_data.get('currency', 'NGN'),
-            'reference': transaction_data['reference'],
-            'callback_url': transaction_data.get('callback_url'),
+            'reference': str(transaction_data['reference_id']),
             'metadata': transaction_data.get('metadata', {}),
         }
+        print(payload.get('amount'))
         
         if transaction_data.get('payment_method') == 'apple_pay':
             payload['channels'] = ['apple_pay']
@@ -50,8 +49,10 @@ class PaystackProvider(PaymentProvider):
             response.raise_for_status()
             return response.json()
         except requests.RequestException as e:
-            logger.error(f"Paystack initialization error: {e}")
-            return {'status': False, 'message': str(e)}
+            if e.response is not None:
+                logger.error(f"Paystack response: {e.response.text}")
+                logger.error(f"Paystack initialization error: {e}")
+                return {'status': False, 'message': str(e)}
     
     def verify_payment(self, reference: str) -> Dict[str, Any]:
         """Verify Paystack payment"""

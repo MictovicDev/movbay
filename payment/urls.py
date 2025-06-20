@@ -4,6 +4,5 @@ from . import views
 
 
 urlpatterns = [
-    path('payment', views.InitializePayment.as_view(), name='initialize_payment')
-    
+    path('fund-wallet/', views.FundWallet.as_view(), name='fund_wallet')
     ]
