@@ -1,12 +1,14 @@
-from .base import PaymentMethod
+from . import PaymentMethod
+from typing import Dict, Any
 
 class CardPayment(PaymentMethod):
-    def validate(self):
-        return 'wallet_type' in self.data  # 'google_pay' or 'apple_pay'
+    def prepare_payment_data(self, transaction_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare card payment data"""
+        transaction_data['payment_type'] = 'card'
+        transaction_data['channels'] = ['card']
+        return transaction_data
     
-    def get_processor_data(self):
-        return {
-            'type': 'digital_wallet',
-            'wallet_type': self.data['wallet_type'],
-            'token': self.data.get('token'),
-        }
+    def validate_payment_data(self, transaction_data: Dict[str, Any]) -> bool:
+        """Validate card payment data"""
+        required_fields = ['email', 'amount', 'reference']
+        return all(field in transaction_data for field in required_fields)

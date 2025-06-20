@@ -1,6 +1,6 @@
 from celery import shared_task
 from users.utils.email import EmailManager
-from payment.factories import ProcessorFactory
+from payment.factories import PaymentProviderFactory
 from .models import UserProfile
 import cloudinary.uploader
 import os

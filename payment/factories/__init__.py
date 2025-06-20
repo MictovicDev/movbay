@@ -1,4 +1,4 @@
-from .method_factory import PaymentMethodFactory
-from .processor_factory import ProcessorFactory
+from .payment_factory import PaymentMethodFactory
+from .provider_factory import PaymentProviderFactory
 
-__all__ = ['PaymentMethodFactory', 'ProcessorFactory']
+__all__ = ['PaymentProviderFactory', 'PaymentMethodFactory']

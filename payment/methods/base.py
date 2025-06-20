@@ -1,15 +1,15 @@
 from abc import ABC, abstractmethod
+from typing import Dict, Any
 
 class PaymentMethod(ABC):
-    def __init__(self, data):
-        self.data = data
+    """Abstract base class for payment methods"""
     
     @abstractmethod
-    def validate(self):
-        """Validate payment method data"""
+    def prepare_payment_data(self, transaction_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare payment data specific to this method"""
         pass
     
     @abstractmethod
-    def get_processor_data(self):
-        """Format data for processor"""
+    def validate_payment_data(self, transaction_data: Dict[str, Any]) -> bool:
+        """Validate payment data for this method"""
         pass
