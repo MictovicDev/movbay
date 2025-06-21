@@ -11,6 +11,14 @@ class Wallet(models.Model):
     total_withdrawal = models.PositiveBigIntegerField(default=0)
     
     
+    def __str__(self):
+        return f"{self.owner.username} Wallet"
+    
+    
 class WalletTransactions(models.Model):
     content = models.TextField()
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE)
+    
+    
+    def __str__(self):
+        return f"{self.wallet.owner} Wallet Transactions"

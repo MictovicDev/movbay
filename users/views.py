@@ -24,6 +24,7 @@ from django.contrib.auth.hashers import check_password
 import logging
 from .utils.redis_cli import redis_client
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.core.exceptions import ValidationError
 
 
 logger = logging.getLogger(__name__)
@@ -114,16 +115,11 @@ class RegisterView(generics.ListCreateAPIView):
                         "phone_number": str(user.phone_number),
                         "user_type": user.user_type
                     },
-                    'token': {
-                    'access': str(token.access_token),
-                    'refresh': str(token),
-                }        
                 }, status=status.HTTP_201_CREATED)
             except Exception as e:
-                print(e)
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
-    
     
     
     

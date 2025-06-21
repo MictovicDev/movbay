@@ -9,12 +9,25 @@ from datetime import timedelta
 from phonenumber_field.modelfields import PhoneNumberField
 import uuid
 from cloudinary.models import CloudinaryField
+import random, string
 
 
-class User(AbstractBaseUser):
+
+# def generate_unique_referral_code():
+#         characters = string.ascii_uppercase + string.digits
+#         while True:
+#             code = ''.join(random.choices(characters, k=8))
+#             if not User.objects.filter(referral_code=code).exists():
+#                 return code
+
+class User(AbstractBaseUser,PermissionsMixin):
     roles = (
         ("User","User"),
         ("Rider","Rider")
+    )
+    referral_code = models.CharField(max_length=50, unique=True,null=True)
+    referred_by = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.SET_NULL, related_name='referrals'
     )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_index=True)
     fullname = models.CharField(max_length=250, blank=True, null=True, db_index=True)
@@ -31,7 +44,6 @@ class User(AbstractBaseUser):
     secret = models.CharField(max_length=500, blank=True, null=True)
     
     
-    
     objects = UserManager()
 
     USERNAME_FIELD = 'email'
@@ -43,13 +55,21 @@ class User(AbstractBaseUser):
     
     def has_perm(self, perm, obj=None):
         return True
+    
+    
+    def save(self, *args, **kwargs):
+        if not self.referral_code:
+            self.referral_code = str(uuid.uuid4()).replace('-', '')[:10]
+        super().save(*args, **kwargs)
 
-    def has_module_perms(self, app_label):
-        return True
     
     @property
     def is_staff(self):
         return self.is_admin
+    
+    
+    
+    
 
 
 class PasswordResetToken(models.Model):

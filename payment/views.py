@@ -9,7 +9,13 @@ import random
 from rest_framework.response import Response
 from rest_framework import status
 import string
-
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+import os
+import hmac
+import hashlib
+from django.http import HttpResponse
+import json
 
 def generate_tx_ref(prefix="TX"):
     timestamp = int(time.time())  # seconds since epoch
@@ -38,6 +44,29 @@ class FundWallet(APIView):
         return Response(result, status=status.HTTP_200_OK)
         
         
+        
+
+@csrf_exempt
+@require_POST
+def paystack_webhook(request):
+    # Verify the Paystack signature
+    paystack_signature = request.headers.get('x-paystack-signature')
+    secret = os.getenv('PAYSTACK_SECRET_KEY').encode()
+    body = request.body
+
+    computed_hash = hmac.new(secret, body, hashlib.sha512).hexdigest()
+    if computed_hash != paystack_signature:
+        return HttpResponse(status=400)
+
+    event = json.loads(body)
+
+    # Example: Payment Success
+    if event['event'] == 'charge.success':
+        data = event['data']
+        # Do something: update user's wallet, confirm order, etc.
+        print("Payment received for:", data['reference'])
+
+    return HttpResponse(status=200)
     
         
         

@@ -4,6 +4,15 @@ from .models import User, UserProfile, RiderProfile
 from django.contrib.auth import get_user_model
 from wallet.models import Wallet
 # from .tasks import create_virtual_account
+import logging 
+
+# Configure logger if not already done
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 
 
 User = get_user_model()
@@ -24,24 +33,17 @@ def create_user_profile(sender, instance, created, **kwargs):
             print(f"Error creating profile for {instance.email}: {str(e)}")
             
             
-# @receiver(post_save, sender=User)
-# def create_user_wallet(sender, instance, created, **kwargs):
-#     """
-#     Create a wallet for the user when the user is created.
-#     """
-#     if created:
-#         try:
-#             print(instance.id)
-#             print(type(str(instance.id)))
-#             data = {
-#                 "customer": str(instance.id),
-#                 "preferred_bank":"wema-bank"
-#             }
-#             # create_virtual_account.delay(data)
-#             # Wallet.objects.create(owner=instance)
-#         except Exception as e:
-#             # Log error in production (e.g., using logging module)
-#             print(f"Error creating profile for {instance.email}: {str(e)}")
+@receiver(post_save, sender=User)
+def create_user_wallet(sender, instance, created, **kwargs):
+    """
+    Create a wallet for the user when the user is created.
+    """
+    if created:
+        try:
+            Wallet.objects.create(owner=instance)
+        except Exception as e:
+            # Log error in production (e.g., using logging module)
+            print(f"Error  wallet for {instance.email}: {str(e)}")
 
 
 @receiver(post_save, sender=User)

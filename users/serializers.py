@@ -15,11 +15,11 @@ User = get_user_model()
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(required=True, validators=[validate_password])
-    password2 = serializers.CharField(write_only=True)  # Confirm password
+    password2 = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'phone_number', 'password', 'password2','fullname','user_type')
+        fields = ('username', 'email', 'phone_number', 'password', 'password2','fullname','user_type', 'referral_code')
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
