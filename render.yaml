@@ -1,0 +1,9 @@
+services:
+  - type: background
+    name: movbay-celery-worker
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A movbay worker --loglevel=info --concurrency=2
+    envVars:
+      - key: CELERY_BROKER_URL
+        value: redis://red-xxxxxxxxxxxxxxxx:6379

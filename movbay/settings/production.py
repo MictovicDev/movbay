@@ -2,11 +2,9 @@ from .base import *
 import os
 import dj_database_url
 
-
-
 DEBUG = True
 #ALLOWED_HOSTS = ['*']
-ALLOWED_HOSTS = ['api.movbay.com', '162.0.231.122', 'www.movbay.com', 'movbay.com']
+ALLOWED_HOSTS = ['api.movbay.com', '162.0.231.122', 'www.movbay.com', 'movbay.com', 'localhost']
 
 SESSION_COOKIE_DOMAIN = ".movbay.com"
 CSRF_COOKIE_DOMAIN = ".movbay.com"
@@ -50,12 +48,18 @@ LOGGING = {
     },
 }
 
+# settings.py debug
+print("Loaded DB URL:", os.environ.get("DATABASE_URL"))
+
 # Database configuration for production
 if os.getenv('DATABASE_URL'):
-    import dj_database_url
     DATABASES = {
-        'default': dj_database_url.parse(os.getenv('DATABASE_URL'))
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+        ssl_require=True  # Required by Supabase
+    )
+}
 else:
     # Keep your existing database configuration
     pass

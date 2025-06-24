@@ -1,33 +1,33 @@
-from locust import HttpUser, task, between, events
+from locust import HttpUser, task, between
 
 class MovBayUser(HttpUser):
     wait_time = between(1, 3)
 
     def on_start(self):
-        """Automatically log in when each user is spawned"""
-        response = self.client.post("/users/login/", json={
+        """Log in and store token for future requests"""
+        with self.client.post("/users/login/", json={
             "email": "awaemekamichael@gmail.com",
             "password": "hellomike123"
-        })
+        }, catch_response=True) as response:
 
-        if response.status_code == 200:
-            token = response.json().get("token")
-            if token:
-                self.client.headers.update({
-                    "Authorization": f"Bearer {token}"
-                })
-                self.token = token
-                print(token)
+            if response.status_code == 200:
+                token = response.json().get("token", "").get("access")
+                if token:
+                    self.client.headers.update({
+                        "Authorization": f"Bearer {token}"
+                    })
+                    response.success()
+                else:
+                    response.failure("Login success but no token")
+                    self.environment.runner.quit()
             else:
-                self.environment.runner.quit()  # login succeeded but no token? stop
-        else:
-            print(f"Login failed: {response.status_code} {response.text}")
-            self.environment.runner.quit()
+                response.failure(f"Login failed: {response.status_code}")
+                self.environment.runner.quit()
 
-    # @task(2)
-    # def browse_products(self):
-    #     self.client.get("/products/")  # headers already include Authorization
-
-        
-
- 
+    @task
+    def browse_products(self):
+        with self.client.get("/products/", catch_response=True) as response:
+            if response.status_code == 200:
+                response.success()
+            else:
+                response.failure(f"/products/ failed: {response.status_code} - {response.text}")
