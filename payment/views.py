@@ -4,11 +4,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from  payment.factories import PaymentProviderFactory, PaymentMethodFactory
-import time
-import random
 from rest_framework.response import Response
 from rest_framework import status
-import string
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import os
@@ -16,15 +13,8 @@ import hmac
 import hashlib
 from django.http import HttpResponse
 import json
-
-
-# views.py
-import json
-import hashlib
-import hmac
 import logging
 from django.http import HttpResponse, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.utils.decorators import method_decorator
@@ -32,6 +22,13 @@ from django.views import View
 import requests
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from dotenv import load_dotenv
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+
+load_dotenv(BASE_DIR / ".env")
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +78,7 @@ class PaystackWebhookView(View):
             return False
         
         # Your Paystack secret key
+        secret = os.getenv('PAYSTACK_SECRET_KEY').encode('utf-8')
         secret = settings.PAYSTACK_SECRET_KEY.encode('utf-8')
         
         # Create hash
@@ -152,6 +150,7 @@ class PaystackWebhookView(View):
     
     def update_payment_status(self, reference, status, data):
         """Update payment status in database"""
+        print(data)
         # Implement your database update logic here
         # Example:
         # Payment.objects.filter(reference=reference).update(
@@ -165,18 +164,6 @@ class PaystackWebhookView(View):
         """Send notification to React Native frontend via WebSocket"""
         channel_layer = get_channel_layer()
         
-        # Send to specific user if user_id is available
-        user_id = notification_data.get('user_id')
-        if user_id:
-            group_name = f"user_{user_id}"
-            async_to_sync(channel_layer.group_send)(
-                group_name,
-                {
-                    'type': 'payment_notification',
-                    'message': notification_data
-                }
-            )
-        
         # Also send to general payment notifications group
         async_to_sync(channel_layer.group_send)(
             "payment_notifications",
@@ -185,25 +172,6 @@ class PaystackWebhookView(View):
                 'message': notification_data
             }
         )
-        
-        # Optional: Also send HTTP webhook to your React Native backend
-        self.send_http_webhook(notification_data)
-    
-    def send_http_webhook(self, data):
-        """Send HTTP webhook to React Native backend (if you have one)"""
-        webhook_url = getattr(settings, 'REACT_NATIVE_WEBHOOK_URL', None)
-        if webhook_url:
-            try:
-                response = requests.post(
-                    webhook_url,
-                    json=data,
-                    headers={'Content-Type': 'application/json'},
-                    timeout=10
-                )
-                logger.info(f"Webhook sent to React Native: {response.status_code}")
-            except requests.RequestException as e:
-                logger.error(f"Failed to send webhook to React Native: {str(e)}")
-
 
 
         
