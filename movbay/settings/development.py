@@ -1,18 +1,34 @@
 from .base import *
+import dj_database_url
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 load_dotenv(BASE_DIR / ".env")
+
 DEBUG = True
 
 ALLOWED_HOSTS = ['localhost']
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_DOMAIN = None  # Don’t use custom domain
+CSRF_COOKIE_DOMAIN = None
+
+
+if os.getenv('DATABASE_URL'):
+    DATABASES = {
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+        ssl_require=True  # Required by Supabase
+    )
 }
+else:
+    # Keep your existing database configuration
+    pass
+
 
 CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 
@@ -29,7 +45,7 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],  # Adjust if your Redis server is different
+           "hosts": [os.getenv("REDIS_URL")], 
         },
     },
 }

@@ -24,22 +24,22 @@ services:
   #         cpus: '0.5'
   #         memory: 512M
 
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: movbay_redis
-  #   restart: unless-stopped
-  #   volumes:
-  #     - redis_data:/data
-  #   networks:
-  #     - movbay_network
-  #   command: >
-  #     redis-server --maxmemory 256mb
-  #                  --maxmemory-policy allkeys-lru
-  #                  --save 900 1 --save 300 10 --save 60 10000
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 256M
+  redis:
+    image: redis:7-alpine
+    container_name: movbay_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - movbay_network
+    command: >
+      redis-server --maxmemory 256mb
+                   --maxmemory-policy allkeys-lru
+                   --save 900 1 --save 300 10 --save 60 10000
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   web:
     build: .
