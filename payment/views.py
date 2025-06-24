@@ -17,56 +17,194 @@ import hashlib
 from django.http import HttpResponse
 import json
 
-def generate_tx_ref(prefix="TX"):
-    timestamp = int(time.time())  # seconds since epoch
-    rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    return f"{prefix}-{timestamp}-{rand_str}"
 
+# views.py
+import json
+import hashlib
+import hmac
+import logging
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.conf import settings
+from django.utils.decorators import method_decorator
+from django.views import View
+import requests
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
-class FundWallet(APIView):
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
-    permission_classes = [IsAuthenticated]
+logger = logging.getLogger(__name__)
+
+class PaystackWebhookView(View):
+    @method_decorator(csrf_exempt)
+    @method_decorator(require_http_methods(["POST"]))
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
     
     def post(self, request):
-        provider_name = request.data.get('provider_name')
-        print(provider_name)
-        print(request.data.get('amount'))
-        transaction_data = {
-            "email": request.user.email,
-            "amount": request.data.get('amount'),
-            "reference_id": generate_tx_ref(),
-            "plan": 'Fund Wallet',
-            "metadata": {
-                "user_id": str(request.user.id)}
-        }
-        provider = PaymentProviderFactory.create_provider(provider_name=provider_name)
-        result = provider.initialize_payment(transaction_data)
-        return Response(result, status=status.HTTP_200_OK)
+        # Get the raw body for signature verification
+        body = request.body
         
+        # Verify webhook signature
+        if not self.verify_signature(body, request.META.get('HTTP_X_PAYSTACK_SIGNATURE')):
+            logger.warning("Invalid webhook signature")
+            return HttpResponse("Invalid signature", status=400)
         
-        
-
-@csrf_exempt
-@require_POST
-def paystack_webhook(request):
-    # Verify the Paystack signature
-    paystack_signature = request.headers.get('x-paystack-signature')
-    secret = os.getenv('PAYSTACK_SECRET_KEY').encode()
-    body = request.body
-
-    computed_hash = hmac.new(secret, body, hashlib.sha512).hexdigest()
-    if computed_hash != paystack_signature:
-        return HttpResponse(status=400)
-
-    event = json.loads(body)
-
-    # Example: Payment Success
-    if event['event'] == 'charge.success':
-        data = event['data']
-        # Do something: update user's wallet, confirm order, etc.
-        print("Payment received for:", data['reference'])
-
-    return HttpResponse(status=200)
+        try:
+            # Parse webhook data
+            data = json.loads(body.decode('utf-8'))
+            event = data.get('event')
+            
+            logger.info(f"Received Paystack webhook: {event}")
+            
+            # Handle different webhook events
+            if event == 'charge.success':
+                self.handle_successful_payment(data)
+            elif event == 'charge.failed':
+                self.handle_failed_payment(data)
+            elif event == 'transfer.success':
+                self.handle_successful_transfer(data)
+            # Add more event handlers as needed
+            
+            return HttpResponse("Webhook received", status=200)
+            
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON in webhook")
+            return HttpResponse("Invalid JSON", status=400)
+        except Exception as e:
+            logger.error(f"Webhook processing error: {str(e)}")
+            return HttpResponse("Processing error", status=500)
     
+    def verify_signature(self, body, signature):
+        """Verify Paystack webhook signature"""
+        if not signature:
+            return False
+        
+        # Your Paystack secret key
+        secret = settings.PAYSTACK_SECRET_KEY.encode('utf-8')
+        
+        # Create hash
+        computed_hash = hmac.new(
+            secret,
+            body,
+            hashlib.sha512
+        ).hexdigest()
+        
+        return hmac.compare_digest(computed_hash, signature)
+    
+    def handle_successful_payment(self, data):
+        """Handle successful payment"""
+        payment_data = data.get('data', {})
+        
+        # Extract payment information
+        reference = payment_data.get('reference')
+        amount = payment_data.get('amount', 0) / 100  # Convert from kobo to naira
+        email = payment_data.get('customer', {}).get('email')
+        user_id = payment_data.get('metadata', {}).get('user_id')
+        
+        logger.info(f"Processing successful payment: {reference}")
+        
+        # Update your database
+        self.update_payment_status(reference, 'success', payment_data)
+        
+        # Send notification to React Native frontend
+        self.notify_frontend({
+            'type': 'payment_success',
+            'reference': reference,
+            'amount': amount,
+            'email': email,
+            'user_id': user_id,
+            'timestamp': payment_data.get('paid_at')
+        })
+    
+    def handle_failed_payment(self, data):
+        """Handle failed payment"""
+        payment_data = data.get('data', {})
+        reference = payment_data.get('reference')
+        
+        logger.info(f"Processing failed payment: {reference}")
+        
+        # Update your database
+        self.update_payment_status(reference, 'failed', payment_data)
+        
+        # Send notification to React Native frontend
+        self.notify_frontend({
+            'type': 'payment_failed',
+            'reference': reference,
+            'user_id': payment_data.get('metadata', {}).get('user_id'),
+            'timestamp': payment_data.get('paid_at')
+        })
+    
+    def handle_successful_transfer(self, data):
+        """Handle successful transfer"""
+        transfer_data = data.get('data', {})
+        reference = transfer_data.get('reference')
+        
+        logger.info(f"Processing successful transfer: {reference}")
+        
+        # Send notification to React Native frontend
+        self.notify_frontend({
+            'type': 'transfer_success',
+            'reference': reference,
+            'amount': transfer_data.get('amount', 0) / 100,
+            'timestamp': transfer_data.get('createdAt')
+        })
+    
+    def update_payment_status(self, reference, status, data):
+        """Update payment status in database"""
+        # Implement your database update logic here
+        # Example:
+        # Payment.objects.filter(reference=reference).update(
+        #     status=status,
+        #     paystack_data=data,
+        #     updated_at=timezone.now()
+        # )
+        pass
+    
+    def notify_frontend(self, notification_data):
+        """Send notification to React Native frontend via WebSocket"""
+        channel_layer = get_channel_layer()
+        
+        # Send to specific user if user_id is available
+        user_id = notification_data.get('user_id')
+        if user_id:
+            group_name = f"user_{user_id}"
+            async_to_sync(channel_layer.group_send)(
+                group_name,
+                {
+                    'type': 'payment_notification',
+                    'message': notification_data
+                }
+            )
+        
+        # Also send to general payment notifications group
+        async_to_sync(channel_layer.group_send)(
+            "payment_notifications",
+            {
+                'type': 'payment_notification',
+                'message': notification_data
+            }
+        )
+        
+        # Optional: Also send HTTP webhook to your React Native backend
+        self.send_http_webhook(notification_data)
+    
+    def send_http_webhook(self, data):
+        """Send HTTP webhook to React Native backend (if you have one)"""
+        webhook_url = getattr(settings, 'REACT_NATIVE_WEBHOOK_URL', None)
+        if webhook_url:
+            try:
+                response = requests.post(
+                    webhook_url,
+                    json=data,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=10
+                )
+                logger.info(f"Webhook sent to React Native: {response.status_code}")
+            except requests.RequestException as e:
+                logger.error(f"Failed to send webhook to React Native: {str(e)}")
+
+
+
         
         
