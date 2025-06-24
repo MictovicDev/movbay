@@ -79,7 +79,7 @@ class PaystackWebhookView(View):
         
         # Your Paystack secret key
         secret = os.getenv('PAYSTACK_SECRET_KEY').encode('utf-8')
-        secret = settings.PAYSTACK_SECRET_KEY.encode('utf-8')
+
         
         # Create hash
         computed_hash = hmac.new(
