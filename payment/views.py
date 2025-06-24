@@ -4,8 +4,11 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from  payment.factories import PaymentProviderFactory, PaymentMethodFactory
+import time
+import random
 from rest_framework.response import Response
 from rest_framework import status
+import string
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import os
@@ -13,8 +16,15 @@ import hmac
 import hashlib
 from django.http import HttpResponse
 import json
+
+
+# views.py
+import json
+import hashlib
+import hmac
 import logging
 from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.utils.decorators import method_decorator
@@ -22,13 +32,6 @@ from django.views import View
 import requests
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from dotenv import load_dotenv
-from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
-
-load_dotenv(BASE_DIR / ".env")
 
 logger = logging.getLogger(__name__)
 
@@ -174,5 +177,30 @@ class PaystackWebhookView(View):
         )
 
 
+def generate_tx_ref(prefix="TX"):
+    timestamp = int(time.time())  # seconds since epoch
+    rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    return f"{prefix}-{timestamp}-{rand_str}"
+
+
+class FundWallet(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        provider_name = request.data.get('provider_name')
+        print(provider_name)
+        print(request.data.get('amount'))
+        transaction_data = {
+            "email": request.user.email,
+            "amount": request.data.get('amount'),
+            "reference_id": generate_tx_ref(),
+            "plan": 'Fund Wallet',
+            "metadata": {
+                "user_id": str(request.user.id)}
+        }
+        provider = PaymentProviderFactory.create_provider(provider_name=provider_name)
+        result = provider.initialize_payment(transaction_data)
+        return Response(result, status=status.HTTP_200_OK)
         
         
