@@ -52,7 +52,6 @@ services:
       - static_volume:/app/movbay/staticfiles
       - media_volume:/app/movbay/media
     depends_on:
-      - db
       - redis
     networks:
       - movbay_network
@@ -71,7 +70,6 @@ services:
       - ./movbay:/app/movbay
     depends_on:
       - redis
-      - db
     networks:
       - movbay_network
     deploy:
