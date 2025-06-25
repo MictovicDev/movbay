@@ -1,8 +1,9 @@
 # consumers.py
-from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
 import json
 
-class PaymentConsumer(AsyncWebsocketConsumer):
+class PaymentConsumer(AsyncJsonWebsocketConsumer):
+        
     async def connect(self):
         self.group_name = "payment_notifications"
 
@@ -23,3 +24,14 @@ class PaymentConsumer(AsyncWebsocketConsumer):
             "type": "status.created",
             "data": event["status"]
         }))
+        
+    async def payment_notifications(self, event):
+        data = event.get("data")
+        # Do something with payment data, e.g., send to frontend
+        await self.send_json({
+            "type": "payment_notifications",
+            "data": data,
+        })
+
+        
+    

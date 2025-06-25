@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from  payment.factories import PaymentProviderFactory, PaymentMethodFactory
 import time
 import random
@@ -16,9 +16,7 @@ import hmac
 import hashlib
 from django.http import HttpResponse
 import json
-
-
-# views.py
+from rest_framework.decorators import api_view
 import json
 import hashlib
 import hmac
@@ -175,8 +173,29 @@ class PaystackWebhookView(View):
                 'message': notification_data
             }
         )
-
-
+        
+        
+class TestHandler(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request):
+        channel_layer = get_channel_layer()  
+        message = {
+            "receveid" : "Received Succefully"
+        }
+        try:
+            async_to_sync(channel_layer.group_send)(
+                "payment_notifications",
+                {
+                    'type': 'payment_notifications',
+                    'message': message
+                }
+            )
+            return Response({"message":"sent"})
+        except Exception as e:
+            return Response(str(e))
+       
+            
+            
 def generate_tx_ref(prefix="TX"):
     timestamp = int(time.time())  # seconds since epoch
     rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))

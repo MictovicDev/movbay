@@ -28,7 +28,7 @@ django-redis==5.4.0
 djangorestframework==3.16.0
 djangorestframework_simplejwt==5.5.0
 ecdsa==0.19.1
-# gunicorn==23.0.0
+gunicorn==23.0.0
 h11==0.16.0
 idna==3.10
 kombu==5.5.3
