@@ -169,8 +169,8 @@ class PaystackWebhookView(View):
         async_to_sync(channel_layer.group_send)(
             "payment_notifications",
             {
-                'type': 'payment_notification',
-                'message': notification_data
+                'type': 'payment_notifications',
+                'data': notification_data
             }
         )
         
@@ -187,7 +187,7 @@ class TestHandler(APIView):
                 "payment_notifications",
                 {
                     'type': 'payment_notifications',
-                    'message': message
+                    'data': message
                 }
             )
             return Response({"message":"sent"})

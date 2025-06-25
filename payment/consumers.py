@@ -5,6 +5,13 @@ import json
 class PaymentConsumer(AsyncJsonWebsocketConsumer):
         
     async def connect(self):
+        self.user = self.scope["user"]
+        print(self.user)
+        if self.user.is_anonymous:
+            # Reject anonymous users
+            await self.close()
+            return
+        
         self.group_name = "payment_notifications"
 
         await self.channel_layer.group_add(
