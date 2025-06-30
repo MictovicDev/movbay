@@ -21,15 +21,17 @@ import json
 import hashlib
 import hmac
 import logging
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from django.conf import settings
 from django.utils.decorators import method_decorator
 from django.views import View
-import requests
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from .models import Payment
+from django.contrib.auth import get_user_model
+from wallet.models import Wallet
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +42,11 @@ class PaystackWebhookView(View):
         return super().dispatch(*args, **kwargs)
     
     def post(self, request):
-        # Get the raw body for signature verification
         body = request.body
-        
         # Verify webhook signature
         if not self.verify_signature(body, request.META.get('HTTP_X_PAYSTACK_SIGNATURE')):
             logger.warning("Invalid webhook signature")
             return HttpResponse("Invalid signature", status=400)
-        
         try:
             # Parse webhook data
             data = json.loads(body.decode('utf-8'))
@@ -57,14 +56,9 @@ class PaystackWebhookView(View):
             
             # Handle different webhook events
             if event == 'charge.success':
+                print(data)
                 self.handle_successful_payment(data)
-            elif event == 'charge.failed':
-                self.handle_failed_payment(data)
-            elif event == 'transfer.success':
-                self.handle_successful_transfer(data)
-            # Add more event handlers as needed
-            
-            return HttpResponse("Webhook received", status=200)
+                return HttpResponse("Webhook received", status=200)
             
         except json.JSONDecodeError:
             logger.error("Invalid JSON in webhook")
@@ -80,9 +74,6 @@ class PaystackWebhookView(View):
         
         # Your Paystack secret key
         secret = os.getenv('PAYSTACK_SECRET_KEY').encode('utf-8')
-
-        
-        # Create hash
         computed_hash = hmac.new(
             secret,
             body,
@@ -100,11 +91,15 @@ class PaystackWebhookView(View):
         amount = payment_data.get('amount', 0) / 100  # Convert from kobo to naira
         email = payment_data.get('customer', {}).get('email')
         user_id = payment_data.get('metadata', {}).get('user_id')
+        payment_type = payment_data.get('metadata', {}).get('payment_type')
         
-        logger.info(f"Processing successful payment: {reference}")
-        
-        # Update your database
-        self.update_payment_status(reference, 'success', payment_data)
+        user = User.objects.get(email=email)
+        Payment.objects.create(user=user, provider='paystack', amount=amount, transacton_id=reference, status='success', payment_type=payment_type)
+        if payment_type == 'fund-wallet':
+            wallet = Wallet.objects.get(owner=user)
+            wallet.balance += int(amount)
+            wallet.total_deposit += int(amount)
+            wallet.save()
         
         # Send notification to React Native frontend
         self.notify_frontend({
@@ -116,50 +111,6 @@ class PaystackWebhookView(View):
             'timestamp': payment_data.get('paid_at')
         })
     
-    def handle_failed_payment(self, data):
-        """Handle failed payment"""
-        payment_data = data.get('data', {})
-        reference = payment_data.get('reference')
-        
-        logger.info(f"Processing failed payment: {reference}")
-        
-        # Update your database
-        self.update_payment_status(reference, 'failed', payment_data)
-        
-        # Send notification to React Native frontend
-        self.notify_frontend({
-            'type': 'payment_failed',
-            'reference': reference,
-            'user_id': payment_data.get('metadata', {}).get('user_id'),
-            'timestamp': payment_data.get('paid_at')
-        })
-    
-    def handle_successful_transfer(self, data):
-        """Handle successful transfer"""
-        transfer_data = data.get('data', {})
-        reference = transfer_data.get('reference')
-        
-        logger.info(f"Processing successful transfer: {reference}")
-        
-        # Send notification to React Native frontend
-        self.notify_frontend({
-            'type': 'transfer_success',
-            'reference': reference,
-            'amount': transfer_data.get('amount', 0) / 100,
-            'timestamp': transfer_data.get('createdAt')
-        })
-    
-    def update_payment_status(self, reference, status, data):
-        """Update payment status in database"""
-        print(data)
-        # Implement your database update logic here
-        # Example:
-        # Payment.objects.filter(reference=reference).update(
-        #     status=status,
-        #     paystack_data=data,
-        #     updated_at=timezone.now()
-        # )
-        pass
     
     def notify_frontend(self, notification_data):
         """Send notification to React Native frontend via WebSocket"""
@@ -216,10 +167,26 @@ class FundWallet(APIView):
             "reference_id": generate_tx_ref(),
             "plan": 'Fund Wallet',
             "metadata": {
-                "user_id": str(request.user.id)}
+                "user_id": str(request.user.id),
+                "payment_type": request.data.get('payment_type')}
         }
         provider = PaymentProviderFactory.create_provider(provider_name=provider_name)
         result = provider.initialize_payment(transaction_data)
         return Response(result, status=status.HTTP_200_OK)
+        
+        
+
+
+class VerifyTransaction(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    
+    def post(self, request):
+        provider_name = request.data.get('provider_name')
+        reference = request.data.get('reference')
+        provider = PaymentProviderFactory.create_provider(provider_name=provider_name)
+        response = provider.verify_payment(reference)
+        return Response(response, status=status.HTTP_200_OK)
         
         

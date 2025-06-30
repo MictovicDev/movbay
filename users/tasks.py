@@ -5,14 +5,14 @@ from .models import UserProfile
 import cloudinary.uploader
 import os
 
-@shared_task
+@shared_task(bind=True, max_retries=3)
 def send_welcome_email_async(from_email, to_emails, subject, html_content):
     sender = EmailManager(from_email, to_emails, subject, html_content)
     sender.send_email()
     
     
 
-@shared_task
+@shared_task(bind=True, max_retries=3)
 def save_profile_picture(profile_id, file_data, file_name):
     try:
         profile = UserProfile.objects.get(id=profile_id)

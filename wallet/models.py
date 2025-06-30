@@ -17,7 +17,7 @@ class Wallet(models.Model):
     
 class WalletTransactions(models.Model):
     content = models.TextField()
-    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE)
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name='wallet_transactions')
     
     
     def __str__(self):

@@ -13,21 +13,29 @@ ALLOWED_HOSTS = ['localhost']
 
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_DOMAIN = None  # Don’t use custom domain
+SESSION_COOKIE_DOMAIN = None
 CSRF_COOKIE_DOMAIN = None
 
 
-if os.getenv('DATABASE_URL'):
-    DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL'),
-        conn_max_age=600,
-        ssl_require=True  # Required by Supabase
-    )
+# if os.getenv('DATABASE_URL'):
+#     DATABASES = {
+#     'default': dj_database_url.config(
+#         default=os.environ.get('DATABASE_URL'),
+#         conn_max_age=600,
+#         ssl_require=True  # Required by Supabase
+#     )
+# }
+# else:
+#     # Keep your existing database configuration
+#     pass
+
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',  # BASE_DIR is usually set at the top of the file
+    }
 }
-else:
-    # Keep your existing database configuration
-    pass
 
 
 CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")

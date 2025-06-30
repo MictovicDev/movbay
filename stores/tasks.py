@@ -18,7 +18,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@shared_task
+@shared_task(bind=True, max_retries=3)
 def upload_single_image(image_data):
     try:
         from stores.models import ProductImage
@@ -79,7 +79,7 @@ def upload_video(self, video_data, product_id):
         return None
     
     
-@shared_task
+@shared_task(bind=True, max_retries=3)
 def upload_store_files( store_id, file_data):
     try:
         try:

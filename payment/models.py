@@ -21,6 +21,12 @@ class Payment(models.Model):
     ]
     
     
+    PAYMENT_TYPE = [
+        ('fund-wallet', 'Fund-Wallet'),
+        ('normal-payment', 'Normal-Payment'),
+    ]
+    
+    
     
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -38,6 +44,7 @@ class Payment(models.Model):
     transaction_id = models.CharField(max_length=100, blank=True)
     success = models.BooleanField(default=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    type = models.CharField(max_length=250, blank=True, null=True, choices=PAYMENT_TYPE)
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, blank=True, null=True)
     payment_provider = models.CharField(max_length=20, choices=PAYMENT_PROVIDERS, blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', blank=True, null=True)

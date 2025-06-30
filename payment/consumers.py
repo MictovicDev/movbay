@@ -12,7 +12,7 @@ class PaymentConsumer(AsyncJsonWebsocketConsumer):
             await self.close()
             return
         
-        self.group_name = "payment_notifications"
+        self.group_name = f"{self.user.id}_payment_notifications"
 
         await self.channel_layer.group_add(
             self.group_name,
@@ -36,7 +36,7 @@ class PaymentConsumer(AsyncJsonWebsocketConsumer):
         data = event.get("data")
         # Do something with payment data, e.g., send to frontend
         await self.send_json({
-            "type": "payment_notifications",
+            "type": "payment.notifications",
             "data": data,
         })
 
