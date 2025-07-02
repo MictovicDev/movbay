@@ -31,6 +31,10 @@ from asgiref.sync import async_to_sync
 from .models import Payment
 from django.contrib.auth import get_user_model
 from wallet.models import Wallet
+from .utils.fees import calculate_purchase_fee, calculate_wallet_fee
+
+
+
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
@@ -94,7 +98,9 @@ class PaystackWebhookView(View):
         payment_type = payment_data.get('metadata', {}).get('payment_type')
         
         user = User.objects.get(email=email)
-        Payment.objects.create(user=user, provider='paystack', amount=amount, transacton_id=reference, status='success', payment_type=payment_type)
+        data = calculate_wallet_fee(amount)
+        amount = data.get('wallet_credit')
+        Payment.objects.create(user=user, provider='paystack', amount=amount, transaction_id=reference, status='success', payment_type=payment_type)
         if payment_type == 'fund-wallet':
             wallet = Wallet.objects.get(owner=user)
             wallet.balance += int(amount)
@@ -168,7 +174,7 @@ class FundWallet(APIView):
             "plan": 'Fund Wallet',
             "metadata": {
                 "user_id": str(request.user.id),
-                "payment_type": request.data.get('payment_type')}
+                "payment_type": 'fund-wallet'}
         }
         provider = PaymentProviderFactory.create_provider(provider_name=provider_name)
         result = provider.initialize_payment(transaction_data)

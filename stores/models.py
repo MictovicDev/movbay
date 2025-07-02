@@ -183,7 +183,7 @@ class Status(models.Model):
         return timezone.now() < self.expires_at
 
     def __str__(self):
-        return f"Status by {self.store.name} at {self.created_at}"
+        return f"Status by {self.store} at {self.created_at}"
     
     def save(self, *args, **kwargs):
         if not self.expires_at:

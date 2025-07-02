@@ -1,9 +1,11 @@
 import requests
 from django.conf import settings
 
+
 class PaymentMethod:
     def initialize_transaction(self, email, amount, user_id, gateway):
         raise NotImplementedError("initialize_transaction must be implemented")
+
 
 class CardPayment(PaymentMethod):
     def initialize_transaction(self, email, amount, user_id, gateway):
@@ -17,8 +19,10 @@ class CardPayment(PaymentMethod):
             'channels': ['card'],
             'metadata': {'user_id': user_id, 'payment_method': 'card', 'gateway': gateway}
         }
-        
-        raise Exception(data.get('message', 'Transaction initialization failed'))
+
+        raise Exception(
+            data.get('message', 'Transaction initialization failed'))
+
 
 class DigitalWalletPayment(PaymentMethod):
     def __init__(self, wallet_type):
@@ -36,7 +40,7 @@ class DigitalWalletPayment(PaymentMethod):
             'currency': 'USD',  # Required for Apple Pay/Google Pay
             'metadata': {'user_id': user_id, 'payment_method': self.wallet_type, 'gateway': gateway}
         }
-       
+
 
 class BankTransferPayment(PaymentMethod):
     def initialize_transaction(self, email, amount, user_id, gateway):

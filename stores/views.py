@@ -13,14 +13,16 @@ from django.db.models import Count
 from .permissions import IsProductOwner
 from .models import StoreFollow
 from django.contrib.auth import get_user_model
-from .serializers import StoreFollowSerializer, UserSerializer, DashboardSerializer
+from .serializers import StoreFollowSerializer, UserSerializer, DashboardSerializer, StatusSerializer
+from .models import Status
+from django.shortcuts import get_object_or_404
+
 
 User = get_user_model()
 
+
 class CustomAnonRateThrottle(AnonRateThrottle):
     rate = '5/minute'  # Limit to 5 requests per minute
-
-
 
 
 class StoreListCreateView(generics.ListCreateAPIView):
@@ -28,15 +30,12 @@ class StoreListCreateView(generics.ListCreateAPIView):
     serializer_class = StoreSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
-    
-    
-    
+
+
 class DeliveryDetailsCreateView(generics.CreateAPIView):
     serializer_class = DeliverySerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
 
     def get_queryset(self):
         return Delivery.objects.all()
@@ -48,59 +47,54 @@ class DeliveryDetailsCreateView(generics.CreateAPIView):
             return Response(serializer.data)
         except Exception as e:
             return Response({"Message": {str(e)}})
-    
-    
+
+
 class OrderListCreateView(generics.ListCreateAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
-    
-    
+
     def get_queryset(self):
         user = self.request.user
         status = self.request.GET.get('status', 'New_Orders')
         return Order.objects.filter(user=user, status=status)
-        
-    
-    
+
+
 class OrderDetailView(generics.RetrieveDestroyAPIView):
     throttle_classes = [CustomAnonRateThrottle]
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    
-    
-              
+
+
 class ProductListCreateView(generics.ListCreateAPIView):
     throttle_classes = [CustomAnonRateThrottle]
     serializer_class = ProductSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_queryset(self):
         return Product.objects.select_related('store').prefetch_related('store__owner').all()
-    
-    
+
+
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [IsProductOwner, permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [SessionAuthentication, JWTAuthentication]
-    
-    
+
+
 class UserProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [IsProductOwner, permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [SessionAuthentication, JWTAuthentication]
 
- 
+
 class StoreFollowView(APIView):
     permission_classes = [IsProductOwner, permissions.IsAuthenticated]
     authentication_classes = [SessionAuthentication, JWTAuthentication]
-    
-    
+
     def post(self, request, pk):
         try:
             user = User.objects.get(id=pk)
@@ -115,10 +109,8 @@ class StoreFollowView(APIView):
             "message": "Follow Successful",
             "data": serializer.data
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
-        
-        
-        
-        
+
+
 class StoreFollowers(APIView):
     def get(self, request):
         user = request.user
@@ -126,9 +118,7 @@ class StoreFollowers(APIView):
         users = [follow.follower for follow in followers]
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
-    
-    
-    
+
 
 class UserProductListView(generics.ListAPIView):
     throttle_classes = [CustomAnonRateThrottle]
@@ -139,12 +129,12 @@ class UserProductListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return Product.objects.filter(store__owner=user)
-    
-    
+
+
 class DashBoardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [JWTAuthentication, SessionAuthentication]
-    
+
     def get(self, request):
         try:
             user = request.user
@@ -161,5 +151,32 @@ class DashBoardView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(str(e), status=status.HTTP_404_NOT_FOUND)
-    
-    
+
+
+class StatusView(APIView):
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated, IsProductOwner]
+
+    def post(self, request, pk):
+        product = get_object_or_404(Product, id=pk)
+        try:
+            storestatus = Status.objects.get(product=product)
+            return Response({"message": "Status already exists"}, status=status.HTTP_409_CONFLICT)
+        except Status.DoesNotExist:
+            images = product.product_images.all()
+            if not images.exists():
+                return Response({"error": "No image found for this product"}, status=status.HTTP_400_BAD_REQUEST)
+
+            image = images[0]
+            print(image)
+            try:
+                storestatus = Status.objects.create(
+                product=product,
+                store=product.store,
+                image=image.image,
+                content=product.description
+            )
+            except Exception as e:
+                return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+            serializer = StatusSerializer(storestatus)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)

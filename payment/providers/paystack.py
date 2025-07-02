@@ -36,13 +36,9 @@ class PaystackProvider(PaymentProvider):
             'currency': transaction_data.get('currency', 'NGN'),
             'reference': str(transaction_data['reference_id']),
             'metadata': transaction_data.get('metadata', {}),
+            'channels': ["card"]
         }
         print(payload.get('amount'))
-        
-        if transaction_data.get('payment_method') == 'apple_pay':
-            payload['channels'] = ['apple_pay']
-        elif transaction_data.get('payment_method') == 'google_pay':
-            payload['channels'] = ['google_pay']
         
         try:
             response = requests.post(url, json=payload, headers=self._get_headers())
@@ -66,23 +62,38 @@ class PaystackProvider(PaymentProvider):
             logger.error(f"Paystack verification error: {e}")
             return {'status': False, 'message': str(e)}
     
-    def process_webhook(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Process Paystack webhook"""
-        event = payload.get('event')
-        data = payload.get('data', {})
+    def verify_account(self, payload):
+        account_no = payload.get('account_number')
+        bank_code = payload.get('bank_code')
+        url = f"{self.base_url}/bank/resolve?account_number={account_no}&bank_code={bank_code}"
+        try:
+            response = requests.get(url, headers=self._get_headers())
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"Paystack verification error: {e}")
+            return {'status': False, 'message': str(e)}
         
-        if event == 'charge.success':
-            return {
-                'status': 'completed',
-                'reference': data.get('reference'),
-                'provider_reference': data.get('id'),
-                'amount': Decimal(data.get('amount', 0)) / 100,  # Convert from kobo
-            }
-        elif event in ['charge.failed', 'charge.cancelled']:
-            return {
-                'status': 'failed',
-                'reference': data.get('reference'),
-                'provider_reference': data.get('id'),
-            }
+ #033 #044       
+    def create_transfer_recipient(self, payload):
+        url = f"{self.base_url}/transferrecipient"
+        print(payload)
+        try:
+            response = requests.post(url, json=payload, headers=self._get_headers())
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"Paystack verification error: {e}")
+            return {'status': False, 'message': str(e)}
         
-        return {'status': 'unknown', 'event': event}
+    def transfer(self, payload):
+        url = f"{self.base_url}/transfer"
+        try:
+            response = requests.post(url, json=payload, headers=self._get_headers())
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"Paystack verification error: {e}")
+            return {'status': False, 'message': str(e)}
+            
+        
+      
+         

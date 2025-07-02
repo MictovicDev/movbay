@@ -18,7 +18,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@shared_task(bind=True, max_retries=3)
+
+@shared_task
 def upload_single_image(image_data):
     try:
         from stores.models import ProductImage
@@ -39,21 +40,19 @@ def upload_single_image(image_data):
     except Exception as e:
         print(f"Upload failed: {e}")
         return None
-    
-    
+
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=10)
 def upload_video(self, video_data, product_id):
     logger.info(f"Starting video upload for product_id: {product_id}")
-    
+
     try:
         product = Product.objects.get(id=product_id)
         logger.debug("Decoding base64 video data")
         video_bytes = base64.b64decode(video_data)
         video_file = BytesIO(video_bytes)
-        video_file.name =  product.title
-        
-        
+        video_file.name = product.title
+
         logger.info("Uploading to cloud storage")
         upload_result = upload(
             video_file,
@@ -61,12 +60,12 @@ def upload_video(self, video_data, product_id):
             resource_type="video"
         )
         logger.info(f"upload_result: {upload_result} ({type(upload_result)})")
-        
+
         logger.debug("Updating product model")
-        
+
         product.video_url = upload_result["secure_url"]
         product.save()
-        
+
         logger.info(f"Successfully uploaded video for product {product.id}")
         return product.id
 
@@ -77,10 +76,10 @@ def upload_video(self, video_data, product_id):
     except Exception as e:
         logger.error(f"Upload failed permanently: {e}")
         return None
-    
-    
+
+
 @shared_task(bind=True, max_retries=3)
-def upload_store_files( store_id, file_data):
+def upload_store_files(store_id, file_data):
     try:
         try:
             store = Store.objects.get(id=store_id)
@@ -90,10 +89,10 @@ def upload_store_files( store_id, file_data):
             for file in file_data:
                 public_id = f"store_details/{store_id}"
                 upload_result = cloudinary.uploader.upload(
-                file_data[file],
-                public_id=public_id,             
-                overwrite=True              
-            )
+                    file_data[file],
+                    public_id=public_id,
+                    overwrite=True
+                )
                 image_url = upload_result.get("secure_url")
                 if file == 'cac':
                     store.cac = image_url
@@ -103,14 +102,13 @@ def upload_store_files( store_id, file_data):
                     store.save()
                 else:
                     store.store_image = image_url
-                    store.save()    
+                    store.save()
     except Exception as e:
         print(f"Error saving profile picture: {str(e)}")
-    
+
 
 @shared_task
 def create_cart(cart, user):
     for item in cart:
         Cart.objects.create(user=user)
         CartItem.objects.create()
-       

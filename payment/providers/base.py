@@ -20,6 +20,18 @@ class PaymentProvider(ABC):
         pass
     
     @abstractmethod
-    def process_webhook(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Process webhook from the provider"""
+    def verify_account(self, reference: str) -> Dict[str, Any]:
+        """Verify payment status with the provider"""
         pass
+    
+    @abstractmethod
+    def transfer(self, reference: str) -> Dict[str, Any]:
+        """Withdrawal"""
+        
+    
+    @abstractmethod
+    def create_transfer_recipient(self, reference: str) -> Dict[str, Any]:
+        """Withdrawal"""
+        pass
+    
+   

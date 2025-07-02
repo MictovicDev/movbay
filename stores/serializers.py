@@ -8,21 +8,19 @@ from .models import (Store,
                      StoreFollow
                      )
 
-from .tasks import upload_single_image,upload_store_files, upload_video
+from .tasks import upload_single_image, upload_store_files, upload_video
 from base64 import b64encode
 from rest_framework.response import Response
 from rest_framework import status
 from users.serializers import UserSerializer
 
 
-
-
 class StoreFollowSerializer(serializers.ModelSerializer):
-     follower = UserSerializer()
-     class Meta:
+    follower = UserSerializer()
+
+    class Meta:
         model = StoreFollow
-        fields =  ('id', 'following','follower')
-    
+        fields = ('id', 'following', 'follower')
 
 
 class DashboardSerializer(serializers.ModelSerializer):
@@ -31,45 +29,48 @@ class DashboardSerializer(serializers.ModelSerializer):
     followers_count = serializers.IntegerField(read_only=True)
     following_count = serializers.IntegerField(read_only=True)
     store_image = serializers.ImageField()
-    
+
     class Meta:
         model = Store
         fields = '__all__'
-    
+
 
 class StoreSerializer(serializers.ModelSerializer):
     cac = serializers.FileField()
     nin = serializers.FileField()
     store_image = serializers.ImageField()
-    
+
     class Meta:
         model = Store
-        fields =  ('name', 'category', 'description','address1','store_image', 'address2', 'cac', 'nin')
+        fields = ('name', 'category', 'description', 'address1',
+                  'store_image', 'address2', 'cac', 'nin')
 
     def validate_cac(self, value):
         if value:
-        # Alternatively, check file extension if content_type is not reliable
+            # Alternatively, check file extension if content_type is not reliable
             if not value.name.lower().endswith('.pdf'):
-                raise serializers.ValidationError("The CAC document must have a .pdf extension.")
-            
+                raise serializers.ValidationError(
+                    "The CAC document must have a .pdf extension.")
+
             # You can also check file size if needed, e.g. max 5MB
             max_size = 5 * 1024 * 1024  # 5MB
             if value.size > max_size:
-                raise serializers.ValidationError("The CAC document file size must be under 5MB.")
+                raise serializers.ValidationError(
+                    "The CAC document file size must be under 5MB.")
             return value
         else:
             return value
-            
-            
+
     def validate_nin(self, value):
-        if value: 
+        if value:
             valid_extensions = ['.jpg', '.jpeg', '.png', '.gif', 'pdf']
             if not any(value.name.lower().endswith(ext) for ext in valid_extensions):
-                raise serializers.ValidationError("File extension not supported. Allowed: jpg, jpeg, png, gif.")
+                raise serializers.ValidationError(
+                    "File extension not supported. Allowed: jpg, jpeg, png, gif.")
             return value
         else:
             return value
-    
+
     def create(self, validated_data):
         request = self.context.get('request')
         try:
@@ -94,9 +95,7 @@ class StoreSerializer(serializers.ModelSerializer):
                 return Response({"Message": "User is not Authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
             raise e
-            
-        
-        
+
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -107,41 +106,43 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     verified = serializers.BooleanField(read_only=True)
     store = StoreSerializer(read_only=True)
-    created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
-    updated_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
+    created_at = serializers.DateTimeField(
+        format="%Y-%m-%d %H:%M", read_only=True)
+    updated_at = serializers.DateTimeField(
+        format="%Y-%m-%d %H:%M", read_only=True)
     images = serializers.ListField(required=True, write_only=True)
     product_images = ProductImageSerializer(many=True, required=False)
-    
+
     class Meta:
         model = Product
         fields = '__all__'
-        
+
     def validate_product_video(self, value):
         if value:
             print(value.content_type)
             if value.content_type != 'video/mp4':
                 raise serializers.ValidationError("Upload a Video file.")
-        
+
             max_size = 200 * 1024 * 1024  # 50 MB
             if value.size > max_size:
-                raise serializers.ValidationError("Video file too large. Max size is 20MB.")
+                raise serializers.ValidationError(
+                    "Video file too large. Max size is 20MB.")
             return value
         else:
             raise serializers.ValidationError("No Video File")
-        
+
     def upload_images(images, product_id):
         pass
-        
-          
+
     def create(self, validated_data):
-        user = self.context['request'].user 
+        user = self.context['request'].user
         images = validated_data.pop('images', [])
         post_to_story = validated_data.pop('auto_post_to_story', False)
         product_video = validated_data.pop('product_video', None)
         store = user.store
         print(store, validated_data)
         product = Product.objects.create(store=store, **validated_data)
-        
+
         for image in images:
             image_data = {
                 "file_content": b64encode(image.read()).decode("utf-8"),
@@ -152,35 +153,40 @@ class ProductSerializer(serializers.ModelSerializer):
         video = b64encode(product_video.read()).decode('utf-8')
         upload_video.delay(video, product.id)
         if post_to_story:
-           Status.objects.create(store=store, image=images[0])
+            Status.objects.create(store=store, image=images[0])
         return product
- 
- 
+
 
 class DeliverySerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = Delivery
-        fields = ['delivery_method','fullname', 'phone_number', 'email', 'user', 'delivery_address', 'alternative_address', 'landmark', 'city', 'state', 'postal_code']
-        
+        fields = ['delivery_method', 'fullname', 'phone_number', 'email', 'user',
+                  'delivery_address', 'alternative_address', 'landmark', 'city', 'state', 'postal_code']
+
     def create(self, validated_data):
-        user = self.context['request'].user 
+        user = self.context['request'].user
         validated_data['user'] = user
         delivery = Delivery.objects.create(**validated_data)
         return delivery
-           
-            
+
 
 class OrderSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
     status = serializers.CharField(read_only=True)
+
     class Meta:
         model = Order
         fields = ['product', 'user', 'delivery', 'status']
-        
 
     def create(self, validated_data):
         delivery_data = validated_data.pop('delivery')
         pass
-    
-    
+
+
+class StatusSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Status
+        fields = '__all__'
