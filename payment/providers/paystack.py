@@ -29,19 +29,10 @@ class PaystackProvider(PaymentProvider):
     def initialize_payment(self, transaction_data: Dict[str, Any]) -> Dict[str, Any]:
         """Initialize Paystack payment"""
         url = f"{self.base_url}/transaction/initialize"
-        
-        payload = {
-            'email': transaction_data['email'],
-            'amount': int(Decimal(transaction_data['amount'])  * 100), #in kobo
-            'currency': transaction_data.get('currency', 'NGN'),
-            'reference': str(transaction_data['reference_id']),
-            'metadata': transaction_data.get('metadata', {}),
-            'channels': ["card"]
-        }
-        print(payload.get('amount'))
+        print(transaction_data.get('amount'))
         
         try:
-            response = requests.post(url, json=payload, headers=self._get_headers())
+            response = requests.post(url, json=transaction_data, headers=self._get_headers())
             response.raise_for_status()
             return response.json()
         except requests.RequestException as e:

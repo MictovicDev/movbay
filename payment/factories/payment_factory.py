@@ -1,4 +1,4 @@
-from payment.methods import PaymentMethod, WalletPayment, ApplePayPayment, GooglePayPayment, CardPayment
+from payment.methods import PaymentMethod, WalletPayment, ApplePayPayment, GooglePayPayment, CardPayment, BankTransfer
 
 class PaymentMethodFactory:
     """Factory for creating payment methods"""
@@ -8,6 +8,7 @@ class PaymentMethodFactory:
         'apple_pay': ApplePayPayment,
         'google_pay': GooglePayPayment,
         'card': CardPayment,
+        'bank_transfer': BankTransfer,
     }
     
     @classmethod

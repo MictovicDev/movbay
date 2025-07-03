@@ -64,6 +64,7 @@ class Product(models.Model):
     description = models.TextField(blank=True, null=True)
     product_video = models.FileField('videos', blank=True, null=True)
     video_url = models.URLField(blank=True, null=True)
+    stock = models.PositiveIntegerField(default=1)
     original_price = models.PositiveBigIntegerField(default=0)
     discounted_price = models.PositiveBigIntegerField(default=0)
     condition =  models.CharField(choices=PRODUCT_CONDITION, max_length=300, blank=True, null=True)
@@ -229,23 +230,23 @@ class Delivery(models.Model):
     
     
 
+# models.py
 class Order(models.Model):
-    
     STATUS_CHOICES = [
-        ('new', 'New_Orders'),
+        ('new', 'New Orders'),
         ('processing', 'Processing'),
-        ('out_for_delivery', 'Out_for_delivery'),
+        ('out_for_delivery', 'Out for Delivery'),
         ('completed', 'Completed'),
-        ('cancelled', 'Cancelled')
-       
+        ('cancelled', 'Cancelled'),
     ]
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='orders')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, blank=True, null=True)
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True)
     confirmed = models.BooleanField(default=False)
-    status = models.CharField(max_length=250, choices=STATUS_CHOICES, default='new', blank=True, null=True)
-    delivery = models.ForeignKey(Delivery, verbose_name=("delivery_details"), on_delete=models.CASCADE, blank=True, null=True)
-    
+    status = models.CharField(max_length=250, choices=STATUS_CHOICES, default='new')
+    delivery = models.ForeignKey(Delivery, on_delete=models.CASCADE, null=True, blank=True)
+    order_id = models.CharField(max_length=20, unique=True, blank=True)
+
     def save(self, *args, **kwargs):
         if not self.order_id:
             unique = False
@@ -258,7 +259,19 @@ class Order(models.Model):
 
     def __str__(self):
         return self.order_id
+
    
+   
+class OrderItem(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, blank=True, null=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, blank=True, null=True)
+    count = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True),
+    
+    
+    
+    def __str__(self):
+        return f"{self.order} --> {self.count}"
     
 
 class OrderDispute(models.Model):

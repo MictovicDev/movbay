@@ -23,12 +23,20 @@ class StoreFollowSerializer(serializers.ModelSerializer):
         fields = ('id', 'following', 'follower')
 
 
+class StatusSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Status
+        fields = '__all__'
+
+
 class DashboardSerializer(serializers.ModelSerializer):
     product_count = serializers.IntegerField(read_only=True)
     order_count = serializers.IntegerField(read_only=True)
     followers_count = serializers.IntegerField(read_only=True)
     following_count = serializers.IntegerField(read_only=True)
     store_image = serializers.ImageField()
+    statuses = StatusSerializer(many=True)
 
     class Meta:
         model = Store
@@ -39,11 +47,12 @@ class StoreSerializer(serializers.ModelSerializer):
     cac = serializers.FileField()
     nin = serializers.FileField()
     store_image = serializers.ImageField()
+    statuses = StatusSerializer(many=True)
 
     class Meta:
         model = Store
         fields = ('name', 'category', 'description', 'address1',
-                  'store_image', 'address2', 'cac', 'nin')
+                  'store_image', 'address2', 'cac', 'nin', 'statuses')
 
     def validate_cac(self, value):
         if value:
@@ -183,10 +192,3 @@ class OrderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         delivery_data = validated_data.pop('delivery')
         pass
-
-
-class StatusSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Status
-        fields = '__all__'

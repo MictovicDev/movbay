@@ -16,7 +16,7 @@ from django.contrib.auth import get_user_model
 from .serializers import StoreFollowSerializer, UserSerializer, DashboardSerializer, StatusSerializer
 from .models import Status
 from django.shortcuts import get_object_or_404
-
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -26,7 +26,12 @@ class CustomAnonRateThrottle(AnonRateThrottle):
 
 
 class StoreListCreateView(generics.ListCreateAPIView):
-    queryset = Store.objects.all()
+    queryset = store_qs = Store.objects.prefetch_related(
+        Prefetch(
+            'statuses',
+            queryset=Status.objects.filter(expires_at__gt=timezone.now())
+        )
+    )
     serializer_class = StoreSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -140,7 +145,11 @@ class DashBoardView(APIView):
             user = request.user
             print(user)
             store = Store.objects.select_related('owner').prefetch_related(
-                Prefetch('products')
+                Prefetch('products'),
+                Prefetch(
+                'statuses',
+                queryset=Status.objects.filter(expires_at__gt=timezone.now())
+            )
             ).annotate(
                 product_count=Count('products'),
                 order_count=Count('orders'),
@@ -171,12 +180,17 @@ class StatusView(APIView):
             print(image)
             try:
                 storestatus = Status.objects.create(
-                product=product,
-                store=product.store,
-                image=image.image,
-                content=product.description
-            )
+                    product=product,
+                    store=product.store,
+                    image=image.image,
+                    content=product.description
+                )
             except Exception as e:
                 return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
             serializer = StatusSerializer(storestatus)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def get(self, request, pk):
+        store_status = get_object_or_404(Status, id=pk)
+        serializer = StatusSerializer(store_status)
+        return Response(serializer.data, status=status.HTTP_200_OK)
