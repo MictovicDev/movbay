@@ -12,7 +12,7 @@ from .tasks import upload_single_image, upload_store_files, upload_video
 from base64 import b64encode
 from rest_framework.response import Response
 from rest_framework import status
-from users.serializers import UserSerializer
+from users.serializers import UserSerializer, UserProfileSerializer
 
 
 class StoreFollowSerializer(serializers.ModelSerializer):
@@ -37,6 +37,7 @@ class DashboardSerializer(serializers.ModelSerializer):
     following_count = serializers.IntegerField(read_only=True)
     store_image = serializers.ImageField()
     statuses = StatusSerializer(many=True)
+    owner = UserSerializer()
 
     class Meta:
         model = Store
@@ -48,6 +49,7 @@ class StoreSerializer(serializers.ModelSerializer):
     nin = serializers.FileField()
     store_image = serializers.ImageField()
     statuses = StatusSerializer(many=True)
+    owner = UserSerializer()
 
     class Meta:
         model = Store

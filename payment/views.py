@@ -216,10 +216,8 @@ class PurchasePaymentView(APIView):
        # product = get_object_or_404(Product, id=pk)
         amount = int(Decimal(request.data.get('amount', '0')))
         cart_items = request.data.get('cart_items')
+        admin_user = User.objects.filter(is_superuser=True).first()
         print(cart_items)
-        platform_wallet, created = Wallet.objects.get_or_create(
-            owner__is_superuser=True)
-
         transaction_data = {
             "email": request.user.email,
             "amount": amount * 100,
@@ -234,7 +232,11 @@ class PurchasePaymentView(APIView):
         print(payment_method)
 
         if payment_method == 'wallet':
+            platform_wallet, created = Wallet.objects.get_or_create(
+            owner=admin_user)
             sender_wallet = request.user.wallet
+            print(sender_wallet)
+            print(request.user)
 
             if sender_wallet.balance < amount:
                 return Response({"Message": "Insufficient Funds"}, status=status.HTTP_402_PAYMENT_REQUIRED)

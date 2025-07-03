@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 @transaction.atomic
 def create_order_with_items(request, cart_items, payment):
     user = request.user
+    print(user)
     order_items = []
     for item in cart_items:
         product = get_object_or_404(Product, id=item.get('product_id'))
@@ -21,7 +22,7 @@ def create_order_with_items(request, cart_items, payment):
         ))
 
         # Optionally update stock
-        product.stock -= count
+        product.stock_available -= count
         product.save()
 
     # Bulk create order items

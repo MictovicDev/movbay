@@ -92,7 +92,7 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
 class UserProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     authentication_classes = [SessionAuthentication, JWTAuthentication]
 
 
@@ -134,6 +134,8 @@ class UserProductListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return Product.objects.filter(store__owner=user)
+    
+
 
 
 class DashBoardView(APIView):
@@ -143,7 +145,6 @@ class DashBoardView(APIView):
     def get(self, request):
         try:
             user = request.user
-            print(user)
             store = Store.objects.select_related('owner').prefetch_related(
                 Prefetch('products'),
                 Prefetch(
