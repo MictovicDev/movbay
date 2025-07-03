@@ -6,13 +6,14 @@ from django.shortcuts import get_object_or_404
 
 @transaction.atomic
 def create_order_with_items(request, cart_items, payment):
-    cart_items = request.data.get("cart_items", [])
     user = request.user
     order_items = []
     for item in cart_items:
-        product = get_object_or_404(Product, id=item.product_id)
+        product = get_object_or_404(Product, id=item.get('product_id'))
         order = Order.objects.create(user=user, store=product.store, payment=payment)
+        print(order)
         count = item.get("quantity", 1)
+        print(count)
         order_items.append(OrderItem(
             order=order,
             product=product,
@@ -24,4 +25,5 @@ def create_order_with_items(request, cart_items, payment):
         product.save()
 
     # Bulk create order items
-    OrderItem.objects.bulk_create(order_items)
+    order_item = OrderItem.objects.bulk_create(order_items)
+    return order_item

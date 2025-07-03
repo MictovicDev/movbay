@@ -246,7 +246,7 @@ class Order(models.Model):
     status = models.CharField(max_length=250, choices=STATUS_CHOICES, default='new')
     delivery = models.ForeignKey(Delivery, on_delete=models.CASCADE, null=True, blank=True)
     order_id = models.CharField(max_length=20, unique=True, blank=True)
-    payment = models.OneToOneField(Payment, on_delete=models.CASCADE, blank=True, null=True)
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, blank=True, null=True)
     def save(self, *args, **kwargs):
         if not self.order_id:
             unique = False

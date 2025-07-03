@@ -115,7 +115,7 @@ class PaystackWebhookView(View):
             wallet.save()
         elif payment_type == 'purchase-item':
             try:
-                payment = Payment.objects.create(
+                payment, created = Payment.objects.get_or_create(
                     user=user,
                     method='wallet',
                     amount=amount,
@@ -246,7 +246,7 @@ class PurchasePaymentView(APIView):
                 platform_wallet.balance += amount
                 platform_wallet.save()
 
-                payment = Payment.objects.create(
+                payment, created = Payment.objects.get_or_create(
                     user=request.user,
                     method='wallet',
                     amount=amount,
@@ -259,14 +259,8 @@ class PurchasePaymentView(APIView):
 
                 Transactions.objects.create(
                     owner=request.user, payment=payment)
-
-                # WalletTransactions.objects.create(
-                #     content=f"You made a Purchase of {product.id} from {product.store.owner}",
-                #     type='Item-Purchase',
-                #     wallet=sender_wallet
-                # )
                 try:
-                    order = create_order_with_items(cart_items, payment)
+                    order_item = create_order_with_items(request=request, cart_items=cart_items, payment=payment)
                     return Response({"Message Order Placed Successfully"}, status=status.HTTP_200_OK)
                 except Exception as e:
                     return Response(str(e), status=status.HTTP_400_BAD_REQUEST)

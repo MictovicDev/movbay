@@ -164,7 +164,7 @@ class DashBoardView(APIView):
 
 class StatusView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
-    permission_classes = [permissions.IsAuthenticated, IsProductOwner]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
         product = get_object_or_404(Product, id=pk)
