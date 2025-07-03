@@ -64,8 +64,7 @@ class PaystackProvider(PaymentProvider):
         except requests.RequestException as e:
             logger.error(f"Paystack verification error: {e}")
             return {'status': False, 'message': str(e)}
-        
- #033 #044       
+               
     def create_transfer_recipient(self, payload):
         url = f"{self.base_url}/transferrecipient"
         print(payload)

@@ -97,25 +97,40 @@ class PaystackWebhookView(View):
     def handle_successful_payment(self, data):
         """Handle successful payment"""
         payment_data = data.get('data', {})
-
-        # Extract payment information
         reference = payment_data.get('reference')
-        # Convert from kobo to naira
         amount = payment_data.get('amount', 0) / 100
         email = payment_data.get('customer', {}).get('email')
         user_id = payment_data.get('metadata', {}).get('user_id')
         payment_type = payment_data.get('metadata', {}).get('payment_type')
-
+        cart_items = payment_data.get('metadata', {}).get('cart_items')
         user = User.objects.get(email=email)
         data = calculate_wallet_fee(amount)
         amount = data.get('wallet_credit')
         Payment.objects.create(user=user, provider='paystack', amount=amount,
-                               transaction_id=reference, status='success', payment_type=payment_type)
+                               transaction_id=reference, status='success', payment_method=payment_type)
         if payment_type == 'fund-wallet':
             wallet = Wallet.objects.get(owner=user)
             wallet.balance += int(amount)
             wallet.total_deposit += int(amount)
             wallet.save()
+        elif payment_type == 'purchase-item':
+            try:
+                payment = Payment.objects.create(
+                    user=user,
+                    method='wallet',
+                    amount=amount,
+                    currency="NGN",
+                    reference=reference,
+                    transaction_id=generate_tx_ref(),
+                    status='completed',
+                    payment_method='wallet'
+                )
+                order = create_order_with_items(cart_items, payment)
+                return Response({"Message Order Placed Successfully"}, status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"Message Error Making Payment for Order"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Send notification to React Native frontend
         self.notify_frontend({
@@ -193,56 +208,30 @@ class FundWallet(APIView):
         return Response(result, status=status.HTTP_200_OK)
 
 
- #transaction.on_commit(lambda: send_order_email_to_seller(product.store.owner.email, product.name))
-    # send me the product id you want to purchase
-    # initialize payment for that product with the logged in user
-    # construct the meta data
-    # if the payment method is movbay wallet, i would confirm first, if the price for the goods can be purchased from your wallet
-    # if it's bank transfer or card i send the payment to paystack,
-    # from the webhook i access the metadata then know the payment type, then get the owner of the product.
-    # then send response to the frontend that payment is succesfull, then frontend shows the order place screen
-    # else if i didn't send a 200 response the frontend shows there was an error with the pament and the exact issue
-    # if the order is accepted the user gets notified.
-    # when order has been completed we fund the sellers wallet
-
-
-
 class PurchasePaymentView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
-    {
-        "cart_items": [
-            {
-            "product_id": 101,
-            "quantity": 1
-            },
-            {
-            "product_id": 102,
-            "quantity": 1
-            }
-        ]
-    }
 
-    def post(self, request, pk):
-        product = get_object_or_404(Product, id=pk)
+    def post(self, request):
+       # product = get_object_or_404(Product, id=pk)
         amount = int(Decimal(request.data.get('amount', '0')))
         cart_items = request.data.get('cart_items')
+        print(cart_items)
         platform_wallet, created = Wallet.objects.get_or_create(
             owner__is_superuser=True)
-        
-        transaction_data = {
-        "email": request.user.email,
-        "amount": amount * 100,
-        "reference": generate_tx_ref(),
-        "currency": "NGN",
-        "metadata": {
-            "user_id": str(request.user),
-            "payment_type": 'purchase-item'
-        },
-        "product_id": product.id
-        }
 
+        transaction_data = {
+            "email": request.user.email,
+            "amount": amount * 100,
+            "reference": generate_tx_ref(),
+            "currency": "NGN",
+            "metadata": {
+                "user_id": str(request.user),
+                "payment_type": 'purchase-item'},
+            "cart_items": cart_items
+        }
         payment_method = request.data.get('payment_method')
+        print(payment_method)
 
         if payment_method == 'wallet':
             sender_wallet = request.user.wallet
@@ -268,34 +257,29 @@ class PurchasePaymentView(APIView):
                     payment_method='wallet'
                 )
 
-                Transactions.objects.create(owner=request.user, payment=payment)
+                Transactions.objects.create(
+                    owner=request.user, payment=payment)
 
-                WalletTransactions.objects.create(
-                    content=f"You made a Purchase of {product.id} from {product.store.owner}",
-                    type='Item-Purchase',
-                    wallet=sender_wallet
-                )
-
+                # WalletTransactions.objects.create(
+                #     content=f"You made a Purchase of {product.id} from {product.store.owner}",
+                #     type='Item-Purchase',
+                #     wallet=sender_wallet
+                # )
                 try:
-                    order = create_order_with_items(cart_items)
+                    order = create_order_with_items(cart_items, payment)
                     return Response({"Message Order Placed Successfully"}, status=status.HTTP_200_OK)
                 except Exception as e:
                     return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
 
         else:
-            provider_name = request.data.get('provider')
-            method = PaymentMethodFactory.create_method(payment_method)
-            provider = PaymentProviderFactory.create_provider(provider_name)
-            data = method.prepare_payment_data(transaction_data)
-            response = provider.initialize_payment(data)
-            if response.status_code == 200:
-                try:
-                    order = create_order_with_items(cart_items)
-                    return Response({"Message Order Placed Successfully"}, status=status.HTTP_200_OK)
-                except Exception as e:
-                    return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
-            else:
-                return Response({"Message Error Making Payment for Order"}, status=status.HTTP_400_BAD_REQUEST )
+            provider_name = request.data.get('provider_name')
+            provider = PaymentProviderFactory.create_provider(
+                provider_name=provider_name)
+            method = PaymentMethodFactory.create_method(
+                method_name=payment_method)
+            transaction_data = method.prepare_payment_data(transaction_data)
+            response = provider.initialize_payment(transaction_data)
+            return Response(response, status=status.HTTP_200_OK)
 
 
 class VerifyTransaction(APIView):

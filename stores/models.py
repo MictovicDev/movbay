@@ -10,7 +10,7 @@ from django.db import models
 import cloudinary
 from users.models import UserProfile
 from cloudinary.models import CloudinaryField
-
+from payment.models import Payment
 
 User = get_user_model()
 
@@ -241,12 +241,12 @@ class Order(models.Model):
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='orders')
     confirmed = models.BooleanField(default=False)
     status = models.CharField(max_length=250, choices=STATUS_CHOICES, default='new')
     delivery = models.ForeignKey(Delivery, on_delete=models.CASCADE, null=True, blank=True)
     order_id = models.CharField(max_length=20, unique=True, blank=True)
-
+    payment = models.OneToOneField(Payment, on_delete=models.CASCADE, blank=True, null=True)
     def save(self, *args, **kwargs):
         if not self.order_id:
             unique = False
