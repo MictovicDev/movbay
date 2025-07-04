@@ -238,14 +238,13 @@ class Order(models.Model):
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
     ]
-
-    user = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='orders')
     confirmed = models.BooleanField(default=False)
     status = models.CharField(max_length=250, choices=STATUS_CHOICES, default='new')
     delivery = models.ForeignKey(Delivery, on_delete=models.CASCADE, null=True, blank=True)
     order_id = models.CharField(max_length=20, unique=True, blank=True)
-    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, blank=True, null=True)
+    amount = models.PositiveBigIntegerField(blank=True, null=True)
+    payment = models.ForeignKey(Payment, on_delete=models.PROTECT, blank=True, null=True)
     def save(self, *args, **kwargs):
         if not self.order_id:
             unique = False
@@ -256,6 +255,7 @@ class Order(models.Model):
                     self.order_id = new_id
         super().save(*args, **kwargs)
 
+
     def __str__(self):
         return self.order_id
 
@@ -263,8 +263,9 @@ class Order(models.Model):
    
 class OrderItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, blank=True, null=True)
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, blank=True, null=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, blank=True, null=True, related_name='order_items')
     count = models.PositiveIntegerField(default=1)
+    amount = models.PositiveBigIntegerField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True),
     
     

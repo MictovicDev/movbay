@@ -5,7 +5,8 @@ from .models import (Store,
                      Product,
                      Status,
                      ProductImage,
-                     StoreFollow
+                     StoreFollow,
+                     OrderItem
                      )
 
 from .tasks import upload_single_image, upload_store_files, upload_video
@@ -23,8 +24,8 @@ class StoreFollowSerializer(serializers.ModelSerializer):
         fields = ('id', 'following', 'follower')
 
 
-class StatusSerializer(serializers.ModelSerializer):
 
+class StatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Status
         fields = '__all__'
@@ -44,6 +45,7 @@ class DashboardSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+
 class StoreSerializer(serializers.ModelSerializer):
     cac = serializers.FileField()
     nin = serializers.FileField()
@@ -54,7 +56,7 @@ class StoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
         fields = ('name', 'category', 'description', 'address1',
-                  'store_image', 'address2', 'cac', 'nin', 'statuses')
+                  'store_image', 'address2', 'cac', 'nin', 'statuses', 'owner')
 
     def validate_cac(self, value):
         if value:
@@ -183,13 +185,22 @@ class DeliverySerializer(serializers.ModelSerializer):
         return delivery
 
 
+class OrderItemSerializer(serializers.ModelSerializer):
+    product = ProductSerializer()
+    created_at = serializers.DateTimeField(
+        format="%Y-%m-%d %H:%M", read_only=True)
+    class Meta:
+        model = OrderItem
+        fields = ['product', 'amount', 'created_at']
+
+
 class OrderSerializer(serializers.ModelSerializer):
-    product = ProductSerializer(read_only=True)
+    order_items = OrderItemSerializer(read_only=True, many=True)
     status = serializers.CharField(read_only=True)
 
     class Meta:
         model = Order
-        fields = ['product', 'user', 'delivery', 'status']
+        fields = ['delivery', 'status','order_items']
 
     def create(self, validated_data):
         delivery_data = validated_data.pop('delivery')

@@ -4,23 +4,16 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from payment.factories import PaymentProviderFactory, PaymentMethodFactory
-import time
-import random
 from rest_framework.response import Response
 from rest_framework import status
-import string
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
 import os
 import hmac
 import hashlib
-from django.http import HttpResponse
 import json
-from rest_framework.decorators import api_view
-import json
-import hashlib
-import hmac
 import logging
+from django.http import HttpResponse
+from rest_framework.decorators import api_view
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -28,7 +21,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from .models import Payment, Transactions
+from .models import Payment
 from django.contrib.auth import get_user_model
 from wallet.models import Wallet
 from .utils.fees import calculate_purchase_fee, calculate_wallet_fee
@@ -41,6 +34,7 @@ from wallet.models import WalletTransactions
 from django.db import transaction
 from stores.utils.create_order import create_order_with_items
 from stores.models import Store
+from .utils.helper import generate_tx_ref
 
 User = get_user_model()
 
@@ -106,9 +100,9 @@ class PaystackWebhookView(View):
         user = User.objects.get(email=email)
         data = calculate_wallet_fee(amount)
         amount = data.get('wallet_credit')
-        Payment.objects.create(user=user, provider='paystack', amount=amount,
-                               transaction_id=reference, status='success', payment_method=payment_type)
         if payment_type == 'fund-wallet':
+            Payment.objects.create(user=user, provider='paystack', amount=amount,
+                                   transaction_id=reference, status='success', payment_method=payment_type)
             wallet = Wallet.objects.get(owner=user)
             wallet.balance += int(amount)
             wallet.total_deposit += int(amount)
@@ -126,6 +120,7 @@ class PaystackWebhookView(View):
                     payment_method='wallet'
                 )
                 order = create_order_with_items(cart_items, payment)
+                print(order)
                 return Response({"Message Order Placed Successfully"}, status=status.HTTP_200_OK)
             except Exception as e:
                 return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
@@ -177,13 +172,6 @@ class TestHandler(APIView):
             return Response(str(e))
 
 
-def generate_tx_ref(prefix="TX"):
-    timestamp = int(time.time())  # seconds since epoch
-    rand_str = ''.join(random.choices(
-        string.ascii_uppercase + string.digits, k=6))
-    return f"{prefix}-{timestamp}-{rand_str}"
-
-
 class FundWallet(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
@@ -215,9 +203,8 @@ class PurchasePaymentView(APIView):
     def post(self, request):
        # product = get_object_or_404(Product, id=pk)
         amount = int(Decimal(request.data.get('amount', '0')))
-        cart_items = request.data.get('cart_items')
-        admin_user = User.objects.filter(is_superuser=True).first()
-        print(cart_items)
+        order_data = request.data.get('order_data')
+        print(order_data)
         transaction_data = {
             "email": request.user.email,
             "amount": amount * 100,
@@ -225,47 +212,24 @@ class PurchasePaymentView(APIView):
             "currency": "NGN",
             "metadata": {
                 "user_id": str(request.user),
-                "payment_type": 'purchase-item'},
-            "cart_items": cart_items
+                "payment_type": 'purchase-item',
+                "cart_items": order_data,
+            },
+
         }
-        payment_method = request.data.get('payment_method')
+        payment_method = request.data.get('order_data').get('payment_method')
         print(payment_method)
-
         if payment_method == 'wallet':
-            platform_wallet, created = Wallet.objects.get_or_create(
-            owner=admin_user)
-            sender_wallet = request.user.wallet
-            print(sender_wallet)
-            print(request.user)
-
-            if sender_wallet.balance < amount:
-                return Response({"Message": "Insufficient Funds"}, status=status.HTTP_402_PAYMENT_REQUIRED)
-
-            with transaction.atomic():
-                sender_wallet.balance -= amount
-                sender_wallet.save()
-
-                platform_wallet.balance += amount
-                platform_wallet.save()
-
-                payment, created = Payment.objects.get_or_create(
-                    user=request.user,
-                    method='wallet',
-                    amount=amount,
-                    currency="NGN",
-                    reference=transaction_data.get('reference'),
-                    transaction_id=generate_tx_ref(),
-                    status='completed',
-                    payment_method='wallet'
-                )
-
-                Transactions.objects.create(
-                    owner=request.user, payment=payment)
-                try:
-                    order_item = create_order_with_items(request=request, cart_items=cart_items, payment=payment)
-                    return Response({"Message Order Placed Successfully"}, status=status.HTTP_200_OK)
-                except Exception as e:
-                    return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+            try:
+                response = create_order_with_items(request=request,
+                                                   order_data=order_data, transaction_data=transaction_data)
+                print(response)
+                if response.status_code == 201:
+                    return Response({"Message": "Order Placed Succesfull"}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"Message": "Order not Created"}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
 
         else:
             provider_name = request.data.get('provider_name')

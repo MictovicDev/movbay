@@ -163,6 +163,17 @@ class DashBoardView(APIView):
             return Response(str(e), status=status.HTTP_404_NOT_FOUND)
 
 
+
+class StoreDetailView(APIView):
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, pk):
+        store = get_object_or_404(Store, id=pk)
+        serializer = StoreSerializer(store)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 class StatusView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -192,6 +203,8 @@ class StatusView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def get(self, request, pk):
-        store_status = get_object_or_404(Status, id=pk)
-        serializer = StatusSerializer(store_status)
+        store = get_object_or_404(Store, id=pk)
+        status_instances = store.statuses.all()
+        print(status)
+        serializer = StatusSerializer(status_instances, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
