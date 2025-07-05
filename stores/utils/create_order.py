@@ -91,6 +91,7 @@ def create_order_with_items(order_data, request, transaction_data):
         order_instance = Order.objects.create(
             store=store, amount=store_amount, payment=payment
         )
+        print(order_instance)
         for i in item.get("order_items"):
             product = get_object_or_404(Product, id=i.get("product_id"))
             print(product)

@@ -191,11 +191,11 @@ class DeliverySerializer(serializers.ModelSerializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer()
-    created_at = serializers.DateTimeField(
-        format="%Y-%m-%d %H:%M", read_only=True)
+    # created_at = serializers.DateTimeField(
+    #     format="%Y-%m-%d %H:%M", read_only=True)
     class Meta:
         model = OrderItem
-        fields = ['product', 'amount', 'created_at']
+        fields = ['product', 'amount']
 
 
 class OrderSerializer(serializers.ModelSerializer):

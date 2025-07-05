@@ -118,10 +118,10 @@ def upload_status_files(status_id, image):
             return
         if image:
             public_id = f"status_details/{status.id}"
-            image_data = base64.b64decode(image)
-            image_file = io.BytesIO(image_data)
+            # image_data = base64.b64decode(image)
+            # image_file = io.BytesIO(image_data)
             upload_result = cloudinary.uploader.upload(
-                image_file,
+                image,
                 public_id=public_id,
                 overwrite=True
             )

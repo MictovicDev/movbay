@@ -175,38 +175,34 @@ class StoreDetailView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+[{"description": "Ggghg", "uri": "file:///data/user/0/com.bright210.movbayapp/cache/ImagePicker/c147cbb0-29bc-4dd6-b343-c3174b2cec3c.jpeg"},
+    {"description": "Jjjjjj", "uri": "file:///data/user/0/com.bright210.movbayapp/cache/ImagePicker/f6e5181c-bd7e-4769-b950-206e349bacd6.jpeg"}]
+
+
 class StatusView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-
 
     def post(self, request):
         store = request.user.store
         if not store:
             return Response({"message": "User has no Store"}, status=status.HTTP_400_BAD_REQUEST)
 
-        file_data = request.FILES.getlist('images')
-        content = request.data.get('content', '[]')
-        
-        try:
-            captions = json.loads(content)
-        except Exception:
-            return Response({"error": "Invalid JSON in content"}, status=status.HTTP_400_BAD_REQUEST)
+        contents = request.data
 
         statuses = []
 
-        for image, caption in zip(file_data, captions):
+        for item in contents:
             status_obj = Status.objects.create(
                 store=store,
-                content=caption,
+                content=item.get('description'),
             )
-            file = b64encode(image.read()).decode('utf-8')
-            upload_status_files.delay(status_obj.id, file)
+            upload_status_files.delay(status_obj.id, item.get('uri'))
             statuses.append(status_obj)
-        
-        serializer = StatusSerializer(statuses, many=True, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+        serializer = StatusSerializer(
+            statuses, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class ProductStatusView(APIView):
