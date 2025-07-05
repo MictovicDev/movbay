@@ -175,8 +175,7 @@ class StoreDetailView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-[{"description": "Ggghg", "uri": "file:///data/user/0/com.bright210.movbayapp/cache/ImagePicker/c147cbb0-29bc-4dd6-b343-c3174b2cec3c.jpeg"},
-    {"description": "Jjjjjj", "uri": "file:///data/user/0/com.bright210.movbayapp/cache/ImagePicker/f6e5181c-bd7e-4769-b950-206e349bacd6.jpeg"}]
+# <QueryDict: {'content': ['Vvbbb', 'Vvvbb'], 'images': [ < InMemoryUploadedFile: ec05f851-464d-42ec-bcf8-bc56dba8f52a.jpeg (image/jpeg) > , < InMemoryUploadedFile: 38c18e0d-6693-4683-9dfa-f492153e98b8.jpeg (image/jpeg) > ]} >
 
 
 class StatusView(APIView):
@@ -188,21 +187,31 @@ class StatusView(APIView):
         if not store:
             return Response({"message": "User has no Store"}, status=status.HTTP_400_BAD_REQUEST)
 
-        contents = request.data
+        contents = request.POST.getlist('content')  # ['Vvbbb', 'Vvvbb']
+        images = request.FILES.getlist('images')    # [<InMemoryUploadedFile: ...>, ...]
+        print(request.data)
+        statuses = []
+        print(contents)
+        print(images)
+        print(type(contents))
+        print(type(images))
+        if len(contents) != len(images):
+            return Response(
+                {"error": "The number of captions and images must be the same."},
+                status=400
+            )
 
         statuses = []
-
-        for item in contents:
+        for caption, image in zip(contents, images):
             status_obj = Status.objects.create(
                 store=store,
-                content=item.get('description'),
+                content=caption,
             )
-            upload_status_files.delay(status_obj.id, item.get('uri'))
             statuses.append(status_obj)
-
-        serializer = StatusSerializer(
-            statuses, many=True, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+            file_bytes = image.read()
+            upload_status_files.delay(status_obj.id, file_bytes)
+        serializer = StatusSerializer(statuses, many=True, context={'request': request})
+        return Response(serializer.data, status=201)
 
 
 class ProductStatusView(APIView):
