@@ -6,7 +6,7 @@ from .models import (Store,
                      Status,
                      ProductImage,
                      StoreFollow,
-                     OrderItem
+                     OrderItem,
                      )
 
 from .tasks import upload_single_image, upload_store_files, upload_video
@@ -22,6 +22,9 @@ class StoreFollowSerializer(serializers.ModelSerializer):
     class Meta:
         model = StoreFollow
         fields = ('id', 'following', 'follower')
+        
+        
+        
 
 
 
@@ -29,7 +32,8 @@ class StatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Status
         fields = '__all__'
-
+        
+        
 
 class DashboardSerializer(serializers.ModelSerializer):
     product_count = serializers.IntegerField(read_only=True)

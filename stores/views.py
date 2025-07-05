@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Store, Order, Product, Delivery
+from .models import Store, Order, Product, Delivery, StoreFollow, Status
 from .serializers import StoreSerializer, OrderSerializer, ProductSerializer, DeliverySerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
@@ -11,12 +11,15 @@ from django.db.models import Prefetch
 from rest_framework import status
 from django.db.models import Count
 from .permissions import IsProductOwner
-from .models import StoreFollow
 from django.contrib.auth import get_user_model
 from .serializers import StoreFollowSerializer, UserSerializer, DashboardSerializer, StatusSerializer
 from .models import Status
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+import json
+from .tasks import upload_status_files
+from base64 import b64encode
+
 
 User = get_user_model()
 
@@ -134,8 +137,6 @@ class UserProductListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return Product.objects.filter(store__owner=user)
-    
-
 
 
 class DashBoardView(APIView):
@@ -148,9 +149,10 @@ class DashBoardView(APIView):
             store = Store.objects.select_related('owner').prefetch_related(
                 Prefetch('products'),
                 Prefetch(
-                'statuses',
-                queryset=Status.objects.filter(expires_at__gt=timezone.now())
-            )
+                    'statuses',
+                    queryset=Status.objects.filter(
+                        expires_at__gt=timezone.now())
+                )
             ).annotate(
                 product_count=Count('products'),
                 order_count=Count('orders'),
@@ -163,11 +165,10 @@ class DashBoardView(APIView):
             return Response(str(e), status=status.HTTP_404_NOT_FOUND)
 
 
-
 class StoreDetailView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get(self, request, pk):
         store = get_object_or_404(Store, id=pk)
         serializer = StoreSerializer(store)
@@ -175,6 +176,40 @@ class StoreDetailView(APIView):
 
 
 class StatusView(APIView):
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+
+    def post(self, request):
+        store = request.user.store
+        if not store:
+            return Response({"message": "User has no Store"}, status=status.HTTP_400_BAD_REQUEST)
+
+        file_data = request.FILES.getlist('images')
+        content = request.data.get('content', '[]')
+        
+        try:
+            captions = json.loads(content)
+        except Exception:
+            return Response({"error": "Invalid JSON in content"}, status=status.HTTP_400_BAD_REQUEST)
+
+        statuses = []
+
+        for image, caption in zip(file_data, captions):
+            status_obj = Status.objects.create(
+                store=store,
+                content=caption,
+            )
+            file = b64encode(image.read()).decode('utf-8')
+            upload_status_files.delay(status_obj.id, file)
+            statuses.append(status_obj)
+        
+        serializer = StatusSerializer(statuses, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+
+class ProductStatusView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 

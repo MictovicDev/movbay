@@ -3,12 +3,13 @@ import base64
 from io import BytesIO
 from .models import Cart, CartItem, Product
 from cloudinary.uploader import upload
-import os
 import cloudinary
-from .models import Store
+from .models import Store, Status
 import logging
 import requests
-
+from django.shortcuts import get_object_or_404
+import base64
+import io
 import logging
 
 # Configure logger if not already done
@@ -105,6 +106,32 @@ def upload_store_files(store_id, file_data):
                     store.save()
     except Exception as e:
         print(f"Error saving profile picture: {str(e)}")
+
+
+@shared_task
+def upload_status_files(status_id, image):
+    try:
+        try:
+            status = Status.objects.get(id=status_id)
+        except Status.DoesNotExist:
+            print(f"Status with ID {status_id} not found.")
+            return
+        if image:
+            public_id = f"status_details/{status.id}"
+            image_data = base64.b64decode(image)
+            image_file = io.BytesIO(image_data)
+            upload_result = cloudinary.uploader.upload(
+                image_file,
+                public_id=public_id,
+                overwrite=True
+            )
+            image_url = upload_result.get("secure_url")
+            print(image_url)
+            status.image_url = image_url
+            status.save()
+    except Exception as e:
+        print(f"Error saving profile picture: {str(e)}")
+
 
 
 @shared_task

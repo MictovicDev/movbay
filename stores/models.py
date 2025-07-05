@@ -162,12 +162,15 @@ class StoreFollow(models.Model):
         return f"{self.follower.username} follows {self.following}"
     
 
+
+    
     
 
 class Status(models.Model):
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='statuses', db_index=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, db_index=True, blank=True, null=True)
     image = models.ImageField(upload_to='store/', blank=True, null=True)
+    image_url = models.URLField(blank=True, null=True)
     content = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
@@ -191,6 +194,15 @@ class Status(models.Model):
         super().save(*args, **kwargs)
 
 
+
+# class StatusImage(models.Model):
+#     image = models.ImageField(upload_to='store', blank=True, null=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     status = models.ForeignKey(Status, on_delete=models.CASCADE, blank=True, null=True, related_name='statusimages')
+    
+    
+#     def __str__(self):
+#         return f"Status image {self.status}"
                 
 
 def generate_order_id(size=8, prefix="MOV"):
