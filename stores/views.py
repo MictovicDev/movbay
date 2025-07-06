@@ -189,12 +189,7 @@ class StatusView(APIView):
 
         contents = request.POST.getlist('content')  # ['Vvbbb', 'Vvvbb']
         images = request.FILES.getlist('images')    # [<InMemoryUploadedFile: ...>, ...]
-        print(request.data)
         statuses = []
-        print(contents)
-        print(images)
-        print(type(contents))
-        print(type(images))
         if len(contents) != len(images):
             return Response(
                 {"error": "The number of captions and images must be the same."},
@@ -208,7 +203,8 @@ class StatusView(APIView):
                 content=caption,
             )
             statuses.append(status_obj)
-            file_bytes = image.read()
+            file_bytes = b64encode(image.read()).decode('utf-8')
+            # file_bytes = image.read()
             upload_status_files.delay(status_obj.id, file_bytes)
         serializer = StatusSerializer(statuses, many=True, context={'request': request})
         return Response(serializer.data, status=201)
