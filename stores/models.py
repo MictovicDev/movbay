@@ -237,11 +237,8 @@ class Delivery(models.Model):
         db_index=True,
         validators=[EmailValidator(message="Enter a valid email address")], blank=True, null=True
     )
-    postal_code = models.PositiveBigIntegerField()
-    
-    
+    postal_code = models.PositiveBigIntegerField()    
 
-# models.py
 class Order(models.Model):
     STATUS_CHOICES = [
         ('new', 'New Orders'),
@@ -252,11 +249,13 @@ class Order(models.Model):
     ]
     store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='orders')
     confirmed = models.BooleanField(default=False)
+    delivery = models.ForeignKey(Delivery, on_delete=models.CASCADE, blank=True, null=True)
     status = models.CharField(max_length=250, choices=STATUS_CHOICES, default='new')
-    delivery = models.ForeignKey(Delivery, on_delete=models.CASCADE, null=True, blank=True)
     order_id = models.CharField(max_length=20, unique=True, blank=True)
     amount = models.PositiveBigIntegerField(blank=True, null=True)
     payment = models.ForeignKey(Payment, on_delete=models.PROTECT, blank=True, null=True)
+    
+    
     def save(self, *args, **kwargs):
         if not self.order_id:
             unique = False
@@ -271,7 +270,6 @@ class Order(models.Model):
     def __str__(self):
         return self.order_id
 
-   
    
 class OrderItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, blank=True, null=True)

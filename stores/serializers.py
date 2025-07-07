@@ -22,18 +22,13 @@ class StoreFollowSerializer(serializers.ModelSerializer):
     class Meta:
         model = StoreFollow
         fields = ('id', 'following', 'follower')
-        
-        
-        
-
 
 
 class StatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Status
         fields = '__all__'
-        
-        
+
 
 class DashboardSerializer(serializers.ModelSerializer):
     product_count = serializers.IntegerField(read_only=True)
@@ -47,7 +42,6 @@ class DashboardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
         fields = '__all__'
-
 
 
 class StoreSerializer(serializers.ModelSerializer):
@@ -174,6 +168,14 @@ class ProductSerializer(serializers.ModelSerializer):
         return product
 
 
+class OrderItemSerializer(serializers.ModelSerializer):
+    product = serializers.PrimaryKeyRelatedField(read_only=True)
+    
+    class Meta:
+        model = OrderItem
+        fields = ['product', 'amount', 'count']
+
+
 class DeliverySerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
 
@@ -182,30 +184,27 @@ class DeliverySerializer(serializers.ModelSerializer):
         fields = ['delivery_method', 'fullname', 'phone_number', 'email', 'user',
                   'delivery_address', 'alternative_address', 'landmark', 'city', 'state', 'postal_code']
 
-    def create(self, validated_data):
-        user = self.context['request'].user
-        validated_data['user'] = user
-        delivery = Delivery.objects.create(**validated_data)
-        return delivery
-
-
-class OrderItemSerializer(serializers.ModelSerializer):
-    product = ProductSerializer()
-    # created_at = serializers.DateTimeField(
-    #     format="%Y-%m-%d %H:%M", read_only=True)
-    class Meta:
-        model = OrderItem
-        fields = ['product', 'amount']
-
 
 class OrderSerializer(serializers.ModelSerializer):
     order_items = OrderItemSerializer(read_only=True, many=True)
     status = serializers.CharField(read_only=True)
+    delivery = DeliverySerializer()
 
     class Meta:
         model = Order
-        fields = ['delivery', 'status','order_items']
+        fields = ['status', 'order_items', 'delivery']
 
-    def create(self, validated_data):
-        delivery_data = validated_data.pop('delivery')
-        pass
+
+class ItemSerializer(serializers.Serializer):
+    store = serializers.IntegerField()
+    product = serializers.IntegerField()
+    amount = serializers.IntegerField()
+    quantity = serializers.IntegerField()
+
+
+class ShopSerializer(serializers.Serializer):
+    delivery = DeliverySerializer()
+    items = ItemSerializer(many=True)
+    payment_method = serializers.CharField()
+    provider_name = serializers.CharField()
+    total_amount = serializers.IntegerField()

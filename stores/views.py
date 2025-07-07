@@ -187,8 +187,8 @@ class StatusView(APIView):
         if not store:
             return Response({"message": "User has no Store"}, status=status.HTTP_400_BAD_REQUEST)
 
-        contents = request.POST.getlist('content')  # ['Vvbbb', 'Vvvbb']
-        images = request.FILES.getlist('images')    # [<InMemoryUploadedFile: ...>, ...]
+        contents = request.POST.getlist('content')  
+        images = request.FILES.getlist('images')
         statuses = []
         if len(contents) != len(images):
             return Response(

@@ -35,6 +35,7 @@ from django.db import transaction
 from stores.utils.create_order import create_order_with_items
 from stores.models import Store
 from .utils.helper import generate_tx_ref
+from stores.serializers import ShopSerializer
 
 User = get_user_model()
 
@@ -109,17 +110,8 @@ class PaystackWebhookView(View):
             wallet.save()
         elif payment_type == 'purchase-item':
             try:
-                payment, created = Payment.objects.get_or_create(
-                    user=user,
-                    method='wallet',
-                    amount=amount,
-                    currency="NGN",
-                    reference=reference,
-                    transaction_id=generate_tx_ref(),
-                    status='completed',
-                    payment_method='wallet'
-                )
-                order = create_order_with_items(cart_items, payment)
+                order = create_order_with_items(user=user,
+                                                order_data=cart_items, reference=reference)
                 print(order)
                 return Response({"Message Order Placed Successfully"}, status=status.HTTP_200_OK)
             except Exception as e:
@@ -201,45 +193,50 @@ class PurchasePaymentView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-       # product = get_object_or_404(Product, id=pk)
-        amount = int(Decimal(request.data.get('amount', '0')))
-        order_data = request.data.get('order_data')
-        print(order_data)
-        transaction_data = {
-            "email": request.user.email,
-            "amount": amount * 100,
-            "reference": generate_tx_ref(),
-            "currency": "NGN",
-            "metadata": {
-                "user_id": str(request.user),
-                "payment_type": 'purchase-item',
-                "cart_items": order_data,
-            },
+        order_data = request.data
+        serializer = ShopSerializer(data=order_data)
+        if serializer.is_valid():
+            validated_data = serializer.validated_data
+            transaction_data = {
+                "email": request.user.email,
+                "amount": int(Decimal(validated_data['total_amount'])) * 100,
+                "reference": generate_tx_ref(),
+                "currency": "NGN",
+                "metadata": {
+                    "user_id": str(request.user),
+                    "payment_type": 'purchase-item',
+                    "cart_items": validated_data,
+                }, }
+            print(transaction_data.get('amount'))
+            payment_method = validated_data.get('payment_method')
+            print(payment_method)
+            if payment_method == 'wallet':
+                try:
+                    response = create_order_with_items(user=request.user,
+                                                       order_data=validated_data, reference=transaction_data.get('reference'))
+                    print(response)
+                    if response.status_code == 201:
+                        return Response({"Message": "Order Placed Succesfully"}, status=status.HTTP_200_OK)
+                    else:
+                        return Response({"Message": "Order not Created"}, status=status.HTTP_400_BAD_REQUEST)
+                except Exception as e:
+                    return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
 
-        }
-        payment_method = request.data.get('order_data').get('payment_method')
-        print(payment_method)
-        if payment_method == 'wallet':
-            try:
-                response = create_order_with_items(request=request,
-                                                   order_data=order_data, transaction_data=transaction_data)
+            else:
+                print(validated_data)
+                provider_name = validated_data['provider_name']
+                payment_method = validated_data['payment_method']
+                provider = PaymentProviderFactory.create_provider(
+                    provider_name=provider_name)
+                print(provider)
+                method = PaymentMethodFactory.create_method(
+                    method_name=payment_method)
+                print(method)
+                transaction_data = method.prepare_payment_data(
+                    transaction_data)
+                response = provider.initialize_payment(transaction_data)
                 print(response)
-                if response.status_code == 201:
-                    return Response({"Message": "Order Placed Succesfull"}, status=status.HTTP_200_OK)
-                else:
-                    return Response({"Message": "Order not Created"}, status=status.HTTP_400_BAD_REQUEST)
-            except Exception as e:
-                return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
-
-        else:
-            provider_name = request.data.get('provider_name')
-            provider = PaymentProviderFactory.create_provider(
-                provider_name=provider_name)
-            method = PaymentMethodFactory.create_method(
-                method_name=payment_method)
-            transaction_data = method.prepare_payment_data(transaction_data)
-            response = provider.initialize_payment(transaction_data)
-            return Response(response, status=status.HTTP_200_OK)
+                return Response(response, status=status.HTTP_200_OK)
 
 
 class VerifyTransaction(APIView):
