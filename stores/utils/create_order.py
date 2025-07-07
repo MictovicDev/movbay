@@ -13,26 +13,25 @@ User = get_user_model()
 
 
 @transaction.atomic
-def create_order_with_items(order_data, request, reference, method):
+def create_order_with_items(user, order_data, reference, method):
     admin_user = User.objects.filter(is_superuser=True).first()
     platform_wallet, _ = Wallet.objects.get_or_create(owner=admin_user)
     amount = order_data.get("total_amount")
     delivery_data = order_data['delivery']
     delivery = Delivery.objects.create(**delivery_data)
-    sender_wallet = request.user.wallet
-    
-    if sender_wallet.balance < amount:
-        raise ValueError("Insufficient Funds")
+    if method == 'wallet':
+        sender_wallet = user.wallet
+        print(sender_wallet)
+        if sender_wallet.balance < amount:
+            raise ValueError("Insufficient Funds")
+        sender_wallet.balance -= amount
+        sender_wallet.save()
 
-    # Deduct from sender
-    sender_wallet.balance -= amount
-    sender_wallet.save()
-
-    # Add to platform
-    platform_wallet.balance += amount
-    platform_wallet.save()
+        platform_wallet.balance += amount
+        platform_wallet.save()
+        
     payment = Payment.objects.create(
-        user=request.user,
+        user=user,
         amount=amount,
         currency="NGN",
         reference= reference,
@@ -41,7 +40,7 @@ def create_order_with_items(order_data, request, reference, method):
         payment_method='wallet'
     )
     # delivery = Delivery.objects.create(delivery_method=)
-    Transactions.objects.create(owner=request.user, payment=payment)
+    Transactions.objects.create(owner=user, payment=payment)
 
     response_data = []
     cart_items = order_data.get('items')
@@ -49,8 +48,9 @@ def create_order_with_items(order_data, request, reference, method):
         store = get_object_or_404(Store, id=item.get("store"))
         store_amount = item.get("amount")
         order_instance = Order.objects.create(
-            store=store, amount=store_amount, payment=payment
+            store=store, amount=store_amount, payment=payment, buyer_name=user.fullname, buyer_number=user.phone_number
         )
+        print(order_instance)
         product = get_object_or_404(Product, id=item.get("product"))
         quantity = item.get("quantity")
         amount = item.get("amount")
@@ -63,7 +63,7 @@ def create_order_with_items(order_data, request, reference, method):
         except Exception as e:
             print(e)
         try:
-            product.stock_available -= quantity
+            product.stock_available -= int(quantity)
             product.save()
         except Exception as e:
             print(e)

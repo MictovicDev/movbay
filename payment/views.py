@@ -91,6 +91,8 @@ class PaystackWebhookView(View):
 
     def handle_successful_payment(self, data):
         """Handle successful payment"""
+        payment_type = data.get('data').get('metadata', {}).get('payment_type')
+        payment_type == 'purchase-item'
         payment_data = data.get('data', {})
         reference = payment_data.get('reference')
         amount = payment_data.get('amount', 0) / 100
@@ -109,10 +111,11 @@ class PaystackWebhookView(View):
             wallet.total_deposit += int(amount)
             wallet.save()
         elif payment_type == 'purchase-item':
+            print(True)
             try:
-                order = create_order_with_items(user=user,
-                                                order_data=cart_items, reference=reference)
-                print(order)
+                response = create_order_with_items(user=user,
+                                                order_data=cart_items, reference=reference, method='paystack')
+                print(response)
                 return Response({"Message Order Placed Successfully"}, status=status.HTTP_200_OK)
             except Exception as e:
                 return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
@@ -213,7 +216,7 @@ class PurchasePaymentView(APIView):
             if payment_method == 'wallet':
                 try:
                     response = create_order_with_items(user=request.user,
-                                                       order_data=validated_data, reference=transaction_data.get('reference'))
+                                                       order_data=validated_data, reference=transaction_data.get('reference'), method='wallet')
                     print(response)
                     if response.status_code == 201:
                         return Response({"Message": "Order Placed Succesfully"}, status=status.HTTP_200_OK)
@@ -237,6 +240,7 @@ class PurchasePaymentView(APIView):
                 response = provider.initialize_payment(transaction_data)
                 print(response)
                 return Response(response, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=400)
 
 
 class VerifyTransaction(APIView):

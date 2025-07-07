@@ -11,6 +11,7 @@ import cloudinary
 from users.models import UserProfile
 from cloudinary.models import CloudinaryField
 from payment.models import Payment
+from phonenumber_field.modelfields import PhoneNumberField
 
 User = get_user_model()
 
@@ -254,6 +255,8 @@ class Order(models.Model):
     order_id = models.CharField(max_length=20, unique=True, blank=True)
     amount = models.PositiveBigIntegerField(blank=True, null=True)
     payment = models.ForeignKey(Payment, on_delete=models.PROTECT, blank=True, null=True)
+    buyer_name = models.CharField(max_length=250, blank=True, null=True)
+    buyer_number = PhoneNumberField(blank=True, null=True)
     
     
     def save(self, *args, **kwargs):

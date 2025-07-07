@@ -64,9 +64,9 @@ class OrderListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
+        store = self.request.user.store
         status = self.request.GET.get('status', 'New_Orders')
-        return Order.objects.filter(user=user, status=status)
+        return Order.objects.filter(store=store, status=status)
 
 
 class OrderDetailView(generics.RetrieveDestroyAPIView):
