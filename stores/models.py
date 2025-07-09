@@ -206,7 +206,7 @@ class Status(models.Model):
 #         return f"Status image {self.status}"
                 
 
-def generate_order_id(size=8, prefix="#MOV"):
+def generate_order_id(size=8, prefix="MOV"):
     chars = string.ascii_uppercase + string.digits
     random_part = ''.join(random.choices(chars, k=size))
     return f"{prefix}{random_part}"

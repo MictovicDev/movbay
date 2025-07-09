@@ -19,6 +19,8 @@ from django.utils import timezone
 import json
 from .tasks import upload_status_files
 from base64 import b64encode
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 
 User = get_user_model()
@@ -81,13 +83,22 @@ class ConfirmOrder(APIView):
 
     def post(self, request, pk):
         try:
-            order = get_object_or_404(Order, id=pk)
-            if order.status == 'new':
-                order.status = 'processing'
-                order.save()
-                return Response({"Message": "Order is being Processed"}, status=200)
-            else:
-                return Response({"Message": "Order is not a new One"})
+            order = get_object_or_404(Order, order_id=pk)
+            order.status = 'processing'
+            order.save()
+            print(order.order_id)
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"order_{order.order_id}",
+                {
+                    "type": "order_status_update",
+                    "order_id": order.order_id,
+                    "status": order.status,
+                }
+            )
+            return Response({"Message": "Order is being Processed"}, status=200)
+            # else:
+            #     return Response({"Message": "Order is not a new One"})
            
         except Exception as e:
             return Response(str(e), status=400)
