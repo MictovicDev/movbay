@@ -19,6 +19,7 @@ urlpatterns = [
     path('userproduct/<int:pk>/', views.UserProductDetailView.as_view(),
          name='user-product-detail'),
     path('status/<str:pk>/', views.ProductStatusView.as_view(), name='product-status'),
-    path('status/', views.StatusView.as_view(), name='status-creation')
+    path('status/', views.StatusView.as_view(), name='status-creation'),
+    path('confirm-order/<str:pk>/', views.ConfirmOrder.as_view(), name='confirm-order')
 
 ]

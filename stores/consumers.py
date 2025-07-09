@@ -3,6 +3,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 
 class StatusConsumer(AsyncWebsocketConsumer):
+    
     async def connect(self):
         self.store_id = self.scope['url_route']['kwargs']['store_id']
         self.group_name = f"store_{self.store_id}_statuses"

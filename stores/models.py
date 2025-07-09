@@ -206,7 +206,7 @@ class Status(models.Model):
 #         return f"Status image {self.status}"
                 
 
-def generate_order_id(size=8, prefix="MOV"):
+def generate_order_id(size=8, prefix="#MOV"):
     chars = string.ascii_uppercase + string.digits
     random_part = ''.join(random.choices(chars, k=size))
     return f"{prefix}{random_part}"
@@ -248,15 +248,16 @@ class Order(models.Model):
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
     ]
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='orders')
+    buyer = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='owner')
     confirmed = models.BooleanField(default=False)
     delivery = models.ForeignKey(Delivery, on_delete=models.CASCADE, blank=True, null=True)
     status = models.CharField(max_length=250, choices=STATUS_CHOICES, default='new')
     order_id = models.CharField(max_length=20, unique=True, blank=True)
     amount = models.PositiveBigIntegerField(blank=True, null=True)
     payment = models.ForeignKey(Payment, on_delete=models.PROTECT, blank=True, null=True)
-    buyer_name = models.CharField(max_length=250, blank=True, null=True)
-    buyer_number = PhoneNumberField(blank=True, null=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True)
+    # buyer_name = models.CharField(max_length=250, blank=True, null=True
+    # buyer_number = PhoneNumberField(blank=True, null=True)
     
     
     def save(self, *args, **kwargs):

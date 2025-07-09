@@ -124,8 +124,6 @@ class LoginAttempt(models.Model):
     
     
 
-
-
 class UserProfile(models.Model):
     profile_picture = CloudinaryField('image', blank=True, null=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_profile')
@@ -133,6 +131,9 @@ class UserProfile(models.Model):
     
     def __str__(self):
         return f"{self.user.email} - Customer Profile"
+    
+    
+
     
    
   

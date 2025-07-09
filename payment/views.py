@@ -217,9 +217,9 @@ class PurchasePaymentView(APIView):
                 try:
                     response = create_order_with_items(user=request.user,
                                                        order_data=validated_data, reference=transaction_data.get('reference'), method='wallet')
-                    print(response)
+                    # print(response.data)
                     if response.status_code == 201:
-                        return Response({"Message": "Order Placed Succesfully"}, status=status.HTTP_200_OK)
+                        return Response(response.data, status=status.HTTP_200_OK)
                     else:
                         return Response({"Message": "Order not Created"}, status=status.HTTP_400_BAD_REQUEST)
                 except Exception as e:

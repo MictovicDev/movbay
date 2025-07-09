@@ -189,10 +189,15 @@ class OrderSerializer(serializers.ModelSerializer):
     order_items = OrderItemSerializer(read_only=True, many=True)
     status = serializers.CharField(read_only=True)
     delivery = DeliverySerializer()
+    buyer = UserSerializer()
+    store = StoreSerializer()
 
     class Meta:
         model = Order
-        fields = ['status', 'order_items', 'delivery','buyer_name', 'buyer_number']
+        fields = ['status', 'order_items', 'delivery', 'buyer', 'order_id', 'store']
+        
+        
+    
 
 
 class ItemSerializer(serializers.Serializer):

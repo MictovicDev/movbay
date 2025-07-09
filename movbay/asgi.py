@@ -17,6 +17,7 @@ from channels.auth import AuthMiddlewareStack
 import stores.routing
 import chat.routing
 import payment.routing
+import logistics.routing
 from chat.middleware import JWTAuthMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -32,7 +33,7 @@ application = ProtocolTypeRouter({
     "http": get_asgi_application(),  # Handles standard HTTP requests
     "websocket": JWTAuthMiddleware(
         URLRouter(
-            stores.routing.websocket_urlpatterns + chat.routing.websocket_urlpatterns + payment.routing.websocket_urlpatterns
+            stores.routing.websocket_urlpatterns + chat.routing.websocket_urlpatterns + payment.routing.websocket_urlpatterns + logistics.routing.websocket_urlpatterns
         )
     ),
 })

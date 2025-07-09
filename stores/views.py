@@ -10,7 +10,7 @@ from rest_framework.throttling import AnonRateThrottle
 from django.db.models import Prefetch
 from rest_framework import status
 from django.db.models import Count
-from .permissions import IsProductOwner
+from .permissions import IsProductOwner, IsStoreOwner
 from django.contrib.auth import get_user_model
 from .serializers import StoreFollowSerializer, UserSerializer, DashboardSerializer, StatusSerializer
 from .models import Status
@@ -73,6 +73,46 @@ class OrderDetailView(generics.RetrieveDestroyAPIView):
     throttle_classes = [CustomAnonRateThrottle]
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
+
+
+class ConfirmOrder(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated, IsStoreOwner]
+
+    def post(self, request, pk):
+        try:
+            order = get_object_or_404(Order, id=pk)
+            if order.status == 'new':
+                order.status = 'processing'
+                order.save()
+                return Response({"Message": "Order is being Processed"}, status=200)
+            else:
+                return Response({"Message": "Order is not a new One"})
+           
+        except Exception as e:
+            return Response(str(e), status=400)
+        
+        
+        
+class MarkForDeliveryView(APIView):
+    def post(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)
+
+        if order.status != "pending":
+            return Response({"error": "Order is already marked or assigned."}, status=400)
+
+        order.status = "assigned"  # temporarily, until a rider picks it
+        order.save()
+
+        # Get nearby riders (5km range)
+        riders = get_nearby_riders(order.store_lat, order.store_lng, max_distance_km=5)
+
+        # Send FCM/WebSocket notification to each nearby rider
+        for rider in riders:
+            notify_rider(rider, order)
+
+        return Response({"message": "Riders notified."}, status=200)
+
 
 
 class ProductListCreateView(generics.ListCreateAPIView):
@@ -187,7 +227,7 @@ class StatusView(APIView):
         if not store:
             return Response({"message": "User has no Store"}, status=status.HTTP_400_BAD_REQUEST)
 
-        contents = request.POST.getlist('content')  
+        contents = request.POST.getlist('content')
         images = request.FILES.getlist('images')
         statuses = []
         if len(contents) != len(images):
@@ -206,7 +246,8 @@ class StatusView(APIView):
             file_bytes = b64encode(image.read()).decode('utf-8')
             # file_bytes = image.read()
             upload_status_files.delay(status_obj.id, file_bytes)
-        serializer = StatusSerializer(statuses, many=True, context={'request': request})
+        serializer = StatusSerializer(
+            statuses, many=True, context={'request': request})
         return Response(serializer.data, status=201)
 
 
