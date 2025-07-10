@@ -12,7 +12,7 @@ print(BASE_DIR)
 
 load_dotenv(BASE_DIR / ".env")
 
-GOOGLE_MAPS_API_KEY = 'AIzaSyBIWbuoiQ82RjmlwD3HG6DEeEtb4VQg5b8'
+GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 DISTANCE_MATRIX_URL = "https://maps.googleapis.com/maps/api/distancematrix/json"
 

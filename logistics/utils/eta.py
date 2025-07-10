@@ -1,7 +1,20 @@
 # utils/google_maps.py
 import requests
+import os
+import json
+from pathlib import Path
+from dotenv import load_dotenv
 
-GOOGLE_MAPS_API_KEY = 'AIzaSyBIWbuoiQ82RjmlwD3HG6DEeEtb4VQg5b8'
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+print(BASE_DIR)
+
+load_dotenv(BASE_DIR / ".env")
+
+GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
+
 
 
 def get_eta_distance_and_fare(origin, destination):
