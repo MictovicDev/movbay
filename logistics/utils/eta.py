@@ -1,7 +1,8 @@
 # utils/google_maps.py
 import requests
 
-GOOGLE_MAPS_API_KEY = 'YOUR_API_KEY'
+GOOGLE_MAPS_API_KEY = 'AIzaSyBIWbuoiQ82RjmlwD3HG6DEeEtb4VQg5b8'
+
 
 def get_eta_distance_and_fare(origin, destination):
     url = "https://maps.googleapis.com/maps/api/distancematrix/json"
@@ -25,7 +26,7 @@ def get_eta_distance_and_fare(origin, destination):
         duration_minutes = duration_seconds / 60
 
         # Fare calculation: adjust as needed
-        base_fare = 500  # Naira
+        base_fare = 1000  # Naira
         rate_per_km = 200  # Naira per km
 
         total_fare = base_fare + (rate_per_km * distance_km)

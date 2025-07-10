@@ -30,6 +30,8 @@ class Store(models.Model):
     nin = CloudinaryField('store/nin', blank=True, null=True)
     cac = CloudinaryField('store/cac', blank=True, null=True)
     verified = models.BooleanField(default=False)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
     
     def __str__(self):
         return f"{self.name or 'Unnamed'} Store"
@@ -244,6 +246,7 @@ class Order(models.Model):
     STATUS_CHOICES = [
         ('new', 'New Orders'),
         ('processing', 'Processing'),
+        ('assigned', 'assigned'),
         ('out_for_delivery', 'Out for Delivery'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),

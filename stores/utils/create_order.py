@@ -70,7 +70,8 @@ def create_order_with_items(user, order_data, reference, method):
                     store=store,
                     amount=0,  # temporarily 0, will update later
                     payment=payment,
-                    buyer=user
+                    buyer=user,
+                    delivery=delivery
                 )
 
             created_orders[store_id] = order_instance

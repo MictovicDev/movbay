@@ -20,6 +20,7 @@ AUTH_USER_MODEL = "users.User"
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -46,7 +47,6 @@ INSTALLED_APPS = [
     'drf_yasg'
    
 ]
-
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

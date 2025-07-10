@@ -1,13 +1,14 @@
-from .models import Driver
-from .utils.haversine import haversine
+from users.models import RiderProfile
+from .haversine import haversine
+
 def get_nearby_drivers(store_lat, store_lng, radius_km=5):
     """
     Returns a list of available drivers within `radius_km` from store.
     """
-    candidates = Driver.objects.filter(is_online=True)
+    candidates = RiderProfile.objects.filter(is_available=True)
     nearby = []
-
     for driver in candidates:
+        
         distance = haversine(store_lat, store_lng, driver.latitude, driver.longitude)
         if distance <= radius_km:
             nearby.append({

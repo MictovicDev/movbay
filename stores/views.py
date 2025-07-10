@@ -21,6 +21,9 @@ from .tasks import upload_status_files
 from base64 import b64encode
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from logistics.utils.get_riders import get_nearby_drivers
+from logistics.utils.eta import get_eta_distance_and_fare
+from .utils.get_store_cordinate import get_coordinates_from_address
 
 
 User = get_user_model()
@@ -77,6 +80,22 @@ class OrderDetailView(generics.RetrieveDestroyAPIView):
     serializer_class = OrderSerializer
 
 
+class GetUserOrder(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated, IsStoreOwner]
+    
+    
+    def get(self, request):
+        try:
+            print(request.user.username)
+            orders = Order.objects.filter(buyer=request.user)
+            serializer = OrderSerializer(orders, many=True)
+            return Response(serializer.data, status=200)
+        except Exception as e:
+            print(e)
+            return Response(str(e), status=status.HTTP_204_NO_CONTENT)
+
+
 class ConfirmOrder(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated, IsStoreOwner]
@@ -106,21 +125,25 @@ class ConfirmOrder(APIView):
         
         
 class MarkForDeliveryView(APIView):
-    def post(self, request, order_id):
-        order = get_object_or_404(Order, id=order_id)
-
-        if order.status != "pending":
-            return Response({"error": "Order is already marked or assigned."}, status=400)
-
-        order.status = "assigned"  # temporarily, until a rider picks it
-        order.save()
+    def post(self, request, pk):
+        order = get_object_or_404(Order, order_id=pk)
+        print(order.delivery)
+        delivery_cordinates = get_coordinates_from_address(order.delivery.delivery_address)
+        destination = (delivery_cordinates.get('latitude'), delivery_cordinates.get('longitude'))
+        origin = (order.store.latitude, order.store.longitude)
+        summary = get_eta_distance_and_fare(origin, destination)
+        print(summary)
+        if order.status != "processing":
+            return Response({"error": "Order hasn't been accepted or picked by rider."}, status=400)
 
         # Get nearby riders (5km range)
-        riders = get_nearby_riders(order.store_lat, order.store_lng, max_distance_km=5)
-
-        # Send FCM/WebSocket notification to each nearby rider
-        for rider in riders:
-            notify_rider(rider, order)
+        riders = get_nearby_drivers(order.store.latitude, order.store.longitude, radius_km=5)
+        
+        
+        print(riders)
+        # # Send FCM/WebSocket notification to each nearby rider
+        # for rider in riders:
+        #     notify_rider(rider, order)
 
         return Response({"message": "Riders notified."}, status=200)
 
@@ -206,7 +229,7 @@ class DashBoardView(APIView):
                 )
             ).annotate(
                 product_count=Count('products'),
-                order_count=Count('orders'),
+                order_count=Count('order'),
                 following_count=Count('following_set'),
                 followers_count=Count('following_set')).get(owner=user)
             print(store)

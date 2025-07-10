@@ -79,7 +79,7 @@ def upload_video(self, video_data, product_id):
         return None
 
 
-@shared_task(bind=True, max_retries=3)
+@shared_task
 def upload_store_files(store_id, file_data):
     try:
         try:

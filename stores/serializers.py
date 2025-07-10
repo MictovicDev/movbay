@@ -14,6 +14,7 @@ from base64 import b64encode
 from rest_framework.response import Response
 from rest_framework import status
 from users.serializers import UserSerializer, UserProfileSerializer
+from .utils.get_store_cordinate import get_coordinates_from_address
 
 
 class StoreFollowSerializer(serializers.ModelSerializer):
@@ -48,12 +49,12 @@ class StoreSerializer(serializers.ModelSerializer):
     cac = serializers.FileField()
     nin = serializers.FileField()
     store_image = serializers.ImageField()
-    statuses = StatusSerializer(many=True)
-    owner = UserSerializer()
+    statuses = StatusSerializer(many=True, required=False)
+    owner = UserSerializer(required=False)
 
     class Meta:
         model = Store
-        fields = ('name', 'category', 'description', 'address1',
+        fields = ('id','name', 'category', 'description', 'address1',
                   'store_image', 'address2', 'cac', 'nin', 'statuses', 'owner')
 
     def validate_cac(self, value):
@@ -87,8 +88,11 @@ class StoreSerializer(serializers.ModelSerializer):
         try:
             if request.user.is_authenticated:
                 user = request.user
+                print(user)
                 cac = validated_data.pop('cac')
                 nin = validated_data.pop('nin')
+                response = get_coordinates_from_address(validated_data.get('address1'))
+                print(response)
                 store_image = validated_data.pop('store_image')
                 files = {
                     "cac": cac.read(),
@@ -98,6 +102,10 @@ class StoreSerializer(serializers.ModelSerializer):
                 validated_data['owner'] = user
                 try:
                     store = Store.objects.create(**validated_data)
+                    if response:
+                        store.latitude = response.get('latitude')
+                        store.longitude = response.get('longitude')
+                        store.save()
                 except Exception as e:
                     raise e
                 upload_store_files.delay(store.id, files)

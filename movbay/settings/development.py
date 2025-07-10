@@ -11,6 +11,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['localhost']
 
 
+
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_DOMAIN = None
@@ -33,9 +34,10 @@ CSRF_COOKIE_DOMAIN = None
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',  # BASE_DIR is usually set at the top of the file
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
 
 
 CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
@@ -61,5 +63,6 @@ CHANNEL_LAYERS = {
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
+
 
 

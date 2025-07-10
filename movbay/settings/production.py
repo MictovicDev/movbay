@@ -48,16 +48,18 @@ LOGGING = {
     },
 }
 
+
 # settings.py debug
 print("Loaded DB URL:", os.environ.get("DATABASE_URL"))
 
 # Database configuration for production
 if os.getenv('DATABASE_URL'):
     DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL'),
-    )
-}
+        'default': dj_database_url.config(
+            default=os.environ.get('DATABASE_URL'),
+        )
+    }
+    # Override the engine to use PostGIS
 else:
     # Keep your existing database configuration
     pass
