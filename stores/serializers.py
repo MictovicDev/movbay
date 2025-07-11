@@ -177,7 +177,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    product = serializers.PrimaryKeyRelatedField(read_only=True)
+    product = ProductSerializer(required=False)
     
     class Meta:
         model = OrderItem

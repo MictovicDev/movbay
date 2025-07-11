@@ -1,18 +1,15 @@
 from celery import shared_task
-import base64
 from io import BytesIO
-from .models import Cart, CartItem, Product
+from .models import Product
 from cloudinary.uploader import upload
 import cloudinary
 from .models import Store, Status
-import logging
-import requests
 from django.shortcuts import get_object_or_404
-import base64
-import io
-import logging
+import base64, io, logging, requests
+from notification.utils.fcm_utils import send_expo_push_notification
 
-# Configure logger if not already done
+
+
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -135,9 +132,12 @@ def upload_status_files(status_id, image):
         print(f"Error saving profile picture: {str(e)}")
 
 
-
 @shared_task
-def create_cart(cart, user):
-    for item in cart:
-        Cart.objects.create(user=user)
-        CartItem.objects.create()
+def send_push_notification(token, title, data):
+    try:
+        send_expo_push_notification(token, title, data)
+    except Exception as e:
+        print(f"Error {str(e)}")
+    
+        
+        

@@ -44,12 +44,15 @@ CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 
 
 
+
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "unique-snowflake",  # Just a unique identifier for the cache instance
     }
 }
+
 
 CHANNEL_LAYERS = {
     'default': {
@@ -59,6 +62,8 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),

@@ -16,7 +16,7 @@ from .serializers import StoreFollowSerializer, UserSerializer, DashboardSeriali
 from .models import Status
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-import json
+import json, datetime
 from .tasks import upload_status_files
 from base64 import b64encode
 from channels.layers import get_channel_layer
@@ -24,6 +24,7 @@ from asgiref.sync import async_to_sync
 from logistics.utils.get_riders import get_nearby_drivers
 from logistics.utils.eta import get_eta_distance_and_fare
 from .utils.get_store_cordinate import get_coordinates_from_address
+from django_eventstream import send_event
 
 
 User = get_user_model()
@@ -98,30 +99,27 @@ class GetUserOrder(APIView):
 
 class ConfirmOrder(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
-    permission_classes = [permissions.IsAuthenticated, IsStoreOwner]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
+        print(f"DEBUG: ConfirmOrder POST request received for pk: {pk}") # Debug 1
+
         try:
             order = get_object_or_404(Order, order_id=pk)
+            print(f"DEBUG: Order found: {order.order_id}, current status: {order.status}") # Debug 2
+            if order.status == 'processing':
+                 print("DEBUG: Order already processing, returning bad request.") # Debug 3a
+                 return Response({"Message": "Order is already being processed."}, status=status.HTTP_400_BAD_REQUEST)
+
             order.status = 'processing'
             order.save()
-            print(order.order_id)
-            channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(
-                f"order_{order.order_id}",
-                {
-                    "type": "order_status_update",
-                    "order_id": order.order_id,
-                    "status": order.status,
-                }
-            )
             return Response({"Message": "Order is being Processed"}, status=200)
-            # else:
-            #     return Response({"Message": "Order is not a new One"})
-           
+
         except Exception as e:
-            return Response(str(e), status=400)
-        
+            print(f"DEBUG: An exception occurred: {e}") # Debug 6
+            # It's better to return status.HTTP_500_INTERNAL_SERVER_ERROR for unhandled exceptions
+            # or status.HTTP_400_BAD_REQUEST if it's a client error (e.g., invalid input)
+            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
         
         
 class MarkForDeliveryView(APIView):

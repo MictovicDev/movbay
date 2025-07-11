@@ -10,6 +10,8 @@ from payment.utils.helper import generate_tx_ref
 from django.contrib.auth import get_user_model
 from datetime import timedelta, datetime
 from django.utils import timezone
+from notification.models import Device
+from stores.tasks import send_push_notification
 
 User = get_user_model()
 
@@ -18,7 +20,6 @@ User = get_user_model()
 def create_order_with_items(user, order_data, reference, method):
     admin_user = User.objects.filter(is_superuser=True).first()
     platform_wallet, _ = Wallet.objects.get_or_create(owner=admin_user)
-
     amount = order_data.get("total_amount")
     delivery_data = order_data['delivery']
     delivery = Delivery.objects.create(**delivery_data)
@@ -53,30 +54,20 @@ def create_order_with_items(user, order_data, reference, method):
     for item in cart_items:
         store_id = item.get("store")
         store = get_object_or_404(Store, id=store_id)
+        device = Device.objects.get(user=store.user)
         product = get_object_or_404(Product, id=item.get("product"))
         quantity = item.get("quantity")
         item_amount = item.get("amount")
 
-        if store_id not in created_orders:
-            # Check if an order already exists for this store + user
-            order_instance = Order.objects.filter(
-                buyer=user,
-                store=store,
-                status='new'
-            ).first()
+        order_instance = Order.objects.create(
+            store=store,
+            amount=0,  # temporarily 0, will update later
+            payment=payment,
+            buyer=user,
+            delivery=delivery
+        )
 
-            if not order_instance:
-                order_instance = Order.objects.create(
-                    store=store,
-                    amount=0,  # temporarily 0, will update later
-                    payment=payment,
-                    buyer=user,
-                    delivery=delivery
-                )
-
-            created_orders[store_id] = order_instance
-        else:
-            order_instance = created_orders[store_id]
+        created_orders[store_id] = order_instance
 
         # Create OrderItem
         try:
@@ -99,6 +90,12 @@ def create_order_with_items(user, order_data, reference, method):
         # Add item amount to order's total
         order_instance.amount += item_amount
         order_instance.save()
+        data = {
+            "order_id": order_instance.id,
+            ""
+        }
+        send_push_notification.delay(device.token, 'Order Place',)
+        
 
     # Serialize all created/used orders
     for order in created_orders.values():
@@ -106,13 +103,12 @@ def create_order_with_items(user, order_data, reference, method):
         # Custom formatting logic
         expected_delivery = timezone.now() + timedelta(hours=4)
         formatted_delivery = expected_delivery.strftime("Today by %I:%M %p")
-        
-        formatted_payment = f"₦{order.amount:,.0f} (Paid via Wallet)"
 
         response_data.append({
             "order_id": f"{order.order_id if hasattr(order, 'order_id') else order.id}",
             "expected_delivery": formatted_delivery,
             "payment_details": order.payment.payment_method
-        })
-
+        }),
+    
+    
     return Response(response_data, status=status.HTTP_201_CREATED)

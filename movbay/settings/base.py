@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'chat',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'phonenumber_field',
     'cloudinary',
     'cloudinary_storage',
@@ -176,7 +177,7 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=5),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
 
     # Additional recommended settings
@@ -260,3 +261,5 @@ LOGGING = {
         },
     },
 }
+
+
