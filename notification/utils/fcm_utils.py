@@ -17,10 +17,9 @@
 
 import requests
 
-def send_expo_push_notification(token, title, data=None):
+def send_expo_push_notification(token, data=None):
     payload = {
         "to": token,
-        "title": title,
         "data": data or {},
     }
 

@@ -54,7 +54,7 @@ def create_order_with_items(user, order_data, reference, method):
     for item in cart_items:
         store_id = item.get("store")
         store = get_object_or_404(Store, id=store_id)
-        device = Device.objects.get(user=store.user)
+        device = Device.objects.get(user=store.owner)
         product = get_object_or_404(Product, id=item.get("product"))
         quantity = item.get("quantity")
         item_amount = item.get("amount")
@@ -92,11 +92,9 @@ def create_order_with_items(user, order_data, reference, method):
         order_instance.save()
         data = {
             "order_id": order_instance.id,
-            ""
+            "title": "Order Succesfull"
         }
-        send_push_notification.delay(device.token, 'Order Place',)
-        
-
+        send_push_notification.delay(device.token, data)
     # Serialize all created/used orders
     for order in created_orders.values():
         print(order.order_id)
