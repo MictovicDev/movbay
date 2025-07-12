@@ -20,6 +20,13 @@ class RegisterFcmToken(APIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        Device.objects.aupdate_or_create(**data)
-        return Response({"message": "Token saved successfully"})
+        user = request.user
+        token = data.get("token")
+
+        Device.objects.update_or_create(
+            user=user,
+            defaults={"token": token}
+        )
+
+        return Response({"message": "Token saved successfully"}, status=200)
             

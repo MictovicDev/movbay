@@ -94,7 +94,7 @@ def create_order_with_items(user, order_data, reference, method):
             "order_id": order_instance.id,
             "title": "Order Succesfull"
         }
-        send_push_notification.delay(device.token, data)
+        send_push_notification.delay(device.token,'Order Notification', data)
     # Serialize all created/used orders
     for order in created_orders.values():
         print(order.order_id)
