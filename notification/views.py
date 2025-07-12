@@ -5,19 +5,21 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from .models import Device
+from .serializers import DeviceSerializer
 
 
 
 class RegisterFcmToken(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
+    serializer_class  = DeviceSerializer
     
     
     def post(self, request):
-        token = request.data.get('token')
-        if not token:
-            return Response({"error": "No token provided"}, status=400)
-
-        Device.objects.update_or_create(user=request.user, defaults={'fcm_token': token})
+        print('called')
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        Device.objects.aupdate_or_create(**data)
         return Response({"message": "Token saved successfully"})
             
