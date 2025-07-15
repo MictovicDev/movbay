@@ -243,6 +243,7 @@ class PurchasePaymentView(APIView):
         return Response(serializer.errors, status=400)
 
 
+
 class VerifyTransaction(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]

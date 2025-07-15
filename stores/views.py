@@ -24,7 +24,6 @@ from asgiref.sync import async_to_sync
 from logistics.utils.get_riders import get_nearby_drivers
 from logistics.utils.eta import get_eta_distance_and_fare
 from .utils.get_store_cordinate import get_coordinates_from_address
-from django_eventstream import send_event
 
 
 User = get_user_model()

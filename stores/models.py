@@ -259,8 +259,7 @@ class Order(models.Model):
     amount = models.PositiveBigIntegerField(blank=True, null=True)
     payment = models.ForeignKey(Payment, on_delete=models.PROTECT, blank=True, null=True)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True)
-    # buyer_name = models.CharField(max_length=250, blank=True, null=True
-    # buyer_number = PhoneNumberField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     
     
     def save(self, *args, **kwargs):

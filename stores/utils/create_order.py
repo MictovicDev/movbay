@@ -58,17 +58,18 @@ def create_order_with_items(user, order_data, reference, method):
         product = get_object_or_404(Product, id=item.get("product"))
         quantity = item.get("quantity")
         item_amount = item.get("amount")
-
-        order_instance = Order.objects.create(
-            store=store,
-            amount=0,  # temporarily 0, will update later
-            payment=payment,
-            buyer=user,
-            delivery=delivery
-        )
+        now = timezone.now()
+        order_instance = Order.objects.get_or_create(store=store, created_at=now)
+        # order_instance = Order.objects.create(
+        #     store=store,
+        #     amount=0,  # temporarily 0, will update later
+        #     payment=payment,
+        #     buyer=user,
+        #     delivery=delivery
+        # )
 
         created_orders[store_id] = order_instance
-
+        
         # Create OrderItem
         try:
             OrderItem.objects.create(
@@ -92,9 +93,8 @@ def create_order_with_items(user, order_data, reference, method):
         order_instance.save()
         data = {
             "order_id": order_instance.id,
-            "title": "Order Succesfull"
+            "title": "You have a new order on movbay, click to confirm it."
         }
-        send_push_notification.delay(device.token,'Order Notification', data)
     # Serialize all created/used orders
     for order in created_orders.values():
         print(order.order_id)
@@ -107,6 +107,6 @@ def create_order_with_items(user, order_data, reference, method):
             "expected_delivery": formatted_delivery,
             "payment_details": order.payment.payment_method
         }),
-    
+    send_push_notification.delay(device.token,'New Order Available', data)
     
     return Response(response_data, status=status.HTTP_201_CREATED)
