@@ -68,16 +68,6 @@ def create_order_with_items(user, order_data, reference, method):
             amount=0,
             defaults={"created_at": timezone.now()}
         )
-        print(order_instance.created_at)
-        print(created)
-        # order_instance = Order.objects.create(
-        #     store=store,
-        #     amount=0,  # temporarily 0, will update later
-        #     payment=payment,
-        #     buyer=user,
-        #     delivery=delivery
-        # )
-
         created_orders[store_id] = order_instance
 
         # Create OrderItem
@@ -119,7 +109,7 @@ def create_order_with_items(user, order_data, reference, method):
             "expected_delivery": formatted_delivery,
             "payment_details": order.payment.payment_method
         }),
-
-    send_push_notification.delay(device.token, 'New Order Available', data)
+        send_push_notification.delay(device.token, 'New Order Available', data)
+    
 
     return Response(response_data, status=status.HTTP_201_CREATED)
