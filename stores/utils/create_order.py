@@ -50,7 +50,6 @@ def create_order_with_items(user, order_data, reference, method):
     response_data = []
     created_orders = {}  # store_id -> order_instance
     cart_items = order_data.get('items')
-
     for item in cart_items:
         store_id = item.get("store")
         store = get_object_or_404(Store, id=store_id)
@@ -58,8 +57,19 @@ def create_order_with_items(user, order_data, reference, method):
         product = get_object_or_404(Product, id=item.get("product"))
         quantity = item.get("quantity")
         item_amount = item.get("amount")
+        print(quantity)
+        print(item_amount)
         now = timezone.now()
-        order_instance = Order.objects.get_or_create(store=store, created_at=now)
+        order_instance, created = Order.objects.get_or_create(
+            store=store,
+            payment=payment,
+            buyer=user,
+            delivery=delivery,
+            amount=0,
+            defaults={"created_at": timezone.now()}
+        )
+        print(order_instance.created_at)
+        print(created)
         # order_instance = Order.objects.create(
         #     store=store,
         #     amount=0,  # temporarily 0, will update later
@@ -69,7 +79,7 @@ def create_order_with_items(user, order_data, reference, method):
         # )
 
         created_orders[store_id] = order_instance
-        
+
         # Create OrderItem
         try:
             OrderItem.objects.create(
@@ -83,12 +93,14 @@ def create_order_with_items(user, order_data, reference, method):
 
         # Decrease product stock
         try:
+            print('Trying it')
             product.stock_available -= int(quantity)
             product.save()
         except Exception as e:
             print("Error updating stock:", e)
 
         # Add item amount to order's total
+        print(order_instance.amount)
         order_instance.amount += item_amount
         order_instance.save()
         data = {
@@ -107,6 +119,7 @@ def create_order_with_items(user, order_data, reference, method):
             "expected_delivery": formatted_delivery,
             "payment_details": order.payment.payment_method
         }),
-    send_push_notification.delay(device.token,'New Order Available', data)
-    
+
+    send_push_notification.delay(device.token, 'New Order Available', data)
+
     return Response(response_data, status=status.HTTP_201_CREATED)

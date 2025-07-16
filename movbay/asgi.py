@@ -21,6 +21,7 @@ import logistics.routing
 from chat.middleware import JWTAuthMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
 load_dotenv(BASE_DIR / ".env")
 
 django_env = os.getenv('DJANGO_ENV')
