@@ -16,7 +16,8 @@ from .serializers import StoreFollowSerializer, UserSerializer, DashboardSeriali
 from .models import Status
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-import json, datetime
+import json
+import datetime
 from .tasks import upload_status_files
 from base64 import b64encode
 from channels.layers import get_channel_layer
@@ -24,6 +25,8 @@ from asgiref.sync import async_to_sync
 from logistics.utils.get_riders import get_nearby_drivers
 from logistics.utils.eta import get_eta_distance_and_fare
 from .utils.get_store_cordinate import get_coordinates_from_address
+from .tasks import send_push_notification
+from django.db import transaction
 
 
 User = get_user_model()
@@ -83,8 +86,7 @@ class OrderDetailView(generics.RetrieveDestroyAPIView):
 class GetUserOrder(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated, IsStoreOwner]
-    
-    
+
     def get(self, request):
         try:
             print(request.user.username)
@@ -101,32 +103,58 @@ class ConfirmOrder(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        print(f"DEBUG: ConfirmOrder POST request received for pk: {pk}") # Debug 1
+        # Debug 1
+        print(f"DEBUG: ConfirmOrder POST request received for pk: {pk}")
 
         try:
-            order = get_object_or_404(Order, order_id=pk)
-            print(f"DEBUG: Order found: {order.order_id}, current status: {order.status}") # Debug 2
-            if order.status == 'processing':
-                 print("DEBUG: Order already processing, returning bad request.") # Debug 3a
-                 return Response({"Message": "Order is already being processed."}, status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                # Lock the row to prevent concurrent updates
+                order = Order.objects.select_for_update().get(order_id=pk)
+                # Debug 2
+                print(
+                    f"DEBUG: Order found: {order.order_id}, current status: {order.status}")
 
-            order.status = 'processing'
-            order.save()
-            return Response({"Message": "Order is being Processed"}, status=200)
+                if order.status == 'processing':
+                    # Debug 3a
+                    print("DEBUG: Order already processing, returning bad request.")
+                    return Response({"Message": "Order is already being processed."}, status=status.HTTP_400_BAD_REQUEST)
+
+                order.status = 'processing'
+                order.save()
+
+                data = {
+                    "order_id": order.order_id,
+                    "order_name": str(order.buyer.username),
+                }
+
+                # You could use transaction.on_commit here to trigger the push only after DB is committed
+                transaction.on_commit(lambda: send_push_notification.delay(
+                    order.buyer.device.all()[0].token,  # Assuming token model has `token` field
+                    'Your Order has been Confirmed',
+                    data
+                ))
+
+            return Response({"Message": "Order is being Processed"}, status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response({"Message": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
         except Exception as e:
-            print(f"DEBUG: An exception occurred: {e}") # Debug 6
-            # It's better to return status.HTTP_500_INTERNAL_SERVER_ERROR for unhandled exceptions
-            # or status.HTTP_400_BAD_REQUEST if it's a client error (e.g., invalid input)
-            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
-        
-        
+            print(f"DEBUG: An exception occurred: {e}")  # Debug 6
+            return Response({"Message": f"Something went wrong - {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+# class RejectOrder9
+
 class MarkForDeliveryView(APIView):
     def post(self, request, pk):
         order = get_object_or_404(Order, order_id=pk)
         print(order.delivery)
-        delivery_cordinates = get_coordinates_from_address(order.delivery.delivery_address)
-        destination = (delivery_cordinates.get('latitude'), delivery_cordinates.get('longitude'))
+        delivery_cordinates = get_coordinates_from_address(
+            order.delivery.delivery_address)
+        destination = (delivery_cordinates.get('latitude'),
+                       delivery_cordinates.get('longitude'))
         origin = (order.store.latitude, order.store.longitude)
         summary = get_eta_distance_and_fare(origin, destination)
         print(summary)
@@ -134,16 +162,15 @@ class MarkForDeliveryView(APIView):
             return Response({"error": "Order hasn't been accepted or picked by rider."}, status=400)
 
         # Get nearby riders (5km range)
-        riders = get_nearby_drivers(order.store.latitude, order.store.longitude, radius_km=5)
-        
-        
+        riders = get_nearby_drivers(
+            order.store.latitude, order.store.longitude, radius_km=5)
+
         print(riders)
         # # Send FCM/WebSocket notification to each nearby rider
         # for rider in riders:
         #     notify_rider(rider, order)
 
         return Response({"message": "Riders notified."}, status=200)
-
 
 
 class ProductListCreateView(generics.ListCreateAPIView):
