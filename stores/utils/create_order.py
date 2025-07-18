@@ -65,8 +65,7 @@ def create_order_with_items(user, order_data, reference, method):
             payment=payment,
             buyer=user,
             delivery=delivery,
-            amount=0,
-            defaults={"created_at": timezone.now()}
+            # amount=0,
         )
         created_orders[store_id] = order_instance
 

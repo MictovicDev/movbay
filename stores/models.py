@@ -257,7 +257,7 @@ class Order(models.Model):
     delivery = models.ForeignKey(Delivery, on_delete=models.CASCADE, blank=True, null=True)
     status = models.CharField(max_length=250, choices=STATUS_CHOICES, default='new')
     order_id = models.CharField(max_length=20, unique=True, blank=True)
-    amount = models.PositiveBigIntegerField(blank=True, null=True)
+    amount = models.PositiveBigIntegerField(default=0, blank=True, null=True)
     payment = models.ForeignKey(Payment, on_delete=models.PROTECT, blank=True, null=True)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
