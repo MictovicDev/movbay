@@ -133,9 +133,9 @@ def upload_status_files(status_id, image):
 
 
 @shared_task
-def send_push_notification(token, title, data):
+def send_push_notification(token, title,type, data):
     try:
-        send_expo_push_notification(token, title, data)
+        send_expo_push_notification(token, title, type, data)
     except Exception as e:
         print(f"Error {str(e)}")
     

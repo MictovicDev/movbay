@@ -94,7 +94,6 @@ def create_order_with_items(user, order_data, reference, method):
         order_instance.amount += item_amount
         order_instance.save()
         data = {
-            "type": "New Order",
             "order_id": order_instance.id,
             "title": "You have a new order on movbay, click to confirm it."
         }
@@ -110,7 +109,7 @@ def create_order_with_items(user, order_data, reference, method):
             "expected_delivery": formatted_delivery,
             "payment_details": order.payment.payment_method
         }),
-        send_push_notification.delay(device.token, 'New Order Available', data)
+        send_push_notification.delay(toekn=device.token, title='New Order Available', type= "New Order", data=data)
     
 
     return Response(response_data, status=status.HTTP_201_CREATED)
