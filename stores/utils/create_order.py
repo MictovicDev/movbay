@@ -105,7 +105,12 @@ def create_order_with_items(user, order_data, reference, method):
             "expected_delivery": formatted_delivery,
             "payment_details": order.payment.payment_method
         }),
-        send_push_notification.delay(token=device.token, title='New Order Available', notification_type= "New Order", data=data)
+
     
+        data = "Your Order has been Placed"
+
+    
+        send_push_notification.delay(
+            token=device.token, title='New Order Available', notification_type="New Order", data=data)
 
     return Response(response_data, status=status.HTTP_201_CREATED)
