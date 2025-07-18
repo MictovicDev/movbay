@@ -5,12 +5,11 @@ from datetime import timedelta
 import cloudinary
 
 
-
-
-
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+print(BASE_DIR)
 
+# print(f"BASE {BASE_DIR}")
 load_dotenv(BASE_DIR / ".env")
 
 

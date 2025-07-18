@@ -1,10 +1,11 @@
 from .base import *
 import dj_database_url
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+# BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
-load_dotenv(BASE_DIR / ".env")
+
+print(f"Base gave me this {BASE_DIR}")
 
 DEBUG = True
 

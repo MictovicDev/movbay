@@ -110,10 +110,6 @@ class ConfirmOrder(APIView):
             with transaction.atomic():
                 # Lock the row to prevent concurrent updates
                 order = Order.objects.select_for_update().get(order_id=pk)
-                # Debug 2
-                print(
-                    f"DEBUG: Order found: {order.order_id}, current status: {order.status}")
-
                 if order.status == 'processing':
                     # Debug 3a
                     print("DEBUG: Order already processing, returning bad request.")
@@ -123,13 +119,15 @@ class ConfirmOrder(APIView):
                 order.save()
 
                 data = {
+                    "type": "Order Confirmation",
                     "order_id": order.order_id,
                     "order_name": str(order.buyer.username),
                 }
 
                 # You could use transaction.on_commit here to trigger the push only after DB is committed
                 transaction.on_commit(lambda: send_push_notification.delay(
-                    order.buyer.device.all()[0].token,  # Assuming token model has `token` field
+                    # Assuming token model has `token` field
+                    order.buyer.device.all()[0].token,
                     'Your Order has been Confirmed',
                     data
                 ))
@@ -144,33 +142,39 @@ class ConfirmOrder(APIView):
             return Response({"Message": f"Something went wrong - {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
 # class RejectOrder9
 
 class MarkForDeliveryView(APIView):
     def post(self, request, pk):
         order = get_object_or_404(Order, order_id=pk)
-        print(order.delivery)
-        delivery_cordinates = get_coordinates_from_address(
-            order.delivery.delivery_address)
-        destination = (delivery_cordinates.get('latitude'),
-                       delivery_cordinates.get('longitude'))
-        origin = (order.store.latitude, order.store.longitude)
-        summary = get_eta_distance_and_fare(origin, destination)
-        print(summary)
+        delivery_method = order.delivery.delivery_method
         if order.status != "processing":
             return Response({"error": "Order hasn't been accepted or picked by rider."}, status=400)
 
-        # Get nearby riders (5km range)
-        riders = get_nearby_drivers(
-            order.store.latitude, order.store.longitude, radius_km=5)
+        if delivery_method == 'MovBay_Dispatch':
+            try:
+                delivery_cordinates = get_coordinates_from_address(
+                    order.delivery.delivery_address)
+                destination = (delivery_cordinates.get('latitude'),
+                               delivery_cordinates.get('longitude'))
+                origin = (order.store.latitude, order.store.longitude)
+                summary = get_eta_distance_and_fare(origin, destination)
+                print(summary)
+                riders = get_nearby_drivers(
+                    order.store.latitude, order.store.longitude, radius_km=5)
+                print(riders)
+                return Response({"message": "Riders notified."}, status=200)
+            except Exception as e:
+                return Response({"Message": "Failed to retrieve rider for Movbay – internal error occurred."}, status=500)
+        elif delivery_method == 'Speedy_Dispatch':
+            pass
+            # Implement shiip algorithm here
 
-        print(riders)
+        # Get nearby riders (5km range)
+
         # # Send FCM/WebSocket notification to each nearby rider
         # for rider in riders:
         #     notify_rider(rider, order)
-
-        return Response({"message": "Riders notified."}, status=200)
 
 
 class ProductListCreateView(generics.ListCreateAPIView):

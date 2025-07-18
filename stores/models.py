@@ -12,6 +12,7 @@ from users.models import UserProfile
 from cloudinary.models import CloudinaryField
 from payment.models import Payment
 from phonenumber_field.modelfields import PhoneNumberField
+from users.models import RiderProfile
 
 User = get_user_model()
 
@@ -288,7 +289,21 @@ class OrderItem(models.Model):
     
     def __str__(self):
         return f"{self.order} --> {self.count}"
+   
+   
+   
+class OrderTracking(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_tracking')
+    new = models.BooleanField(default=True)
+    processing = models.BooleanField(default=False)
+    out_for_delivery = models.BooleanField(default=False)
+    arriving_soon = models.BooleanField(default=False)
+    completed = models.BooleanField(default=False, null=True)
+    driver = models.ForeignKey(RiderProfile, on_delete=models.CASCADE, blank=True, null=True)
     
+    def __str__(self):
+        return self.order.order_id
+     
 
 class OrderDispute(models.Model):
     

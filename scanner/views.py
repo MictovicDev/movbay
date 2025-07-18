@@ -46,6 +46,8 @@ class GenerateQRCodeView(APIView):
         response = HttpResponse(buffer, content_type="image/png")
         response['X-Manual-Code'] = manual_code
         return response
+    
+
 
 class ScanView(APIView):
     permission_classes = [IsAuthenticated]

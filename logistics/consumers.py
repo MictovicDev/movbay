@@ -10,6 +10,7 @@ from django.conf import settings
 
 redis_conn = redis.Redis(host='localhost', port=6379, db=0)
 
+
 class DriverConsumer(AsyncJsonWebsocketConsumer):
     """
     WebSocket consumer for driver-related real-time communication.
@@ -27,8 +28,10 @@ class DriverConsumer(AsyncJsonWebsocketConsumer):
             return
 
         try:
-            payload = jwt_decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-            self.user_id = payload.get('user_id') or payload.get('sub')  # adjust if needed
+            payload = jwt_decode(
+                token, settings.SECRET_KEY, algorithms=["HS256"])
+            self.user_id = payload.get('user_id') or payload.get(
+                'sub')  # adjust if needed
             self.email = payload.get('email')
             self.group_name = f"driver_{self.user_id}"
 
@@ -48,7 +51,8 @@ class DriverConsumer(AsyncJsonWebsocketConsumer):
         - Removes the channel from its group.
         - Removes the online flag from Redis.
         """
-        print(f"DriverConsumer: Driver {self.user_id} disconnected with code: {close_code}")
+        print(
+            f"DriverConsumer: Driver {self.user_id} disconnected with code: {close_code}")
 
         # Discard this channel from the group it was added to
         await self.channel_layer.group_discard(
@@ -72,44 +76,51 @@ class DriverConsumer(AsyncJsonWebsocketConsumer):
                 print(data)
                 message_type = data.get("type")
 
-                print(f"DriverConsumer: Received message from {self.user_id} - Type: {message_type}")
+                print(
+                    f"DriverConsumer: Received message from {self.user_id} - Type: {message_type}")
 
                 if message_type == "heartbeat":
                     # Handle heartbeat message to keep the driver marked as online
-                    redis_conn.set(f"driver:{self.user_id}:online", "1", ex=60*5)
-                    print(f"DriverConsumer: Ping received from {self.user_id}, online status refreshed.")
+                    redis_conn.set(
+                        f"driver:{self.user_id}:online", "1", ex=60*5)
+                    print(
+                        f"DriverConsumer: Ping received from {self.user_id}, online status refreshed.")
                     # Optionally send a pong response back to the client
                     await self.send(text_data=json.dumps({"type": "heartbeat"}))
                 elif message_type == "location_update":
                     # Handle driver location updates
                     location = data.get('location')
                     await self.handle_location_update(location)
-                    
+
                 elif message_type == "driver_online":
                     # Handle driver location updates
                     pass
                 else:
                     # Handle any other generic message type
-                    print(f"DriverConsumer: Unrecognized message type '{message_type}' from {self.user_id}.")
+                    print(
+                        f"DriverConsumer: Unrecognized message type '{message_type}' from {self.user_id}.")
                     await self.send(text_data=json.dumps({
                         "type": "error",
                         "message": "Unrecognized message type."
                     }))
 
             except json.JSONDecodeError:
-                print(f"DriverConsumer: Invalid JSON received from {self.user_id}: {text_data}")
+                print(
+                    f"DriverConsumer: Invalid JSON received from {self.user_id}: {text_data}")
                 await self.send(text_data=json.dumps({
                     "type": "error",
                     "message": "Invalid JSON format."
                 }))
             except Exception as e:
-                print(f"DriverConsumer: Error processing message from {self.user_id}: {e}")
+                print(
+                    f"DriverConsumer: Error processing message from {self.user_id}: {e}")
                 await self.send(text_data=json.dumps({
                     "type": "error",
                     "message": f"Server error: {str(e)}"
                 }))
         else:
-            print(f"DriverConsumer: Received empty message from {self.user_id}.")
+            print(
+                f"DriverConsumer: Received empty message from {self.user_id}.")
 
     async def status_created(self, event):
         """
@@ -118,7 +129,8 @@ class DriverConsumer(AsyncJsonWebsocketConsumer):
         to the connected driver client.
         """
         status_data = event.get("status")
-        print(f"DriverConsumer: Sending status update to {self.user_id}: {status_data}")
+        print(
+            f"DriverConsumer: Sending status update to {self.user_id}: {status_data}")
         await self.send(text_data=json.dumps({
             "type": "status.created",
             "data": status_data
@@ -134,15 +146,18 @@ class DriverConsumer(AsyncJsonWebsocketConsumer):
         if location_data and isinstance(location_data, dict):
             latitude = location_data.get('latitude')
             longitude = location_data.get('longitude')
-            timestamp = location_data.get('timestamp') # Optional
+            timestamp = location_data.get('timestamp')  # Optional
 
             if latitude is not None and longitude is not None:
-                print(f"Driver {self.user_id} location updated: Lat={latitude}, Lng={longitude}")
+                print(
+                    f"Driver {self.user_id} location updated: Lat={latitude}, Lng={longitude}")
                 # Example: Store location in Redis or update a database record
                 # For a real application, you'd likely store this in a database
                 # or a specialized geospatial database.
-                redis_conn.geoadd("driver_locations", (longitude, latitude, self.user_id))
-                redis_conn.set(f"driver:{self.user_id}:last_known_location", json.dumps(location_data))
+                redis_conn.geoadd("driver_locations",
+                                  (longitude, latitude, self.user_id))
+                redis_conn.set(
+                    f"driver:{self.user_id}:last_known_location", json.dumps(location_data))
 
                 # Optionally, send a confirmation back to the driver
                 await self.send(text_data=json.dumps({
@@ -150,13 +165,15 @@ class DriverConsumer(AsyncJsonWebsocketConsumer):
                     "message": "Location received successfully."
                 }))
             else:
-                print(f"DriverConsumer: Invalid location data from {self.user_id}: {location_data}")
+                print(
+                    f"DriverConsumer: Invalid location data from {self.user_id}: {location_data}")
                 await self.send(text_data=json.dumps({
                     "type": "error",
                     "message": "Invalid location data format."
                 }))
         else:
-            print(f"DriverConsumer: Missing location data from {self.user_id}.")
+            print(
+                f"DriverConsumer: Missing location data from {self.user_id}.")
             await self.send(text_data=json.dumps({
                 "type": "error",
                 "message": "Location data is missing or malformed."
@@ -170,10 +187,12 @@ class DriverConsumer(AsyncJsonWebsocketConsumer):
         """
         if action_data and isinstance(action_data, dict):
             ride_id = action_data.get('ride_id')
-            action = action_data.get('action') # e.g., "accept", "reject", "complete"
+            # e.g., "accept", "reject", "complete"
+            action = action_data.get('action')
 
             if ride_id and action:
-                print(f"Driver {self.user_id} performed action '{action}' for Ride ID: {ride_id}")
+                print(
+                    f"Driver {self.user_id} performed action '{action}' for Ride ID: {ride_id}")
 
                 # Example: Update ride status in the database
                 # You'll need to import your Ride model and use database_sync_to_async
@@ -218,11 +237,12 @@ class DriverConsumer(AsyncJsonWebsocketConsumer):
                     "message": f"Action '{action}' for ride {ride_id} received."
                 }))
             else:
-                print(f"DriverConsumer: Invalid ride action data from {self.user_id}: {action_data}")
+                print(
+                    f"DriverConsumer: Invalid ride action data from {self.user_id}: {action_data}")
                 await self.send(text_data=json.dumps({
                     "type": "error",
                     "message": "Invalid ride action data format."}))
-                
+
     async def handle_driver_online(self, action_data):
         redis_conn.set(f"driver:{self.user_id}:online", "1", ex=60*5)
         pass

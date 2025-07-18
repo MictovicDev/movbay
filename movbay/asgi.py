@@ -20,21 +20,25 @@ import payment.routing
 import logistics.routing
 from chat.middleware import JWTAuthMiddleware
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv(BASE_DIR / ".env")
+
+dotenv_path = BASE_DIR / ".env"
+load_dotenv(dotenv_path, override=True)
 
 django_env = os.getenv('DJANGO_ENV')
 
-print('Me' + django_env)
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', f"movbay.settings.{django_env}")
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE',
+                      f"movbay.settings.{django_env}")
 
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),  # Handles standard HTTP requests
     "websocket": JWTAuthMiddleware(
         URLRouter(
-            stores.routing.websocket_urlpatterns + chat.routing.websocket_urlpatterns + payment.routing.websocket_urlpatterns + logistics.routing.websocket_urlpatterns
+            stores.routing.websocket_urlpatterns + chat.routing.websocket_urlpatterns +
+            payment.routing.websocket_urlpatterns + logistics.routing.websocket_urlpatterns
         )
     ),
 })

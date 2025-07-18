@@ -94,6 +94,7 @@ def create_order_with_items(user, order_data, reference, method):
         order_instance.amount += item_amount
         order_instance.save()
         data = {
+            "type": "New Order",
             "order_id": order_instance.id,
             "title": "You have a new order on movbay, click to confirm it."
         }
