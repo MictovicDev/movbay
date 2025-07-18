@@ -118,14 +118,12 @@ class ConfirmOrder(APIView):
 
                 order.status = 'processing'
                 order.save()
-                data = f"{order.buyer.username}",
-
                 # You could use transaction.on_commit here to trigger the push only after DB is committed
+                
                 transaction.on_commit(lambda: send_push_notification.delay(
                     token=order.buyer.device.all()[0].token,
                     title = 'Your Order has been Confirmed',
-                    notification_type="Order Confirmation",
-                    data = data
+                    notification_type="Order Confirmation"
                 ))
 
             return Response({"Message": "Order is being Processed"}, status=status.HTTP_200_OK)
