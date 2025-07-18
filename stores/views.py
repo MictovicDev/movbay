@@ -12,7 +12,7 @@ from rest_framework import status
 from django.db.models import Count
 from .permissions import IsProductOwner, IsStoreOwner
 from django.contrib.auth import get_user_model
-from .serializers import StoreFollowSerializer, UserSerializer, DashboardSerializer, StatusSerializer
+from .serializers import StoreFollowSerializer, UserSerializer, DashboardSerializer, StatusSerializer, OrderTrackingSerializer
 from .models import Status
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -27,6 +27,7 @@ from logistics.utils.eta import get_eta_distance_and_fare
 from .utils.get_store_cordinate import get_coordinates_from_address
 from .tasks import send_push_notification
 from django.db import transaction
+from .models import OrderTracking
 
 
 User = get_user_model()
@@ -142,7 +143,15 @@ class ConfirmOrder(APIView):
             return Response({"Message": f"Something went wrong - {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# class RejectOrder9
+class TrackOrder(APIView):
+    serializer_class = OrderTrackingSerializer
+
+    def get(self, request, pk):
+        order = get_object_or_404(Order, order_id=pk)
+        order_tracking = order.order_tracking.all()[0]
+        serializer = OrderTrackingSerializer(order_tracking)
+        return Response(serializer.data, status=200)
+
 
 class MarkForDeliveryView(APIView):
     def post(self, request, pk):

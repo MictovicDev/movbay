@@ -25,6 +25,8 @@ urlpatterns = [
          views.ConfirmOrder.as_view(), name='confirm-order'),
     path('order/<str:pk>/mark-for-delivery',
          views.MarkForDeliveryView.as_view(), name='mark-as-delivered'),
-    path('order/user/', views.GetUserOrder.as_view(), name='order-history')
+    path('order/user/', views.GetUserOrder.as_view(), name='order-history'),
+    path('order/<str:pk>/track-order',
+         views.TrackOrder.as_view(), name='order_tracking')
 
 ]

@@ -7,6 +7,7 @@ from .models import (Store,
                      ProductImage,
                      StoreFollow,
                      OrderItem,
+                     OrderTracking
                      )
 
 from .tasks import upload_single_image, upload_store_files, upload_video
@@ -182,6 +183,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
         fields = ['product', 'amount', 'count']
+        
+        
+class OrderTrackingSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = OrderTracking
+        fields = '__all__'
+    
+    
 
 
 class DeliverySerializer(serializers.ModelSerializer):
