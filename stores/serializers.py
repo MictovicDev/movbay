@@ -170,8 +170,9 @@ class ProductSerializer(serializers.ModelSerializer):
                 "product_id": product.id
             }
             res = upload_single_image.delay(image_data)
-        video = b64encode(product_video.read()).decode('utf-8')
-        upload_video.delay(video, product.id)
+        if product_video:
+            video = b64encode(product_video.read()).decode('utf-8')
+            upload_video.delay(video, product.id)
         if post_to_story:
             Status.objects.create(store=store, image=images[0])
         return product

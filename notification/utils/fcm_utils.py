@@ -22,7 +22,7 @@ def send_expo_push_notification(token, title, notification_type, data):
         "to": token,
         "title": title,
         "type": notification_type,
-        "message": data
+        "body": data
     }
 
     headers = {

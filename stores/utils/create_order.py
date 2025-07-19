@@ -92,7 +92,7 @@ def create_order_with_items(user, order_data, reference, method):
         print(order_instance.amount)
         order_instance.amount += item_amount
         order_instance.save()
-        data = "You have a new order on movbay, click to confirm it."
+
     # Serialize all created/used orders
     for order in created_orders.values():
         print(order.order_id)
@@ -105,11 +105,10 @@ def create_order_with_items(user, order_data, reference, method):
             "expected_delivery": formatted_delivery,
             "payment_details": order.payment.payment_method
         }),
-
-    
-        data = "Your Order has been Placed"
-
-    
+        data = {
+            "type": "New Order",
+            "message": "You have a new order on movbay, click to confirm it."
+        }
         send_push_notification.delay(
             token=device.token, title='New Order Available', notification_type="New Order", data=data)
 
