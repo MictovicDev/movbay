@@ -29,11 +29,6 @@ from django.core.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
-
-
-class CustomAnonRateThrottle(AnonRateThrottle):
-    rate = '5/minute'  # Limit to 5 requests per minute
-
     
 
 class UserTokenView(APIView):
@@ -84,7 +79,6 @@ class UserTokenView(APIView):
 
 
 class RegisterView(generics.ListCreateAPIView):
-    throttle_classes = [CustomAnonRateThrottle]
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = RegisterSerializer

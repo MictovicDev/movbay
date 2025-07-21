@@ -10,7 +10,7 @@ from .models import (Store,
                      OrderTracking
                      )
 
-from .tasks import upload_single_image, upload_store_files, upload_video
+from .tasks import upload_store_files, upload_video, upload_image
 from base64 import b64encode
 from rest_framework.response import Response
 from rest_framework import status
@@ -160,16 +160,18 @@ class ProductSerializer(serializers.ModelSerializer):
         post_to_story = validated_data.pop('auto_post_to_story', False)
         product_video = validated_data.pop('product_video', None)
         store = user.store
-        print(store, validated_data)
+        print(images)
         product = Product.objects.create(store=store, **validated_data)
-
-        for image in images:
-            image_data = {
+        serialized_images = [
+        {
                 "file_content": b64encode(image.read()).decode("utf-8"),
                 "filename": image.name,
                 "product_id": product.id
             }
-            res = upload_single_image.delay(image_data)
+            for image in images
+        ]
+        if serialized_images:
+            res = upload_image.delay(serialized_images, product.id)
         if product_video:
             video = b64encode(product_video.read()).decode('utf-8')
             upload_video.delay(video, product.id)

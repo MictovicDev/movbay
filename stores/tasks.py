@@ -7,14 +7,36 @@ from .models import Store, Status
 from django.shortcuts import get_object_or_404
 import base64, io, logging, requests
 from notification.utils.fcm_utils import send_expo_push_notification
-
-
+from base64 import b64encode
+from .models import OrderTracking
 
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+
+
+
+@shared_task
+def upload_image(serialized_images, product_id):
+    from .models import ProductImage
+    for image_data in serialized_images:
+        image_bytes = base64.b64decode(image_data["file_content"])
+        image_file = BytesIO(image_bytes)
+        image_file.name = image_data["filename"]
+
+        upload_result = upload(
+            image_file,
+            folder=f'products/{product_id}',
+        )
+        ProductImage.objects.create(
+            product_id=product_id,
+            image_url=upload_result['secure_url'],
+        )
+
 
 
 @shared_task
@@ -138,6 +160,26 @@ def send_push_notification(token, title, notification_type, data):
         send_expo_push_notification(token, title, notification_type, data)
     except Exception as e:
         print(f"Error {str(e)}")
+        
+        
+
+@shared_task
+def update_to_enroute(order_tracking_id):
+   try:
+        order_tracking = get_object_or_404(OrderTracking, id=order_tracking_id)
+        order_tracking.rider_en_route = True
+        order_tracking.save()
+   except OrderTracking.DoesNotExist:
+        logger.info("Error Tracking Order")
+
+
+
+@shared_task
+def update_to_arriving(order_tracking):
+    try:
+        order_tracking.order_accepted = True
+        order_tracking.save()
+    except OrderTracking.DoesNotExist:
+        logger.info("Error Tracking Order")
+        
     
-        
-        

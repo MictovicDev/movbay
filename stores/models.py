@@ -294,11 +294,10 @@ class OrderItem(models.Model):
    
 class OrderTracking(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_tracking')
-    new = models.BooleanField(default=True)
-    processing = models.BooleanField(default=False)
-    out_for_delivery = models.BooleanField(default=False)
-    arriving_soon = models.BooleanField(default=False)
-    completed = models.BooleanField(default=False, null=True)
+    order_accepted = models.BooleanField(default=False)
+    item_picked = models.BooleanField(default=False)
+    rider_en_route = models.BooleanField(default=False)
+    arriving_soon = models.BooleanField(default=False, null=True)
     driver = models.ForeignKey(RiderProfile, on_delete=models.CASCADE, blank=True, null=True)
     
     def __str__(self):

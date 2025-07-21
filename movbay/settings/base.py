@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from datetime import timedelta
 import cloudinary
+import time
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -14,7 +15,6 @@ load_dotenv(BASE_DIR / ".env")
 
 
 AUTH_USER_MODEL = "users.User"
-
 
 
 SECRET_KEY = os.getenv('SECRET_KEY')
@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     'debug_toolbar',
     'channels',
     'drf_yasg'
-   
+
 ]
 
 MIDDLEWARE = [
@@ -80,7 +80,7 @@ TEMPLATES = [
     },
 ]
 
-#WSGI_APPLICATION = 'movbay.wsgi.application'
+# WSGI_APPLICATION = 'movbay.wsgi.application'
 ASGI_APPLICATION = 'movbay.asgi.application'
 
 # Database
@@ -116,8 +116,6 @@ CORS_ALLOW_CREDENTIALS = True
 # CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Or IP of Redis if using Docker or VPS
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
-
-
 
 
 # Password validation
@@ -160,20 +158,8 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
-    ],
-    
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/day',
-        'user': '1000/day',
-    }
 
 }
-
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=5),
@@ -221,7 +207,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = '/media/'
 # MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-#MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -261,5 +247,12 @@ LOGGING = {
         },
     },
 }
+from datetime import time
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('GMAIL_USER')
+EMAIL_HOST_PASSWORD = os.getenv('GMAIL_PASSWORD') # not your real Gmail password

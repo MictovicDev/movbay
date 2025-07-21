@@ -3,6 +3,7 @@ from django.dispatch import receiver
 from .models import User, UserProfile, RiderProfile
 from django.contrib.auth import get_user_model
 from .models import Order, OrderTracking
+from .tasks import update_to_enroute
 
 import logging
 
@@ -29,15 +30,15 @@ def update_order_tracking_model(sender, instance, created, **kwargs):
                 order=instance)
             if status == 'processing':
                 try:
-
-                    order_tracking.processing = True
+                    order_tracking.order_accepted = True
                     order_tracking.save()
                 except OrderTracking.DoesNotExist:
                     logger.info("Error Tracking Order")
             elif status == 'out_for_delivery':
-                print(True)
-                order_tracking.out_for_delivery = True
-                order_tracking.save()
+               order_tracking.item_picked = True
+               order_tracking.save()
+               update_to_enroute.apply_async((order_tracking.id,), countdown=180)
+
 
             elif status == 'completed':
                 order_tracking.completed = True

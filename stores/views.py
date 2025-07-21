@@ -184,7 +184,6 @@ class MarkForDeliveryView(APIView):
 
 
 class ProductListCreateView(generics.ListCreateAPIView):
-    throttle_classes = [CustomAnonRateThrottle]
     serializer_class = ProductSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -208,7 +207,7 @@ class UserProductDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class StoreFollowView(APIView):
-    permission_classes = [IsProductOwner, permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [SessionAuthentication, JWTAuthentication]
 
     def post(self, request, pk):
@@ -237,7 +236,6 @@ class StoreFollowers(APIView):
 
 
 class UserProductListView(generics.ListAPIView):
-    throttle_classes = [CustomAnonRateThrottle]
     serializer_class = ProductSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]  # login required
