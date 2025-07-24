@@ -248,6 +248,7 @@ class Order(models.Model):
         ('new', 'New Orders'),
         ('processing', 'Processing'),
         ('assigned', 'assigned'),
+        ('locked', 'locked'),
         ('out_for_delivery', 'Out for Delivery'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
@@ -258,9 +259,11 @@ class Order(models.Model):
     status = models.CharField(max_length=250, choices=STATUS_CHOICES, default='new')
     order_id = models.CharField(max_length=20, unique=True, blank=True)
     amount = models.PositiveBigIntegerField(default=0, blank=True, null=True)
+    assigned = models.BooleanField(default=False)
     payment = models.ForeignKey(Payment, on_delete=models.PROTECT, blank=True, null=True)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    
     
     
     def save(self, *args, **kwargs):
@@ -295,6 +298,7 @@ class OrderItem(models.Model):
 class OrderTracking(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_tracking')
     order_accepted = models.BooleanField(default=False)
+    marked_for_delivery = models.BooleanField(default=False)
     item_picked = models.BooleanField(default=False)
     rider_en_route = models.BooleanField(default=False)
     arriving_soon = models.BooleanField(default=False, null=True)

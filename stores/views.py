@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Store, Order, Product, Delivery, StoreFollow, Status
+from .models import Store, Order, Product, Delivery, StoreFollow, Status, OrderTracking
 from .serializers import StoreSerializer, OrderSerializer, ProductSerializer, DeliverySerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
@@ -27,7 +27,6 @@ from logistics.utils.eta import get_eta_distance_and_fare
 from .utils.get_store_cordinate import get_coordinates_from_address
 from .tasks import send_push_notification
 from django.db import transaction
-from .models import OrderTracking
 
 
 User = get_user_model()
@@ -119,15 +118,13 @@ class ConfirmOrder(APIView):
                 order.status = 'processing'
                 order.save()
                 # You could use transaction.on_commit here to trigger the push only after DB is committed
-                data = {
-                    "type": "Confirm Order",
-                    "message": 'Your Order has been confirmed, start tracking it.'
-                }
+                data = 'Your Order has been confirmed, start tracking it.'
+
                 transaction.on_commit(lambda: send_push_notification.delay(
                     token=order.buyer.device.all()[0].token,
-                    title = 'Your Order has been Confirmed',
+                    title='Your Order has been Confirmed',
                     notification_type="Order Confirmation",
-                    data = data
+                    data=data
                 ))
 
             return Response({"Message": "Order is being Processed"}, status=status.HTTP_200_OK)
@@ -153,6 +150,8 @@ class TrackOrder(APIView):
 class MarkForDeliveryView(APIView):
     def post(self, request, pk):
         order = get_object_or_404(Order, order_id=pk)
+        order_tracking, _ = OrderTracking.objects.get_or_create(
+                order=order)
         delivery_method = order.delivery.delivery_method
         if order.status != "processing":
             return Response({"error": "Order hasn't been accepted or picked by rider."}, status=400)
@@ -163,15 +162,22 @@ class MarkForDeliveryView(APIView):
                     order.delivery.delivery_address)
                 destination = (delivery_cordinates.get('latitude'),
                                delivery_cordinates.get('longitude'))
-                origin = (order.store.latitude, order.store.longitude)
+                print(destination)
+                store_cordinates = get_coordinates_from_address(
+                    order.store.address1)
+                origin = (store_cordinates.get('latitude'),
+                          store_cordinates.get('longitude'))
+                print(origin)
                 summary = get_eta_distance_and_fare(origin, destination)
                 print(summary)
-                riders = get_nearby_drivers(
-                    order.store.latitude, order.store.longitude, radius_km=5)
-                print(riders)
-                return Response({"message": "Riders notified."}, status=200)
+                riders = get_nearby_drivers(store_cordinates.get(
+                    'latitude'), store_cordinates.get('longitude'), radius_km=5)
+                order.status = 'assigned'
+                order.save()
+                # ordertrack.save()
+                return Response({"message": "Request Sent Waiting for Riders to accept"}, status=200)
             except Exception as e:
-                return Response({"Message": "Failed to retrieve rider for Movbay – internal error occurred."}, status=500)
+                return Response({"Message": "Request Sent Waiting for Riders to accept."}, status=200)
         elif delivery_method == 'Speedy_Dispatch':
             pass
             # Implement shiip algorithm here
