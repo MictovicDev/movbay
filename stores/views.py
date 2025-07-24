@@ -172,7 +172,7 @@ class MarkForDeliveryView(APIView):
                 print(summary)
                 riders = get_nearby_drivers(store_cordinates.get(
                     'latitude'), store_cordinates.get('longitude'), radius_km=5)
-                order.status = 'assigned'
+                order.assigned = True
                 order.save()
                 # ordertrack.save()
                 return Response({"message": "Request Sent Waiting for Riders to accept"}, status=200)
