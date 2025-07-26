@@ -149,6 +149,21 @@ class Profile(models.Model):
         return f"{self.follower.username} follows {self.following.username}"
     
     
+class Review(models.Model):
+    store = models.ForeignKey(Store, related_name='reviews', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    rating = models.PositiveIntegerField()  # e.g., 1 to 5
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['store', 'user']  # One review per store per user
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.store.name} ({self.rating})"
+    
+    
  
 class StoreFollow(models.Model):
     follower = models.ForeignKey(Store, related_name='following_set', on_delete=models.CASCADE, db_index=True, blank=True, null=True)
@@ -248,7 +263,6 @@ class Order(models.Model):
         ('new', 'New Orders'),
         ('processing', 'Processing'),
         ('assigned', 'assigned'),
-        ('locked', 'locked'),
         ('out_for_delivery', 'Out for Delivery'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
@@ -261,6 +275,7 @@ class Order(models.Model):
     amount = models.PositiveBigIntegerField(default=0, blank=True, null=True)
     assigned = models.BooleanField(default=False)
     payment = models.ForeignKey(Payment, on_delete=models.PROTECT, blank=True, null=True)
+    locked = models.BooleanField(default=False)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     

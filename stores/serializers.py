@@ -17,6 +17,11 @@ from rest_framework import status
 from users.serializers import UserSerializer, UserProfileSerializer
 from .utils.get_store_cordinate import get_coordinates_from_address
 
+from rest_framework import serializers
+from .models import Review
+
+
+
 
 class StoreFollowSerializer(serializers.ModelSerializer):
     follower = UserSerializer()
@@ -132,6 +137,26 @@ class ProductImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'image', 'image_url']
 
 
+class UpdateProductSerializer(serializers.ModelSerializer):
+    verified = serializers.BooleanField(read_only=True)
+    store = serializers.PrimaryKeyRelatedField(read_only=True)
+    created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
+    updated_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
+    images = serializers.ListField(required=False, write_only=True)
+    product_images = ProductImageSerializer(many=True, required=False, read_only=True)
+
+    def __init__(self, *args, **kwargs):
+        # make all fields optional (for partial updates)
+        super().__init__(*args, **kwargs)
+        for field in self.fields:
+            if field not in self.Meta.read_only_fields:
+                self.fields[field].required = False
+
+    class Meta:
+        model = Product
+        fields = '__all__'
+        read_only_fields = ['id', 'verified', 'store', 'created_at', 'updated_at']
+
 class ProductSerializer(serializers.ModelSerializer):
     verified = serializers.BooleanField(read_only=True)
     store = StoreSerializer(read_only=True)
@@ -243,3 +268,14 @@ class ShopSerializer(serializers.Serializer):
     payment_method = serializers.CharField()
     provider_name = serializers.CharField()
     total_amount = serializers.IntegerField()
+
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    store = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ['id', 'store', 'user', 'rating', 'comment', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']

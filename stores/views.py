@@ -12,7 +12,14 @@ from rest_framework import status
 from django.db.models import Count
 from .permissions import IsProductOwner, IsStoreOwner
 from django.contrib.auth import get_user_model
-from .serializers import StoreFollowSerializer, UserSerializer, DashboardSerializer, StatusSerializer, OrderTrackingSerializer, StoreUpdateSerializer
+from .serializers import (StoreFollowSerializer, 
+                          UserSerializer,
+                          DashboardSerializer,
+                          StatusSerializer, 
+                          OrderTrackingSerializer,
+                          StoreUpdateSerializer, 
+                          ReviewSerializer,
+                          UpdateProductSerializer)
 from .models import Status
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -27,6 +34,7 @@ from logistics.utils.eta import get_eta_distance_and_fare
 from .utils.get_store_cordinate import get_coordinates_from_address
 from .tasks import send_push_notification
 from django.db import transaction
+from .models import Review
 
 
 User = get_user_model()
@@ -98,6 +106,7 @@ class GetUserOrder(APIView):
             return Response(str(e), status=status.HTTP_204_NO_CONTENT)
 
 
+
 class ConfirmOrder(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -151,7 +160,7 @@ class MarkForDeliveryView(APIView):
     def post(self, request, pk):
         order = get_object_or_404(Order, order_id=pk)
         order_tracking, _ = OrderTracking.objects.get_or_create(
-                order=order)
+            order=order)
         delivery_method = order.delivery.delivery_method
         if order.status != "processing":
             return Response({"error": "Order has not been accepted yet."}, status=400)
@@ -162,13 +171,13 @@ class MarkForDeliveryView(APIView):
                     order.delivery.delivery_address)
                 if delivery_cordinates:
                     destination = (delivery_cordinates.get('latitude'),
-                               delivery_cordinates.get('longitude'))
+                                   delivery_cordinates.get('longitude'))
                 print(destination)
                 store_cordinates = get_coordinates_from_address(
                     order.store.address1)
                 origin = (store_cordinates.get('latitude'),
                           store_cordinates.get('longitude'))
-                
+
                 summary = get_eta_distance_and_fare(origin, destination)
                 print(summary)
                 riders = get_nearby_drivers(store_cordinates.get(
@@ -201,7 +210,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
-    serializer_class = ProductSerializer
+    serializer_class = UpdateProductSerializer
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [SessionAuthentication, JWTAuthentication]
 
@@ -311,7 +320,8 @@ class StoreDetailView(APIView):
             if store.owner != request.user:
                 return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
-            serializer = StoreUpdateSerializer(store, data=request.data, partial=True)
+            serializer = StoreUpdateSerializer(
+                store, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response({'message': 'Store partially updated', 'data': serializer.data}, status=status.HTTP_200_OK)
@@ -321,7 +331,32 @@ class StoreDetailView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# <QueryDict: {'content': ['Vvbbb', 'Vvvbb'], 'images': [ < InMemoryUploadedFile: ec05f851-464d-42ec-bcf8-bc56dba8f52a.jpeg (image/jpeg) > , < InMemoryUploadedFile: 38c18e0d-6693-4683-9dfa-f492153e98b8.jpeg (image/jpeg) > ]} >
+class ReviewView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, store_id):
+        try:
+            store = Store.objects.get(id=store_id)
+            reviews = Review.objects.filter(store=store)
+            serializer = ReviewSerializer(reviews, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Store.DoesNotExist:
+            return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    def post(self, request, store_id):
+        try:
+            store = Store.objects.get(id=store_id)
+            print(store)
+            serializer = ReviewSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(user=request.user, store=store)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Store.DoesNotExist:
+            return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class StatusView(APIView):
