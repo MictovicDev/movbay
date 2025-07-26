@@ -12,7 +12,7 @@ from rest_framework import status
 from django.db.models import Count
 from .permissions import IsProductOwner, IsStoreOwner
 from django.contrib.auth import get_user_model
-from .serializers import StoreFollowSerializer, UserSerializer, DashboardSerializer, StatusSerializer, OrderTrackingSerializer
+from .serializers import StoreFollowSerializer, UserSerializer, DashboardSerializer, StatusSerializer, OrderTrackingSerializer, StoreUpdateSerializer
 from .models import Status
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -286,6 +286,39 @@ class StoreDetailView(APIView):
         store = get_object_or_404(Store, id=pk)
         serializer = StoreSerializer(store)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request, pk):
+        try:
+            store = Store.objects.get(pk=pk)
+
+            # Optional: check if request.user is allowed to update this store
+            if store.owner != request.user:
+                return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            serializer = StoreUpdateSerializer(store, data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({'message': 'Store updated successfully', 'data': serializer.data}, status=status.HTTP_200_OK)
+        except Store.DoesNotExist:
+            return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request, pk):
+        try:
+            store = Store.objects.get(pk=pk)
+
+            if store.owner != request.user:
+                return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            serializer = StoreUpdateSerializer(store, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({'message': 'Store partially updated', 'data': serializer.data}, status=status.HTTP_200_OK)
+        except Store.DoesNotExist:
+            return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 # <QueryDict: {'content': ['Vvbbb', 'Vvvbb'], 'images': [ < InMemoryUploadedFile: ec05f851-464d-42ec-bcf8-bc56dba8f52a.jpeg (image/jpeg) > , < InMemoryUploadedFile: 38c18e0d-6693-4683-9dfa-f492153e98b8.jpeg (image/jpeg) > ]} >

@@ -46,6 +46,15 @@ class DashboardSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+
+class StoreUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Store
+        fields = ('id','name', 'category', 'description', 'address1',
+                  'store_image', 'address2', 'cac', 'nin', 'statuses', 'owner')
+
+    
+
 class StoreSerializer(serializers.ModelSerializer):
     cac = serializers.FileField()
     nin = serializers.FileField()

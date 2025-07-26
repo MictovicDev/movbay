@@ -31,8 +31,6 @@ def get_nearby_drivers(store_lat, store_lng, radius_km=5):
         return None
 
 
-
-
 class GoOnlineView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
@@ -52,8 +50,6 @@ class GoOnlineView(APIView):
             print(str(e))
             return Response({'error': str(e)}, status=400)
         
-        
-
 
 class UpdateLatLongView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -70,3 +66,8 @@ class UpdateLatLongView(APIView):
             return Response({"error": "Rider profile not found"}, status=404)
         except Exception as e:
             return Response({"error": str(e)}, status=400)
+        
+        
+        
+        
+
