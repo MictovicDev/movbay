@@ -154,20 +154,21 @@ class MarkForDeliveryView(APIView):
                 order=order)
         delivery_method = order.delivery.delivery_method
         if order.status != "processing":
-            return Response({"error": "Order hasn't been accepted or picked by rider."}, status=400)
+            return Response({"error": "Order has not been accepted yet."}, status=400)
 
         if delivery_method == 'MovBay_Dispatch':
             try:
                 delivery_cordinates = get_coordinates_from_address(
                     order.delivery.delivery_address)
-                destination = (delivery_cordinates.get('latitude'),
+                if delivery_cordinates:
+                    destination = (delivery_cordinates.get('latitude'),
                                delivery_cordinates.get('longitude'))
                 print(destination)
                 store_cordinates = get_coordinates_from_address(
                     order.store.address1)
                 origin = (store_cordinates.get('latitude'),
                           store_cordinates.get('longitude'))
-                print(origin)
+                
                 summary = get_eta_distance_and_fare(origin, destination)
                 print(summary)
                 riders = get_nearby_drivers(store_cordinates.get(
@@ -177,7 +178,7 @@ class MarkForDeliveryView(APIView):
                 # ordertrack.save()
                 return Response({"message": "Request Sent Waiting for Riders to accept"}, status=200)
             except Exception as e:
-                return Response({"Message": "Request Sent Waiting for Riders to accept."}, status=200)
+                return Response({"error": str(e)}, status=200)
         elif delivery_method == 'Speedy_Dispatch':
             pass
             # Implement shiip algorithm here
