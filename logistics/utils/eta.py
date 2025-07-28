@@ -47,7 +47,7 @@ def get_eta_distance_and_fare(origin, destination):
         return {
             "distance_km": round(distance_km, 2),
             "duration_minutes": round(duration_minutes),
-            "amount": int(total_fare)
+            "fare_amount": int(total_fare)
         }
 
     except Exception as e:

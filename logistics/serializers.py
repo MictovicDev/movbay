@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from users.models import RiderProfile
+from .models import Ride
 
 
 class GoOnline_OfflineSerializer(serializers.ModelSerializer):
@@ -18,3 +19,10 @@ class UpdateLatLongSerializer(serializers.ModelSerializer):
     class Meta:
         model = RiderProfile
         fields = ['latitude', 'longitude']
+        
+        
+class RideSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = Ride
+        fields = '__all__'

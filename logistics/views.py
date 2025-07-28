@@ -15,6 +15,10 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.db import transaction
 from stores.models import Order  # Adjust import path accordingly
 from stores.tasks import send_push_notification  # Ensure this task exists
+from .models import Ride
+from .serializers import RideSerializer
+from geopy.distance import geodesic
+from django.shortcuts import get_object_or_404
 
 def get_nearby_drivers(store_lat, store_lng, radius_km=5):
     """
@@ -146,3 +150,45 @@ class AcceptRide(APIView):
         
         
 
+class RideView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # Get driver's location
+            rider_profile = RiderProfile.objects.get(user=request.user)
+            driver_location = (rider_profile.latitude, rider_profile.longitude)
+
+            # Filter rides (e.g., not yet assigned or status = 'pending')
+            all_rides = Ride.objects.filter(accepted=False)
+
+            # Filter rides within a certain radius (e.g., 10km)
+            nearby_rides = []
+            for ride in all_rides:
+                if ride.latitude and ride.longitude:
+                    ride_location = (ride.latitude, ride.longitude)
+                    distance_km = geodesic(driver_location, ride_location).km
+                    if distance_km <= 10:
+                        nearby_rides.append(ride)
+
+            serializer = RideSerializer(nearby_rides, many=True)
+            return Response(serializer.data, status=200)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=404)
+        
+        
+class RideDetailView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self,request, pk):
+        ride = get_object_or_404(Ride, id=pk)
+        serializer = RideSerializer(ride)
+        return Response(serializer.data, status=200)
+    
+        
+       
+    
+        

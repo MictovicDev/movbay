@@ -35,6 +35,7 @@ from .utils.get_store_cordinate import get_coordinates_from_address
 from django.db import transaction
 from .models import Review
 from users.models import RiderProfile
+from logistics.models import Ride
 
 
 User = get_user_model()
@@ -164,17 +165,15 @@ class MarkForDeliveryView(APIView):
                 for driver in drivers:
                     device_token = driver.get('driver').device.all()[0].token
                     print(device_token)
-                    data = {
-                        "summary": summary
-                    }
                     if device_token:
                         try:
                             send_push_notification.delay(
                             token=device_token,
                             title='Order available for delivery',
                             notification_type="Ride Alert",
-                            data=data)
+                            data='Hello new Notification')
                         except Exception as e:
+                            print(str(e))
                             return Response(str(e), status=400)
             except Exception as e:
                 return Response({"message": f"Error occured -- {str(e)}"}, status=400)
@@ -208,6 +207,7 @@ class MarkForDeliveryView(APIView):
                     order.assigned = True
                     order.save()
                     transaction.on_commit(lambda: notify_drivers(riders, summary))
+                    ride,_ = Ride.objects.get_or_create(latitude=origin[0], longitude=origin[1], order=order,**summary)
                     return Response({"message": "Request Sent Waiting for Riders to accept"}, status=200)
                 except Exception as e:
                     return Response({"error": str(e)}, status=200)

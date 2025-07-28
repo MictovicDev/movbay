@@ -2,22 +2,26 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from users.models import RiderProfile
 from cloudinary.models import CloudinaryField
+from stores.models import Order
 
 User = get_user_model()
 
 
     
 class Ride(models.Model):
-    rider = models.ForeignKey(User, on_delete=models.CASCADE)
+    rider = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     distance_km = models.DecimalField(max_digits=8, decimal_places=2, null=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, null=True)
     duration_minutes = models.IntegerField(null=True)
     fare_amount = models.DecimalField(max_digits=8, decimal_places=2, null=True)
+    accepted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
     
+    
     def __str__(self):
-        return f"Ride {self.id} - {self.rider.username}"
+        return f"Ride {self.id} - {self.rider}"
     
     
     
