@@ -57,6 +57,33 @@ class StoreUpdateSerializer(serializers.ModelSerializer):
         model = Store
         fields = ('id','name', 'category', 'description', 'address1',
                   'store_image', 'address2', 'cac', 'nin', 'statuses', 'owner')
+        
+        
+    def validate_cac(self, value):
+        if value:
+            # Alternatively, check file extension if content_type is not reliable
+            if not value.name.lower().endswith('.pdf'):
+                raise serializers.ValidationError(
+                    "The CAC document must have a .pdf extension.")
+
+            # You can also check file size if needed, e.g. max 5MB
+            max_size = 5 * 1024 * 1024  # 5MB
+            if value.size > max_size:
+                raise serializers.ValidationError(
+                    "The CAC document file size must be under 5MB.")
+            return value
+        else:
+            return value
+
+    def validate_nin(self, value):
+        if value:
+            valid_extensions = ['.jpg', '.jpeg', '.png', '.gif', 'pdf']
+            if not any(value.name.lower().endswith(ext) for ext in valid_extensions):
+                raise serializers.ValidationError(
+                    "File extension not supported. Allowed: jpg, jpeg, png, gif.")
+            return value
+        else:
+            return value
 
     
 

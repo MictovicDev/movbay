@@ -263,6 +263,7 @@ class Order(models.Model):
         ('new', 'New Orders'),
         ('processing', 'Processing'),
         ('assigned', 'assigned'),
+        ('ride_accepted', 'ride_accepted'),
         ('out_for_delivery', 'Out for Delivery'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),

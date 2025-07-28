@@ -7,8 +7,12 @@ from .models import Store, Status
 from django.shortcuts import get_object_or_404
 import base64, io, logging, requests
 from notification.utils.fcm_utils import send_expo_push_notification
-from base64 import b64encode
 from .models import OrderTracking
+import cloudinary.uploader
+from stores.models import Store
+from django.core.files.base import ContentFile
+from base64 import b64decode
+import logging
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -98,33 +102,76 @@ def upload_video(self, video_data, product_id):
         return None
 
 
+# @shared_task
+# def upload_store_files(store_id, file_data):
+#     try:
+#         try:
+#             store = Store.objects.get(id=store_id)
+#         except Store.DoesNotExist:
+#             print('Store Does not exist')
+#         if file_data:
+#             for file in file_data:
+#                 public_id = f"store_details/{store_id}"
+#                 upload_result = cloudinary.uploader.upload(
+#                     file_data[file],
+#                     public_id=public_id,
+#                     overwrite=True
+#                 )
+#                 image_url = upload_result.get("secure_url")
+#                 if file == 'cac':
+#                     store.cac = image_url
+#                     store.save()
+#                 elif file == 'nin':
+#                     store.nin = image_url
+#                     store.save()
+#                 else:
+#                     store.store_image = image_url
+#                     store.save()
+#     except Exception as e:
+#         print(f"Error saving profile picture: {str(e)}")
+
+import os
+
 @shared_task
-def upload_store_files(store_id, file_data):
+def upload_store_files(store_id, file_paths):
     try:
-        try:
-            store = Store.objects.get(id=store_id)
-        except Store.DoesNotExist:
-            print('Store Does not exist')
-        if file_data:
-            for file in file_data:
-                public_id = f"store_details/{store_id}"
-                upload_result = cloudinary.uploader.upload(
-                    file_data[file],
-                    public_id=public_id,
-                    overwrite=True
-                )
-                image_url = upload_result.get("secure_url")
-                if file == 'cac':
-                    store.cac = image_url
-                    store.save()
-                elif file == 'nin':
-                    store.nin = image_url
-                    store.save()
-                else:
-                    store.store_image = image_url
-                    store.save()
+        store = Store.objects.get(pk=store_id)
+
+        for file_key, filename in file_paths.items():
+            local_path = f'/tmp/{filename}'
+            if not os.path.exists(local_path):
+                continue
+
+            # Build Cloudinary path
+            public_id = f"stores/{store_id}/{file_key}"
+
+            # Upload to Cloudinary (overwrite = True)
+            result = cloudinary.uploader.upload(
+                local_path,
+                public_id=public_id,
+                overwrite=True,
+                resource_type="raw"
+            )
+
+            # Save Cloudinary URL to store model
+            if file_key == 'cac':
+                store.cac = result['secure_url']
+            elif file_key == 'nin':
+                store.nin = result['secure_url']
+            elif file_key == 'store_image':
+                store.store_image = result['secure_url']
+
+            # Clean up temp file
+            os.remove(local_path)
+
+        store.save()
+
+    except Store.DoesNotExist:
+        print(f"❌ Store {store_id} not found.")
     except Exception as e:
-        print(f"Error saving profile picture: {str(e)}")
+        print(f"❌ Failed to upload files for store {store_id}: {str(e)}")
+
+
 
 
 @shared_task

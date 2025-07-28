@@ -25,16 +25,16 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 import json
 import datetime
-from .tasks import upload_status_files
+from .tasks import upload_status_files,send_push_notification, upload_store_files
 from base64 import b64encode
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from logistics.utils.get_riders import get_nearby_drivers
 from logistics.utils.eta import get_eta_distance_and_fare
-from .utils.get_store_cordinate import get_coordinates_from_address
-from .tasks import send_push_notification
+from .utils.get_store_cordinate import get_coordinates_from_address 
 from django.db import transaction
 from .models import Review
+from users.models import RiderProfile
 
 
 User = get_user_model()
@@ -158,45 +158,68 @@ class TrackOrder(APIView):
 
 class MarkForDeliveryView(APIView):
     def post(self, request, pk):
-        order = get_object_or_404(Order, order_id=pk)
-        order_tracking, _ = OrderTracking.objects.get_or_create(
-            order=order)
-        delivery_method = order.delivery.delivery_method
-        if order.status != "processing":
-            return Response({"error": "Order has not been accepted yet."}, status=400)
-
-        if delivery_method == 'MovBay_Dispatch':
+        
+        def notify_drivers(drivers, summary):
             try:
-                delivery_cordinates = get_coordinates_from_address(
-                    order.delivery.delivery_address)
-                if delivery_cordinates:
-                    destination = (delivery_cordinates.get('latitude'),
-                                   delivery_cordinates.get('longitude'))
-                print(destination)
-                store_cordinates = get_coordinates_from_address(
-                    order.store.address1)
-                origin = (store_cordinates.get('latitude'),
-                          store_cordinates.get('longitude'))
-
-                summary = get_eta_distance_and_fare(origin, destination)
-                print(summary)
-                riders = get_nearby_drivers(store_cordinates.get(
-                    'latitude'), store_cordinates.get('longitude'), radius_km=5)
-                order.assigned = True
-                order.save()
-                # ordertrack.save()
-                return Response({"message": "Request Sent Waiting for Riders to accept"}, status=200)
+                for driver in drivers:
+                    device_token = driver.get('driver').device.all()[0].token
+                    print(device_token)
+                    data = {
+                        "summary": summary
+                    }
+                    if device_token:
+                        try:
+                            send_push_notification.delay(
+                            token=device_token,
+                            title='Order available for delivery',
+                            notification_type="Ride Alert",
+                            data=data)
+                        except Exception as e:
+                            return Response(str(e), status=400)
             except Exception as e:
-                return Response({"error": str(e)}, status=200)
-        elif delivery_method == 'Speedy_Dispatch':
-            pass
-            # Implement shiip algorithm here
+                return Response({"message": f"Error occured -- {str(e)}"}, status=400)
+            
+        with transaction.atomic():
+            order = get_object_or_404(Order, order_id=pk)
+            order_tracking, _ = OrderTracking.objects.get_or_create(
+                order=order)
+            delivery_method = order.delivery.delivery_method
+            if order.status != "processing":
+                return Response({"error": "Order has not been accepted yet."}, status=400)
 
-        # Get nearby riders (5km range)
+            if delivery_method == 'MovBay_Dispatch':
+                try:
+                    delivery_cordinates = get_coordinates_from_address(
+                        order.delivery.delivery_address)
+                    if delivery_cordinates:
+                        destination = (delivery_cordinates.get('latitude'),
+                                    delivery_cordinates.get('longitude'))
+                    print(destination)
+                    store_cordinates = get_coordinates_from_address(
+                        order.store.address1)
+                    origin = (store_cordinates.get('latitude'),
+                            store_cordinates.get('longitude'))
+                    print(origin)
+                    summary = get_eta_distance_and_fare(origin, destination)
+                    print(summary)
+                    riders = get_nearby_drivers(store_cordinates.get(
+                        'latitude'), store_cordinates.get('longitude'), radius_km=5)
+                    print(riders)
+                    order.assigned = True
+                    order.save()
+                    transaction.on_commit(lambda: notify_drivers(riders, summary))
+                    return Response({"message": "Request Sent Waiting for Riders to accept"}, status=200)
+                except Exception as e:
+                    return Response({"error": str(e)}, status=200)
+            elif delivery_method == 'Speedy_Dispatch':
+                pass
+                # Implement shiip algorithm here
 
-        # # Send FCM/WebSocket notification to each nearby rider
-        # for rider in riders:
-        #     notify_rider(rider, order)
+            # Get nearby riders (5km range)
+
+            # # Send FCM/WebSocket notification to each nearby rider
+            # for rider in riders:
+            #     notify_rider(rider, order)
 
 
 class ProductListCreateView(generics.ListCreateAPIView):
@@ -210,7 +233,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
-    serializer_class = UpdateProductSerializer
+    serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [SessionAuthentication, JWTAuthentication]
 
@@ -290,28 +313,47 @@ class DashBoardView(APIView):
 class StoreDetailView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+  
 
     def get(self, request, pk):
         store = get_object_or_404(Store, id=pk)
         serializer = StoreSerializer(store)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
+    
+    
     def put(self, request, pk):
         try:
             store = Store.objects.get(pk=pk)
 
-            # Optional: check if request.user is allowed to update this store
             if store.owner != request.user:
                 return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
             serializer = StoreUpdateSerializer(store, data=request.data)
             serializer.is_valid(raise_exception=True)
-            serializer.save()
+
+            # Extract and read files
+            file_data = {}
+            
+            if 'cac' in request.FILES:
+                file_data['cac'] = request.FILES['cac'].read()
+            if 'nin' in request.FILES:
+                file_data['nin'] = request.FILES['nin'].read()
+            if 'store_image' in request.FILES:
+                file_data['store_image'] = request.FILES['store_image'].read()
+            print(file_data)
+            serializer.save()  # Save textual fields and others
+
+            # Send files to Celery task for upload if any exist
+            if file_data:
+                upload_store_files.delay(store.id, file_data)
+
             return Response({'message': 'Store updated successfully', 'data': serializer.data}, status=status.HTTP_200_OK)
+
         except Store.DoesNotExist:
             return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
     def patch(self, request, pk):
         try:
@@ -320,15 +362,64 @@ class StoreDetailView(APIView):
             if store.owner != request.user:
                 return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
-            serializer = StoreUpdateSerializer(
-                store, data=request.data, partial=True)
+            serializer = StoreUpdateSerializer(store, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
+
+            # Extract and read files
+            file_data = {}
+            if 'cac' in request.FILES:
+                file_data['cac'] = request.FILES['cac'].read()
+            if 'nin' in request.FILES:
+                file_data['nin'] = request.FILES['nin'].read()
+            if 'store_image' in request.FILES:
+                file_data['store_image'] = request.FILES['store_image'].read()
+
             serializer.save()
+
+            if file_data:
+                upload_store_files.delay(store.id, file_data)
+
             return Response({'message': 'Store partially updated', 'data': serializer.data}, status=status.HTTP_200_OK)
+
         except Store.DoesNotExist:
             return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    # def put(self, request, pk):
+    #     try:
+    #         store = Store.objects.get(pk=pk)
+
+    #         # Optional: check if request.user is allowed to update this store
+    #         if store.owner != request.user:
+    #             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    #         serializer = StoreUpdateSerializer(store, data=request.data)
+    #         serializer.is_valid(raise_exception=True)
+    #         serializer.save()
+    #         return Response({'message': 'Store updated successfully', 'data': serializer.data}, status=status.HTTP_200_OK)
+    #     except Store.DoesNotExist:
+    #         return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
+    #     except Exception as e:
+    #         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    # def patch(self, request, pk):
+    #     try:
+    #         store = Store.objects.get(pk=pk)
+
+    #         if store.owner != request.user:
+    #             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    #         serializer = StoreUpdateSerializer(
+    #             store, data=request.data, partial=True)
+    #         serializer.is_valid(raise_exception=True)
+    #         serializer.save()
+    #         return Response({'message': 'Store partially updated', 'data': serializer.data}, status=status.HTTP_200_OK)
+    #     except Store.DoesNotExist:
+    #         return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
+    #     except Exception as e:
+    #         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ReviewView(APIView):

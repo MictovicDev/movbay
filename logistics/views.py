@@ -44,6 +44,16 @@ class GoOnlineView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = GoOnline_OfflineSerializer
+    
+    def get(self, request):
+        try:
+            rider = RiderProfile.objects.get(user=request.user)
+            serializer = self.serializer_class(rider)
+            return Response(serializer.data, status=200)
+        except Exception as e:
+            print(str(e))
+            return Response(str(e), status=400)
+            
 
     def post(self, request):
         try:
@@ -87,13 +97,13 @@ class AcceptRide(APIView):
             with transaction.atomic():
                 order = Order.objects.select_for_update().get(order_id=pk)
 
-                if order.status == 'out_for_delivery':
+                if order.status == 'ride_accepted':
                     return Response({"message": "Ride already accepted."}, status=status.HTTP_400_BAD_REQUEST)
                 
                 if order.locked:
                     return Response({"message": "Ride has been Locked, other Rider accepted."}, status=status.HTTP_400_BAD_REQUEST)
 
-                order.status = 'out_for_delivery'
+                order.status = 'ride_accepted'
                 order.locked = True
                 order.save()
 

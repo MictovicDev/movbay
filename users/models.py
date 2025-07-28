@@ -148,6 +148,7 @@ class RiderProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
+    
     online = models.BooleanField(default=False)
     
 
