@@ -118,7 +118,6 @@ class RegisterView(generics.ListCreateAPIView):
     
     
 class ActivateAccountView(generics.GenericAPIView):
-    # throttle_classes = [CustomAnonRateThrottle]
     permission_classes = [AllowAny]
     serializer_class = ActivateAccountSerializer
 
@@ -165,13 +164,6 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     def retrieve(self, request, *args, **kwargs):
         import json
         try:
-            # cache_key = f"user_profile:{request.user.id}"
-            # cached_profile = redis_client.get(cache_key)
-            # redis_client.delete(cache_key)
-            # if cached_profile:
-            #     return Response(json.loads(cached_profile))
-            
-            ## if not in cache
             profile = self.get_object()
             print(profile)
             serializer = self.get_serializer(profile)

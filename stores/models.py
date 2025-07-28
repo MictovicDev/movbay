@@ -28,8 +28,11 @@ class Store(models.Model):
     address1 = models.TextField()
     address2 = models.TextField()
     store_image = CloudinaryField('store/pp', blank=True, null=True)
+    store_image_url = models.URLField(null=True)
     nin = CloudinaryField('store/nin', blank=True, null=True)
+    nin_url = models.URLField(blank=True)
     cac = CloudinaryField('store/cac', blank=True, null=True)
+    cac_url = models.URLField(null=True)
     verified = models.BooleanField(default=False)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
@@ -45,7 +48,6 @@ class Store(models.Model):
         ]
         ordering = ['name']
         
-
 
 class Product(models.Model):
     

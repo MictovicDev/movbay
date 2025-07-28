@@ -340,13 +340,11 @@ class StoreDetailView(APIView):
                 file_data['nin'] = request.FILES['nin'].read()
             if 'store_image' in request.FILES:
                 file_data['store_image'] = request.FILES['store_image'].read()
-            print(file_data)
             serializer.save()  # Save textual fields and others
 
             # Send files to Celery task for upload if any exist
             if file_data:
                 upload_store_files.delay(store.id, file_data)
-
             return Response({'message': 'Store updated successfully', 'data': serializer.data}, status=status.HTTP_200_OK)
 
         except Store.DoesNotExist:

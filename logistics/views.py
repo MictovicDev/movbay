@@ -19,36 +19,26 @@ from .models import Ride
 from .serializers import RideSerializer
 from geopy.distance import geodesic
 from django.shortcuts import get_object_or_404
+from .models import RiderProfile, DeliveryPreference, BankDetail, KYC
+from .serializers import (
+    DeliveryPreferenceSerializer,
+    BankDetailSerializer,
+    KYCSerializer
+)
+from .tasks import upload_rider_files
+import logging
 
-def get_nearby_drivers(store_lat, store_lng, radius_km=5):
-    """
-    Returns a list of available drivers within `radius_km` from store.
-    """
-    candidates = RiderProfile.objects.filter(is_online=True)
-    print(candidates)
-    nearby = []
-
-    for driver in candidates:
-        distance = haversine(store_lat, store_lng,
-                             driver.latitude, driver.longitude)
-
-        if candidates:
-            if distance <= radius_km:
-                nearby.append({
-                    "driver_id": driver.id,
-                    "distance_km": round(distance, 2),
-                    "lat": driver.latitude,
-                    "lng": driver.longitude
-                })
-            return sorted(nearby, key=lambda x: x["distance_km"])
-        return None
-
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 class GoOnlineView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = GoOnline_OfflineSerializer
-    
+
     def get(self, request):
         try:
             rider = RiderProfile.objects.get(user=request.user)
@@ -57,7 +47,6 @@ class GoOnlineView(APIView):
         except Exception as e:
             print(str(e))
             return Response(str(e), status=400)
-            
 
     def post(self, request):
         try:
@@ -72,7 +61,7 @@ class GoOnlineView(APIView):
         except Exception as e:
             print(str(e))
             return Response({'error': str(e)}, status=400)
-        
+
 
 class UpdateLatLongView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -89,9 +78,8 @@ class UpdateLatLongView(APIView):
             return Response({"error": "Rider profile not found"}, status=404)
         except Exception as e:
             return Response({"error": str(e)}, status=400)
-        
-        
-        
+
+
 class AcceptRide(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -103,7 +91,7 @@ class AcceptRide(APIView):
 
                 if order.status == 'ride_accepted':
                     return Response({"message": "Ride already accepted."}, status=status.HTTP_400_BAD_REQUEST)
-                
+
                 if order.locked:
                     return Response({"message": "Ride has been Locked, other Rider accepted."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -146,9 +134,6 @@ class AcceptRide(APIView):
             print(f"Error in AcceptRide: {e}")
             return Response({"message": "Something went wrong."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        
-        
-        
 
 class RideView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -177,18 +162,168 @@ class RideView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=404)
-        
-        
+
+
 class RideDetailView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
-    def get(self,request, pk):
+
+    def get(self, request, pk):
         ride = get_object_or_404(Ride, id=pk)
         serializer = RideSerializer(ride)
         return Response(serializer.data, status=200)
-    
-        
-       
-    
-        
+
+
+class BaseRiderProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+
+    def get_rider_profile(self, user):
+        print(user)
+        rider = RiderProfile.objects.get(user=user)
+        print(rider)
+        try:
+            return RiderProfile.objects.get(user=user)
+        except RiderProfile.DoesNotExist:
+            return None
+
+
+class DeliveryPreferenceAPIView(BaseRiderProfileView):
+    def get(self, request):
+        rider = self.get_rider_profile(request.user)
+        if not rider:
+            return Response(
+                {"detail": "Rider profile not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            pref = DeliveryPreference.objects.get(rider=rider)
+            serializer = DeliveryPreferenceSerializer(pref)
+            return Response(serializer.data)
+        except DeliveryPreference.DoesNotExist:
+            return Response(
+                {"detail": "Delivery preferences not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    def put(self, request):
+        rider = self.get_rider_profile(request.user)
+        if not rider:
+            return Response(
+                {"detail": "Rider profile not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            pref = DeliveryPreference.objects.get(rider=rider)
+            serializer = DeliveryPreferenceSerializer(pref, data=request.data)
+        except DeliveryPreference.DoesNotExist:
+            serializer = DeliveryPreferenceSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save(rider=rider)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BankDetailAPIView(BaseRiderProfileView):
+    def get(self, request):
+        rider = self.get_rider_profile(request.user)
+        if not rider:
+            return Response(
+                {"detail": "Rider profile not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            pref = BankDetail.objects.get(rider=rider)
+            serializer = BankDetailSerializer(pref)
+            return Response(serializer.data)
+        except BankDetail.DoesNotExist:
+            return Response(
+                {"detail": "Delivery preferences not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    def put(self, request):
+        rider = self.get_rider_profile(request.user)
+        if not rider:
+            return Response(
+                {"detail": "Rider profile not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            pref = BankDetail.objects.get(rider=rider)
+            serializer = BankDetailSerializer(pref, data=request.data)
+        except BankDetail.DoesNotExist:
+            serializer = BankDetailSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save(rider=rider)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class KYCDetailAPIView(BaseRiderProfileView):
+    def get(self, request):
+        rider = self.get_rider_profile(request.user)
+        print(rider)
+        if not rider:
+            return Response(
+                {"detail": "Rider profile not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            kyc = KYC.objects.get(rider=rider)
+            serializer = KYCSerializer(kyc)
+            return Response(serializer.data)
+        except KYC.DoesNotExist:
+            return Response(
+                {"detail": "KYC details not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    def put(self, request):
+        rider = self.get_rider_profile(request.user)
+        if not rider:
+            return Response(
+                {"detail": "Rider profile not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            kyc = KYC.objects.get(rider=rider)
+            serializer = KYCSerializer(kyc, data=request.data, partial=True)
+        except KYC.DoesNotExist:
+            serializer = KYCSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Process file uploads
+        file_data = {}
+        for field in ['nin', 'proof_of_address', 'drivers_license']:
+            if field in request.FILES:
+                try:
+                    file_data[field] = request.FILES[field].read()
+                except Exception as e:
+                    logger.error(f"Error reading {field} file: {str(e)}")
+                    return Response(
+                        {"detail": f"Error processing {field} file"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+        # Save the instance (either create or update)
+        kyc = serializer.save(rider=rider)
+
+        # Trigger background task if there are files to upload
+        if file_data:
+            upload_rider_files.delay(kyc.id, file_data)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED if serializer.instance._state.adding else status.HTTP_200_OK
+        )

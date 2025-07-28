@@ -11,6 +11,7 @@ from django.contrib.auth import authenticate
 from .tasks import save_profile_picture
 from rest_framework.response import Response
 
+
 User = get_user_model()
 
 class RegisterSerializer(serializers.ModelSerializer):
