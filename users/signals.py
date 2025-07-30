@@ -3,7 +3,7 @@ from django.dispatch import receiver
 from .models import User, UserProfile, RiderProfile
 from django.contrib.auth import get_user_model
 from wallet.models import Wallet
-# from .tasks import create_virtual_account
+from logistics.models import KYC, BankDetail, DeliveryPreference
 import logging 
 
 # Configure logger if not already done
@@ -25,7 +25,10 @@ def create_user_profile(sender, instance, created, **kwargs):
     if created:
         try:
             if instance.user_type == 'Rider':
-                RiderProfile.objects.get_or_create(user=instance)
+                rider, _ = RiderProfile.objects.get_or_create(user=instance)
+                KYC.objects.create(rider=rider)
+                DeliveryPreference.objects.create(rider=rider)
+                BankDetail.objects.create(rider=rider)
             elif instance.user_type == 'User':
                 UserProfile.objects.get_or_create(user=instance)
         except Exception as e:

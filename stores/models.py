@@ -258,7 +258,11 @@ class Delivery(models.Model):
         db_index=True,
         validators=[EmailValidator(message="Enter a valid email address")], blank=True, null=True
     )
-    postal_code = models.PositiveBigIntegerField()    
+    postal_code = models.PositiveBigIntegerField()
+    
+    
+    def __str__(self):
+        return f"{self.user} Delivery" 
 
 class Order(models.Model):
     STATUS_CHOICES = [

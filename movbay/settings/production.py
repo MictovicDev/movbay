@@ -95,3 +95,4 @@ CHANNEL_LAYERS = {
     },
 }
 
+STATIC_ROOT = '/app/movbay/staticfiles'  # Match the volume path

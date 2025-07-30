@@ -18,18 +18,10 @@ CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_DOMAIN = None
 CSRF_COOKIE_DOMAIN = None
 
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# if os.getenv('DATABASE_URL'):
-#     DATABASES = {
-#     'default': dj_database_url.config(
-#         default=os.environ.get('DATABASE_URL'),
-#         conn_max_age=600,
-#         ssl_require=True  # Required by Supabase
-#     )
-# }
-# else:
-#     # Keep your existing database configuration
-#     pass
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
 DATABASES = {

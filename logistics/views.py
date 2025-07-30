@@ -275,7 +275,6 @@ class KYCDetailAPIView(BaseRiderProfileView):
                 {"detail": "Rider profile not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
-
         try:
             kyc = KYC.objects.get(rider=rider)
             serializer = KYCSerializer(kyc)

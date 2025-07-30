@@ -6,3 +6,4 @@ from .models import Ride, KYC, BankDetail, DeliveryPreference
 admin.site.register(Ride)
 admin.site.register(KYC)
 admin.site.register(DeliveryPreference)
+admin.site.register(BankDetail)

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from users.models import RiderProfile
 from .models import Ride, DeliveryPreference, BankDetail, KYC
 from users.models import RiderProfile
-
+from stores.serializers import OrderSerializer
 
 
 
@@ -27,7 +27,7 @@ class UpdateLatLongSerializer(serializers.ModelSerializer):
         
         
 class RideSerializer(serializers.ModelSerializer):
-    
+    order = OrderSerializer(required=False)
     class Meta:
         model = Ride
         fields = '__all__'

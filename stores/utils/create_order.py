@@ -22,7 +22,7 @@ def create_order_with_items(user, order_data, reference, method):
     platform_wallet, _ = Wallet.objects.get_or_create(owner=admin_user)
     amount = order_data.get("total_amount")
     delivery_data = order_data['delivery']
-    delivery = Delivery.objects.create(**delivery_data)
+    delivery = Delivery.objects.create(user=user, **delivery_data)
 
     if method == 'wallet':
         sender_wallet = user.wallet

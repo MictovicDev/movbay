@@ -169,9 +169,9 @@ class MarkForDeliveryView(APIView):
                         try:
                             send_push_notification.delay(
                             token=device_token,
-                            title='Order available for delivery',
+                            title='New Ride Alert on movbay',
                             notification_type="Ride Alert",
-                            data='Hello new Notification')
+                            data='You have a new ride suggestion on Movbay, check it out and start earning')
                         except Exception as e:
                             print(str(e))
                             return Response(str(e), status=400)
@@ -384,40 +384,6 @@ class StoreDetailView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
-    # def put(self, request, pk):
-    #     try:
-    #         store = Store.objects.get(pk=pk)
-
-    #         # Optional: check if request.user is allowed to update this store
-    #         if store.owner != request.user:
-    #             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-
-    #         serializer = StoreUpdateSerializer(store, data=request.data)
-    #         serializer.is_valid(raise_exception=True)
-    #         serializer.save()
-    #         return Response({'message': 'Store updated successfully', 'data': serializer.data}, status=status.HTTP_200_OK)
-    #     except Store.DoesNotExist:
-    #         return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
-    #     except Exception as e:
-    #         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    # def patch(self, request, pk):
-    #     try:
-    #         store = Store.objects.get(pk=pk)
-
-    #         if store.owner != request.user:
-    #             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-
-    #         serializer = StoreUpdateSerializer(
-    #             store, data=request.data, partial=True)
-    #         serializer.is_valid(raise_exception=True)
-    #         serializer.save()
-    #         return Response({'message': 'Store partially updated', 'data': serializer.data}, status=status.HTTP_200_OK)
-    #     except Store.DoesNotExist:
-    #         return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
-    #     except Exception as e:
-    #         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ReviewView(APIView):
