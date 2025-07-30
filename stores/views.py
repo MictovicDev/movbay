@@ -207,7 +207,7 @@ class MarkForDeliveryView(APIView):
                     order.assigned = True
                     order.save()
                     transaction.on_commit(lambda: notify_drivers(riders, summary))
-                    ride,_ = Ride.objects.get_or_create(latitude=origin[0], longitude=origin[1], order=order,**summary)
+                    ride = Ride.objects.create(latitude=origin[0], longitude=origin[1], order=order,**summary)
                     return Response({"message": "Request Sent Waiting for Riders to accept"}, status=200)
                 except Exception as e:
                     return Response({"error": str(e)}, status=200)

@@ -269,7 +269,6 @@ class Order(models.Model):
         ('new', 'New Orders'),
         ('processing', 'Processing'),
         ('assigned', 'assigned'),
-        ('ride_accepted', 'ride_accepted'),
         ('out_for_delivery', 'Out for Delivery'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
@@ -280,6 +279,7 @@ class Order(models.Model):
     status = models.CharField(max_length=250, choices=STATUS_CHOICES, default='new')
     order_id = models.CharField(max_length=20, unique=True, blank=True)
     amount = models.PositiveBigIntegerField(default=0, blank=True, null=True)
+    ride_accepted = models.BooleanField(default=False)
     assigned = models.BooleanField(default=False)
     payment = models.ForeignKey(Payment, on_delete=models.PROTECT, blank=True, null=True)
     locked = models.BooleanField(default=False)

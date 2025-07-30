@@ -86,18 +86,27 @@ class AcceptRide(APIView):
 
     def post(self, request, pk):
         try:
+            
             with transaction.atomic():
                 order = Order.objects.select_for_update().get(order_id=pk)
-
-                if order.status == 'ride_accepted':
+                ride = order.ride.all()[0]
+                
+                if request.user.user_type != 'Rider':
+                    return Response({"message": "Only Riders can accept rides."}, status=status.HTTP_400_BAD_REQUEST)
+                
+                if order.ride_accepted == True:
                     return Response({"message": "Ride already accepted."}, status=status.HTTP_400_BAD_REQUEST)
 
                 if order.locked:
                     return Response({"message": "Ride has been Locked, other Rider accepted."}, status=status.HTTP_400_BAD_REQUEST)
 
-                order.status = 'ride_accepted'
                 order.locked = True
+                order.ride_accepted = True
+                ride.accepted = True
+                ride.locked = True
+                ride.rider = request.user
                 order.save()
+                ride.save()
 
                 message = 'The ride has been accepted. Track its progress.'
 
