@@ -24,6 +24,7 @@ class Ride(models.Model):
     locked = models.BooleanField(default=False)
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
+    out_for_delivery = models.BooleanField(default=False)
     courier_type = models.CharField(max_length=250, blank=True, null=True)
     
     
@@ -31,7 +32,7 @@ class Ride(models.Model):
         return f"Ride {self.id} - {self.rider}"
     
     
-    
+
 class DeliveryPreference(models.Model):
     rider = models.ForeignKey(RiderProfile, on_delete=models.CASCADE, related_name='delivery_preference')
     auto_accept = models.BooleanField(default=False)

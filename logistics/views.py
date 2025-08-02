@@ -155,7 +155,7 @@ class RideView(APIView):
             driver_location = (rider_profile.latitude, rider_profile.longitude)
 
             # Filter rides (e.g., not yet assigned or status = 'pending')
-            all_rides = Ride.objects.filter(accepted=False)
+            all_rides = Ride.objects.all()
 
             # Filter rides within a certain radius (e.g., 10km)
             nearby_rides = []
@@ -335,3 +335,22 @@ class KYCDetailAPIView(BaseRiderProfileView):
             serializer.data,
             status=status.HTTP_201_CREATED if serializer.instance._state.adding else status.HTTP_200_OK
         )
+
+
+class PickedView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    
+    def post(self, request, pk):
+        order = get_object_or_404(Order, order_id=pk)
+        ride = Ride.objects.get(order=order)
+        if not ride:
+            return Response({"message": "You don't have a Ride Linked to this Order"}, status=400)
+        if ride.accepted == False and order.ride_accepted == False:
+            return Response({"message": "Ride hasn't been accepted yet"}, status=400)
+        order.status = 'out_for_delivery'
+        ride.out_for_delivery = True
+        order.save()
+        ride.save()
+        return Response({"message": "Order marked for Delivery"}, status=200)

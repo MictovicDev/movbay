@@ -281,6 +281,7 @@ class Order(models.Model):
     amount = models.PositiveBigIntegerField(default=0, blank=True, null=True)
     ride_accepted = models.BooleanField(default=False)
     assigned = models.BooleanField(default=False)
+    out_for_delivery = models.BooleanField(default=False)
     payment = models.ForeignKey(Payment, on_delete=models.PROTECT, blank=True, null=True)
     locked = models.BooleanField(default=False)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True)

@@ -19,6 +19,8 @@ from .utils.get_store_cordinate import get_coordinates_from_address
 
 from rest_framework import serializers
 from .models import Review
+from logistics.models import Ride
+# from logistics.serializers import RiderSerializer
 
 
 
@@ -267,16 +269,22 @@ class DeliverySerializer(serializers.ModelSerializer):
                   'delivery_address', 'alternative_address', 'landmark', 'city', 'state', 'postal_code']
 
 
+class RideSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ride
+        fields = '__all__'
+
 class OrderSerializer(serializers.ModelSerializer):
     order_items = OrderItemSerializer(read_only=True, many=True)
     status = serializers.CharField(read_only=True)
     delivery = DeliverySerializer()
-    buyer = UserSerializer()
-    store = StoreSerializer()
+    buyer = UserSerializer(read_only=True)
+    store = StoreSerializer(read_only=True)
+    ride = RideSerializer(read_only=True, many=True)
 
     class Meta:
         model = Order
-        fields = ['status', 'order_items', 'delivery', 'buyer', 'order_id', 'store', 'assigned']
+        fields = ['status', 'order_items', 'delivery', 'buyer', 'order_id', 'store', 'assigned', 'ride']
         
         
     

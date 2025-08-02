@@ -11,5 +11,6 @@ urlpatterns = [
     path('kyc/', views.KYCDetailAPIView.as_view(), name='kyc_verification'),
     path('bank-details/', views.BankDetailAPIView.as_view(), name='bank-detail'),
     path('delivery-preference', views.DeliveryPreferenceAPIView.as_view(), name='delivery_view'),
-    path('rider/', views.BaseRiderProfileView.as_view(), name='rider-view')
+    path('rider/', views.BaseRiderProfileView.as_view(), name='rider-view'),
+    path('mark-as-picked/<str:pk>/', views.PickedView.as_view(), name='mark-as-picked')
 ]
