@@ -134,16 +134,23 @@ class StoreSerializer(serializers.ModelSerializer):
         try:
             if request.user.is_authenticated:
                 user = request.user
-                cac = validated_data.pop('cac')
+                try:
+                    cac = validated_data.pop('cac')
+                    nin = validated_data.pop('nin')
+                    store_image = validated_data.pop('store_image')
+                except Exception as e:
+                    print(str(e))
                 otp_m = OTPManager()
-                nin = validated_data.pop('nin')
                 response = get_coordinates_from_address(validated_data.get('address1'))
-                store_image = validated_data.pop('store_image')
-                files = {
+                    
+                try:
+                    files = {
                     "cac": cac.read(),
                     "nin": nin.read(),
                     "store_image": store_image.read()
                 }
+                except Exception as e:
+                    print(str(e))
                 validated_data['owner'] = user
                 try:
                     store = Store.objects.create(**validated_data)
@@ -153,7 +160,10 @@ class StoreSerializer(serializers.ModelSerializer):
                         store.save()
                 except Exception as e:
                     raise e
-                upload_store_files.delay(store.id, files)
+                try:
+                    upload_store_files.delay(store.id, files)
+                except Exception as e:
+                    print(str(e))
                 return store
             else:
                 return Response({"Message": "User is not Authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
@@ -166,6 +176,9 @@ class ProductImageSerializer(serializers.ModelSerializer):
         model = ProductImage
         fields = ['id', 'image', 'image_url']
 
+
+class VerifyOrderSerializer(serializers.Serializer):
+    otp = serializers.CharField(max_length=5)
 
 class UpdateProductSerializer(serializers.ModelSerializer):
     verified = serializers.BooleanField(read_only=True)

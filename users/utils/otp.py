@@ -11,7 +11,7 @@ class OTPManager:
             self.secret = secret
         else:
             self.secret = pyotp.random_base32()
-        self.totp = pyotp.TOTP(self.secret, interval=5000, digits=5)
+        self.totp = pyotp.TOTP(self.secret, interval=600, digits=5)
 
     def get_secret(self):
         """

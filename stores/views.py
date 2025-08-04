@@ -39,6 +39,8 @@ from logistics.models import Ride
 from users.utils.otp import OTPManager
 from .tasks import send_order_complete_email_async
 from django.template.loader import render_to_string
+from .serializers import VerifyOrderSerializer
+from django.shortcuts import get_object_or_404
 
 
 User = get_user_model()
@@ -117,17 +119,21 @@ class MarkAsDelivered(APIView):
     
     
     def post(self, request, pk):
+        if request.user.user_type=='Rider':
+            return Response({"message":"Rider cannot mark an Order as Delivered"})
         order = get_object_or_404(Order, order_id=pk)
         otp_manager = OTPManager()
         secret = otp_manager.get_secret()
         buyer = order.buyer
         otp = otp_manager.generate_otp()
+        print(otp)
         order.otp_secret = secret
         html_content = render_to_string('emails/ordercomplete.html',{'user': buyer.username, 'order_otp': otp })
+        print(html_content)
         print(buyer.email)
         send_order_complete_email_async.delay(from_email='noreply@movbay.com',
                                             to_emails=buyer.email,
-                                            subject='Welcome TO MovBay',
+                                            subject='Order Verification',
                                             html_content=html_content)
         order.status = 'completed'
         order.order_tracking.all()[0].completed = True
@@ -510,3 +516,43 @@ class ProductStatusView(APIView):
         print(status)
         serializer = StatusSerializer(status_instances, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class VerifyOrderView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    def post(self, request, pk):
+        serializer = VerifyOrderSerializer(data={'otp': request.data['otp']})
+        if serializer.is_valid():
+            try:
+                order = get_object_or_404(Order, order_id=pk)
+                otp = serializer.validated_data['otp']
+                ride = order.ride.all()
+                order_secret = order.otp_secret
+                if request.user.user_type == 'User' and request.user == order.store.owner:
+                    if ride:
+                        if not ride[0].completed:
+                            return Response({"message": "Ride is Ongoing"})
+                    if OTPManager(order_secret).verify_otp(otp):
+                        order.completed = True
+                        order.save()
+                        return Response({"message": "Order Completed Succesfully"}, status=200)
+                    else:
+                        return Response({'message': 'Invalid or expired OTP'}, status=400)
+                elif request.user.user_type == 'Rider' and request.user == ride[0].rider:
+                    print('called')
+                    if OTPManager(order_secret).verify_otp(otp):
+                        ride[0].completed = True
+                        ride[0].save()
+                        return Response({"message": "Ride Completed Succesfully"}, status=200)
+                    else:
+                        return Response({'message': 'Invalid or expired OTP'}, status=400)
+            except Order.DoesNotExist:
+                return Response({'message': 'Order not found'}, status=404) 
+             
+        
+                    
+            
+
+            

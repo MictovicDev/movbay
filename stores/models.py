@@ -288,6 +288,7 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     otp_secret = models.CharField(max_length=250, blank=True, null=True)
     code = models.CharField(max_length=250, null=True, blank=True)
+    completed = models.BooleanField(default=False)
     
     
     

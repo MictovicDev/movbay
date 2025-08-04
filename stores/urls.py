@@ -31,5 +31,6 @@ urlpatterns = [
     path('stores/<int:store_id>/reviews/',
          views.ReviewView.as_view(), name='create-review'),
     path('order/<str:pk>/mark-as-delivered',
-         views.MarkAsDelivered.as_view(), name='mark-as-delivered')
+         views.MarkAsDelivered.as_view(), name='mark-as-delivered'),
+    path('verify-order/<str:pk>/', views.VerifyOrderView.as_view(), name='verify-order')
 ]

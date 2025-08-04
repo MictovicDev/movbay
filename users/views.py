@@ -94,7 +94,7 @@ class RegisterView(generics.ListCreateAPIView):
                 user = serializer.save()
                 user.secret = secret
                 user.save()
-                html_content = render_to_string('emails/welcome.html', {'user': user, 'otp': otp})
+                html_content = render_to_string('users/emails/welcome.html', {'user': user, 'otp': otp})
                 send_welcome_email_async.delay(from_email='noreply@movbay.com',
                                             to_emails=user.email,
                                             subject='Welcome TO MovBay',
