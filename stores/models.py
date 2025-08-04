@@ -286,6 +286,8 @@ class Order(models.Model):
     locked = models.BooleanField(default=False)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    otp_secret = models.CharField(max_length=250, blank=True, null=True)
+    code = models.CharField(max_length=250, null=True, blank=True)
     
     
     
@@ -326,6 +328,7 @@ class OrderTracking(models.Model):
     rider_en_route = models.BooleanField(default=False)
     arriving_soon = models.BooleanField(default=False, null=True)
     driver = models.ForeignKey(RiderProfile, on_delete=models.CASCADE, blank=True, null=True)
+    completed = models.BooleanField(default=False)
     
     def __str__(self):
         return self.order.order_id

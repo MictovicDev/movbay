@@ -28,5 +28,8 @@ urlpatterns = [
     path('order/user/', views.GetUserOrder.as_view(), name='order-history'),
     path('order/<str:pk>/track-order',
          views.TrackOrder.as_view(), name='order_tracking'),
-    path('stores/<int:store_id>/reviews/', views.ReviewView.as_view(), name='create-review'),
+    path('stores/<int:store_id>/reviews/',
+         views.ReviewView.as_view(), name='create-review'),
+    path('order/<str:pk>/mark-as-delivered',
+         views.MarkAsDelivered.as_view(), name='mark-as-delivered')
 ]

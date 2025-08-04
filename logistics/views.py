@@ -86,9 +86,9 @@ class AcceptRide(APIView):
 
     def post(self, request, pk):
         try:
-            
             with transaction.atomic():
                 order = Order.objects.select_for_update().get(order_id=pk)
+                riderprofile = RiderProfile.objects.get(user=request.user)
                 ride = order.ride.all()[0]
                 
                 if request.user.user_type != 'Rider':
@@ -102,6 +102,9 @@ class AcceptRide(APIView):
 
                 order.locked = True
                 order.ride_accepted = True
+                order_tracking = order.order_tracking.all()[0]
+                order_tracking.driver = riderprofile
+                order_tracking.save()
                 ride.accepted = True
                 ride.locked = True
                 ride.rider = request.user
@@ -273,6 +276,10 @@ class BankDetailAPIView(BaseRiderProfileView):
             serializer.save(rider=rider)
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+    
+
 
 
 class KYCDetailAPIView(BaseRiderProfileView):

@@ -6,10 +6,11 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.hashers import check_password
 from phonenumber_field.serializerfields import PhoneNumberField
 from django.contrib.auth import get_user_model
-from .models import LoginAttempt, UserProfile
+from .models import LoginAttempt, UserProfile, RiderProfile
 from django.contrib.auth import authenticate
 from .tasks import save_profile_picture
 from rest_framework.response import Response
+
 
 
 User = get_user_model()
@@ -93,6 +94,54 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('username', 'fullname', 'phone_number')
+        
+
+class RiderSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', required=False)
+    fullname = serializers.CharField(source='user.fullname', required=False)
+    phone_number = serializers.CharField(source='user.phone_number', required=False)
+    address = serializers.CharField(required=False)
+    profile_picture = serializers.ImageField(required=False)
+    
+    class Meta:
+        model = RiderProfile
+        fields = ['username', 'fullname', 'phone_number', 'address', 'profile_picture']
+        
+        
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', None)
+        profile_picture = validated_data.pop('profile_picture', None)
+        instance.save()
+        
+        try:
+            from .utils.redis_cli import redis_client
+            cache_key = f"user_profile:{instance.user.id}"
+            print(cache_key)
+            redis_client.delete(cache_key)
+        except Exception as e:
+            # Optionally log this error
+            print(f"Failed to invalidate Redis cache: {str(e)}")
+
+        
+        if user_data:
+            print(True)
+            user = instance.user
+            model_fields = {f.name for f in user._meta.get_fields()}
+            for attr, value in user_data.items():
+                if attr in model_fields:
+                    print(attr, value)
+                    setattr(user, attr, value)
+            user.save()
+            
+        if profile_picture:
+            # Get raw file bytes and name
+            file_data = profile_picture.read()
+            file_name = profile_picture.name
+            save_profile_picture.delay(instance.id, file_data, file_name),
+            
+        instance.refresh_from_db()
+        instance.user.refresh_from_db()
+        return instance
 
 
 

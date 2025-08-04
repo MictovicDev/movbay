@@ -36,6 +36,9 @@ from django.db import transaction
 from .models import Review
 from users.models import RiderProfile
 from logistics.models import Ride
+from users.utils.otp import OTPManager
+from .tasks import send_order_complete_email_async
+from django.template.loader import render_to_string
 
 
 User = get_user_model()
@@ -106,6 +109,32 @@ class GetUserOrder(APIView):
             print(e)
             return Response(str(e), status=status.HTTP_204_NO_CONTENT)
 
+
+
+class MarkAsDelivered(APIView):
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    
+    def post(self, request, pk):
+        order = get_object_or_404(Order, order_id=pk)
+        otp_manager = OTPManager()
+        secret = otp_manager.get_secret()
+        buyer = order.buyer
+        otp = otp_manager.generate_otp()
+        order.otp_secret = secret
+        html_content = render_to_string('emails/ordercomplete.html',{'user': buyer.username, 'order_otp': otp })
+        print(buyer.email)
+        send_order_complete_email_async.delay(from_email='noreply@movbay.com',
+                                            to_emails=buyer.email,
+                                            subject='Welcome TO MovBay',
+                                            html_content=html_content)
+        order.status = 'completed'
+        order.order_tracking.all()[0].completed = True
+        order.save()
+        return Response({"message": "Order has been Completed"}, status=200)
+        
+        
 
 
 class ConfirmOrder(APIView):

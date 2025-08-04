@@ -4,7 +4,7 @@ from rest_framework import status
 from .serializers import RegisterSerializer, ActivateAccountSerializer
 from django.contrib.auth import get_user_model
 from .serializers import (
-    UserTokenObtainPairSerializer, UserProfileSerializer
+    UserTokenObtainPairSerializer, UserProfileSerializer, RiderSerializer
 )
 from rest_framework_simplejwt.views import TokenObtainPairView
 from users.utils.otp import OTPManager
@@ -19,7 +19,7 @@ from .models import LoginAttempt
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework import permissions
-from .models import UserProfile
+from .models import UserProfile, RiderProfile
 from django.contrib.auth.hashers import check_password
 import logging
 from .utils.redis_cli import redis_client
@@ -172,6 +172,38 @@ class ProfileView(generics.RetrieveUpdateAPIView):
             return Response(serializer.data)
         except Exception as e:
             return Response(str(e))
+        
+        
+
+class RiderProfileAPIView(APIView):
+    
+    def get(self, request):
+        try:
+            rider = RiderProfile.objects.get(user=request.user)
+            serializer = RiderSerializer(rider)
+            return Response(serializer.data, status=200)
+        except RiderProfile.DoesNotExist:
+            return Response({"Message": "No Rider Matching Profile"})
+            
+    
+    def put(self, request):
+        rider = RiderProfile.objects.get(user=request.user)
+        if not rider:
+            return Response(
+                {"detail": "Rider profile not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            serializer = RiderSerializer(rider, data=request.data)
+        except RiderProfile.DoesNotExist:
+            serializer = RiderSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save(rider=rider)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)   
+
             
         
         

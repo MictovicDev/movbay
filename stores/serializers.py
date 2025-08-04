@@ -14,13 +14,15 @@ from .tasks import upload_store_files, upload_video, upload_image
 from base64 import b64encode
 from rest_framework.response import Response
 from rest_framework import status
-from users.serializers import UserSerializer, UserProfileSerializer
+from users.serializers import UserSerializer
 from .utils.get_store_cordinate import get_coordinates_from_address
-
+from logistics.models import KYC
 from rest_framework import serializers
 from .models import Review
 from logistics.models import Ride
+from users.utils.otp import OTPManager
 # from logistics.serializers import RiderSerializer
+from users.models import RiderProfile
 
 
 
@@ -132,11 +134,10 @@ class StoreSerializer(serializers.ModelSerializer):
         try:
             if request.user.is_authenticated:
                 user = request.user
-                print(user)
                 cac = validated_data.pop('cac')
+                otp_m = OTPManager()
                 nin = validated_data.pop('nin')
                 response = get_coordinates_from_address(validated_data.get('address1'))
-                print(response)
                 store_image = validated_data.pop('store_image')
                 files = {
                     "cac": cac.read(),
@@ -249,17 +250,35 @@ class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
         fields = ['product', 'amount', 'count']
-        
+  
+
+class KYCSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = KYC
+        fields = ['rider','vehicle_type', 'plate_number', 'vehicle_color']
+        # read_only_fields = ('rider', 'nin', 'proof_of_address', 'drivers_licence')
+        # extra_kwargs = {
+        #     'nin_file': {'write_only': True},
+        #     'proof_of_address_file': {'write_only': True},
+        #     'drivers_licence_file': {'write_only': True},
+        # }
+  
+class RiderProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    kyc_verification = KYCSerializer(read_only=True, many=True)
+    
+    class Meta:
+        model = RiderProfile   
+        fields = '__all__'
         
 class OrderTrackingSerializer(serializers.ModelSerializer):
+    driver = RiderProfileSerializer(read_only=True)
     
     class Meta:
         model = OrderTracking
         fields = '__all__'
     
     
-
-
 class DeliverySerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
 

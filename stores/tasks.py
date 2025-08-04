@@ -12,6 +12,7 @@ import cloudinary.uploader
 from stores.models import Store
 from django.core.files.base import ContentFile
 import logging
+from users.utils.email import EmailManager
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -130,6 +131,10 @@ def upload_store_files(store_id, file_data):
         print(f"Error saving profile picture: {str(e)}")
 
 
+@shared_task
+def send_order_complete_email_async(from_email, to_emails, subject, html_content):
+    sender = EmailManager(from_email, to_emails, subject, html_content)
+    sender.send_email()
 
 
 
