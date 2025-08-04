@@ -26,6 +26,7 @@ class Ride(models.Model):
     longitude = models.FloatField(blank=True, null=True)
     out_for_delivery = models.BooleanField(default=False)
     courier_type = models.CharField(max_length=250, blank=True, null=True)
+    completed = models.BooleanField(default=False)
     
     
     def __str__(self):

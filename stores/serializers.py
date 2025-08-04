@@ -92,8 +92,8 @@ class StoreUpdateSerializer(serializers.ModelSerializer):
     
 
 class StoreSerializer(serializers.ModelSerializer):
-    cac = serializers.FileField()
-    nin = serializers.FileField()
+    cac = serializers.FileField(required=False)
+    nin = serializers.FileField(required=False)
     store_image = serializers.ImageField()
     statuses = StatusSerializer(many=True, required=False)
     owner = UserSerializer(required=False)

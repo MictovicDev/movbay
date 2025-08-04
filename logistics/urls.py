@@ -12,5 +12,6 @@ urlpatterns = [
     path('bank-details/', views.BankDetailAPIView.as_view(), name='bank-detail'),
     path('delivery-preference', views.DeliveryPreferenceAPIView.as_view(), name='delivery_view'),
     path('rider/', views.BaseRiderProfileView.as_view(), name='rider-view'),
+    path('myrides/<str:pk>/', views.UserRides.as_view(), name='myrides'),
     path('mark-as-picked/<str:pk>/', views.PickedView.as_view(), name='mark-as-picked')
 ]

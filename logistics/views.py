@@ -91,6 +91,10 @@ class AcceptRide(APIView):
                 riderprofile = RiderProfile.objects.get(user=request.user)
                 ride = order.ride.all()[0]
                 
+                rides = Ride.objects.filter(rider=request.user, completed=False)
+                if rides:
+                    return Response({"message": "You still have an uncompleted Ride."}, status=status.HTTP_400_BAD_REQUEST)
+                
                 if request.user.user_type != 'Rider':
                     return Response({"message": "Only Riders can accept rides."}, status=status.HTTP_400_BAD_REQUEST)
                 
@@ -240,6 +244,7 @@ class DeliveryPreferenceAPIView(BaseRiderProfileView):
 
 
 class BankDetailAPIView(BaseRiderProfileView):
+    
     def get(self, request):
         rider = self.get_rider_profile(request.user)
         if not rider:
@@ -343,6 +348,18 @@ class KYCDetailAPIView(BaseRiderProfileView):
             status=status.HTTP_201_CREATED if serializer.instance._state.adding else status.HTTP_200_OK
         )
 
+
+
+class UserRides(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, pk):
+        ride = get_object_or_404(Ride, rider=request.user, id=pk)
+        serializer = RideSerializer(ride)
+        print(ride)
+        return Response(serializer.data, status=200)
+    
 
 class PickedView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
