@@ -139,6 +139,8 @@ class UserProfile(models.Model):
   
 class RiderProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='rider_profile')
+    address = models.CharField(max_length=250, null=True)
+    profile_picture = CloudinaryField('profile_picture', blank=True, null=True)
     is_available = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     latitude = models.FloatField(blank=True, null=True)

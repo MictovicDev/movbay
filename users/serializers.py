@@ -8,7 +8,7 @@ from phonenumber_field.serializerfields import PhoneNumberField
 from django.contrib.auth import get_user_model
 from .models import LoginAttempt, UserProfile, RiderProfile
 from django.contrib.auth import authenticate
-from .tasks import save_profile_picture
+from .tasks import save_profile_picture, save_rider_profile_picture
 from rest_framework.response import Response
 
 
@@ -110,17 +110,10 @@ class RiderSerializer(serializers.ModelSerializer):
         
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', None)
+        instance.address = validated_data.get('address', instance.address)
         profile_picture = validated_data.pop('profile_picture', None)
         instance.save()
         
-        try:
-            from .utils.redis_cli import redis_client
-            cache_key = f"user_profile:{instance.user.id}"
-            print(cache_key)
-            redis_client.delete(cache_key)
-        except Exception as e:
-            # Optionally log this error
-            print(f"Failed to invalidate Redis cache: {str(e)}")
 
         
         if user_data:
@@ -137,7 +130,7 @@ class RiderSerializer(serializers.ModelSerializer):
             # Get raw file bytes and name
             file_data = profile_picture.read()
             file_name = profile_picture.name
-            save_profile_picture.delay(instance.id, file_data, file_name),
+            save_rider_profile_picture.delay(instance.id, file_data, file_name),
             
         instance.refresh_from_db()
         instance.user.refresh_from_db()
