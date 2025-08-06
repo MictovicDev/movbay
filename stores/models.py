@@ -150,7 +150,27 @@ class Profile(models.Model):
     def __str__(self):
         return f"{self.follower.username} follows {self.following.username}"
     
+
+
+class ProductRating(models.Model):
     
+    Rating = (
+        ('1Star', '1Star'),
+        ('2Star', '2Star'),
+        ('3Star', '3Star'),
+        ('4Star', '4Star'),
+        ('5Star', '5Star'),
+    )
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, blank=True, null=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
+    rating = models.CharField(max_length=250, choices=Rating)
+    comment = models.TextField()
+    
+    
+    def __str__(self):
+        return f"{self.product} Rating"
+   
+ 
 class Review(models.Model):
     store = models.ForeignKey(Store, related_name='reviews', on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)

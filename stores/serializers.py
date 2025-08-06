@@ -23,6 +23,7 @@ from logistics.models import Ride
 from users.utils.otp import OTPManager
 # from logistics.serializers import RiderSerializer
 from users.models import RiderProfile
+from .models import ProductRating
 
 
 
@@ -179,6 +180,13 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class VerifyOrderSerializer(serializers.Serializer):
     otp = serializers.CharField(max_length=5)
+
+
+class ProductRatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductRating
+        fields = ['rating', 'comment']  # Only include fields the user should POST
+        read_only_fields = ['id', 'user', 'product']
 
 class UpdateProductSerializer(serializers.ModelSerializer):
     verified = serializers.BooleanField(read_only=True)

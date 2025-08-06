@@ -33,5 +33,6 @@ urlpatterns = [
     path('order/<str:pk>/mark-as-delivered',
          views.MarkAsDelivered.as_view(), name='mark-as-delivered'),
     path('verify-order/<str:pk>/', views.VerifyOrderView.as_view(), name='verify-order'),
-    path('products/more-from-seller/<str:pk>/', views.MoreFromSeller.as_view(), name='morefromseller')
+    path('products/more-from-seller/<str:pk>/', views.MoreFromSeller.as_view(), name='morefromseller'),
+    path('rate-product/<str:pk>', views.ProductRatingView.as_view(), name='RateProduct')
 ]

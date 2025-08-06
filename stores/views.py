@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Store, Order, Product, Delivery, StoreFollow, Status, OrderTracking
+from .models import Store, Order, Product, Delivery, StoreFollow, Status, OrderTracking, ProductRating
 from .serializers import StoreSerializer, OrderSerializer, ProductSerializer, DeliverySerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
@@ -19,7 +19,8 @@ from .serializers import (StoreFollowSerializer,
                           OrderTrackingSerializer,
                           StoreUpdateSerializer, 
                           ReviewSerializer,
-                          UpdateProductSerializer)
+                          UpdateProductSerializer,
+                          ProductRatingSerializer)
 from .models import Status
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -260,7 +261,7 @@ class MarkForDeliveryView(APIView):
 from rest_framework.pagination import PageNumberPagination
 
 class CustomProductPagination(PageNumberPagination):
-    page_size = 10
+    page_size = 6
     page_size_query_param = 'page_size'
     max_page_size = 50
     
@@ -610,5 +611,42 @@ class MoreFromSeller(APIView):
             'related_products': related_products_data
         }, status=status.HTTP_200_OK)
         
+        
+
+class ProductRatingView(APIView):
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    
+    def get(self, request, pk):
+        """Retrieve all ratings for a given product."""
+        product = get_object_or_404(Product, id=pk)
+        ratings = ProductRating.objects.filter(product=product)
+        serializer = ProductRatingSerializer(ratings, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, pk):
+        product = get_object_or_404(Product, id=pk)
+        print("Raw request data:", request.data)
+
+        serializer = ProductRatingSerializer(data=request.data)
+        print("Serializer is valid:", serializer.is_valid())
+        print("Serializer errors:", serializer.errors)
+        print("Serializer validated data:", serializer.validated_data)
+
+        if serializer.is_valid():
+            ProductRating.objects.create(
+                **serializer.validated_data,
+                product=product,
+                user=request.user
+            )
+            return Response(
+                {"detail": "Rating submitted successfully."},
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        
+    
         
             
