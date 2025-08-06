@@ -183,9 +183,10 @@ class VerifyOrderSerializer(serializers.Serializer):
 
 
 class ProductRatingSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
     class Meta:
         model = ProductRating
-        fields = ['rating', 'comment']  # Only include fields the user should POST
+        fields = ['rating', 'comment', 'user']  # Only include fields the user should POST
         read_only_fields = ['id', 'user', 'product']
 
 class UpdateProductSerializer(serializers.ModelSerializer):
