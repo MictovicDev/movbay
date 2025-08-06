@@ -119,8 +119,8 @@ class MarkAsDelivered(APIView):
     
     
     def post(self, request, pk):
-        if request.user.user_type=='Rider':
-            return Response({"message":"Rider cannot mark an Order as Delivered"})
+        # if request.user.user_type=='Rider':
+        #     return Response({"message":"Rider cannot mark an Order as Delivered"})
         order = get_object_or_404(Order, order_id=pk)
         otp_manager = OTPManager()
         secret = otp_manager.get_secret()
@@ -136,6 +136,7 @@ class MarkAsDelivered(APIView):
                                             subject='Order Verification',
                                             html_content=html_content)
         order.status = 'completed'
+        order.completed = True
         order.order_tracking.all()[0].completed = True
         order.save()
         return Response({"message": "Order has been Completed"}, status=200)
@@ -256,9 +257,17 @@ class MarkForDeliveryView(APIView):
             # for rider in riders:
             #     notify_rider(rider, order)
 
+from rest_framework.pagination import PageNumberPagination
 
+class CustomProductPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+    
+    
 class ProductListCreateView(generics.ListCreateAPIView):
     serializer_class = ProductSerializer
+    pagination_class = CustomProductPagination
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
@@ -449,6 +458,15 @@ class ReviewView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class MoreFromSeller(APIView):
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, pk):
+        product = get_object_or_404(Product, id=pk)
+        store = request.user.store
+        product = Product.objects.filter(store=store).exclude(id=product.id)[:4]
+
 class StatusView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -536,15 +554,24 @@ class VerifyOrderView(APIView):
                             return Response({"message": "Ride is Ongoing"})
                     if OTPManager(order_secret).verify_otp(otp):
                         order.completed = True
+                        order_tracking = get_object_or_404(OrderTracking, order=order)
+                        order_tracking.completed = True
+                        order_tracking.save()
                         order.save()
                         return Response({"message": "Order Completed Succesfully"}, status=200)
                     else:
                         return Response({'message': 'Invalid or expired OTP'}, status=400)
                 elif request.user.user_type == 'Rider' and request.user == ride[0].rider:
-                    print('called')
                     if OTPManager(order_secret).verify_otp(otp):
-                        ride[0].completed = True
-                        ride[0].save()
+                        try:
+                            ride = get_object_or_404(Ride, order=order)
+                            order_tracking = get_object_or_404(OrderTracking, order=order)
+                            ride.completed = True
+                            order_tracking.completed = True
+                            order_tracking.save()
+                            ride.save()
+                        except Exception as e:
+                            print(str(e))
                         return Response({"message": "Ride Completed Succesfully"}, status=200)
                     else:
                         return Response({'message': 'Invalid or expired OTP'}, status=400)
@@ -554,5 +581,34 @@ class VerifyOrderView(APIView):
         
                     
             
+class MoreFromSeller(APIView):
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    
+    def get(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
 
+        # Main product details
+        product_data = ProductSerializer(product).data
+        print(product_data)
+        # More from seller
+        more_from_seller = Product.objects.filter(
+            store=product.store
+        ).exclude(id=product.id)[:4]
+        more_from_seller_data = ProductSerializer(more_from_seller, many=True).data
+
+        # Related products by categories
+        related_products = Product.objects.filter(
+            category = product.category
+        ).exclude(id=product.id).distinct()[:4]
+        related_products_data = ProductSerializer(related_products, many=True).data
+
+        return Response({
+            'product': product_data.get('id'),
+            'more_from_seller': more_from_seller_data,
+            'related_products': related_products_data
+        }, status=status.HTTP_200_OK)
+        
+        
             
