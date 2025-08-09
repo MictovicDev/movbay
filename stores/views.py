@@ -40,8 +40,8 @@ from logistics.models import Ride
 from users.utils.otp import OTPManager
 from .tasks import send_order_complete_email_async
 from django.template.loader import render_to_string
-from .serializers import VerifyOrderSerializer
-from django.shortcuts import get_object_or_404
+from .serializers import VerifyOrderSerializer,ClientStoreSerializer
+from django.shortcuts import get_object_or_404, get_list_or_404
 
 
 User = get_user_model()
@@ -49,6 +49,20 @@ User = get_user_model()
 
 class CustomAnonRateThrottle(AnonRateThrottle):
     rate = '5/minute'  # Limit to 5 requests per minute
+
+
+class ClientViewStore(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+
+    def get(self, request, store_id):
+        try:
+            store = Store.objects.prefetch_related('products').get(id=store_id)
+        except Store.DoesNotExist:
+            return Response({'error': 'Store not found'}, status=404)
+
+        serializer = ClientStoreSerializer(store, context={'request': request})
+        return Response(serializer.data)
 
 
 class StoreListCreateView(generics.ListCreateAPIView):
@@ -296,29 +310,90 @@ class StoreFollowView(APIView):
 
     def post(self, request, pk):
         try:
-            user = User.objects.get(id=pk)
-        except User.DoesNotExist:
-            return Response({"Message": "User Does not Exit"}, status=status.HTTP_404_NOT_FOUND)
-        store_follow, created = StoreFollow.objects.get_or_create(
-            follower=user,  # the person being followed
-            following=request.user  # the person following
-        )
+            store = Store.objects.get(id=pk)
+        except Store.DoesNotExist:
+            return Response({"Message": "User Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            store_follow = StoreFollow.objects.create(follower=request.user, followed_store=store)
+
+        except Exception as e:
+            print(str(e))
         serializer = StoreFollowSerializer(store_follow)
         return Response({
             "message": "Follow Successful",
             "data": serializer.data
-        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        }, status=200)
+  
+  
+        
+        
+class StoreUnfollowView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, pk):
+        try:
+            store = Store.objects.get(id=pk)
+        except Store.DoesNotExist:
+            return Response({"Message": "User Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            store_follow = StoreFollow.objects.get(following=store, follower=request.user)
+            store_follow.delete()
+        except Exception as e:
+            print(str(e))
+        serializer = StoreFollowSerializer(store_follow)
+        return Response({
+            "message": "UnFollow Successful",
+            "data": serializer.data
+        }, status=200)
+        
 
+
+# class StoreFollowers(APIView):
+#     authentication_classes = [JWTAuthentication, SessionAuthentication]
+#     permission_classes = [permissions.IsAuthenticated]
+#     def get(self, request):
+#         user = request.user
+#         followers = user.followers_set.select_related('follower')
+#         users = [follow.follower for follow in followers]
+#         serializer = UserSerializer(users, many=True)
+#         return Response(serializer.data)
 
 class StoreFollowers(APIView):
-    def get(self, request):
-        user = request.user
-        followers = user.followers_set.select_related('follower')
-        users = [follow.follower for follow in followers]
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, pk):
+        store = get_object_or_404(Store, id=pk)
+        #storefollow = get_list_or_404(StoreFollow.objects.filter(following=store))
+        try:
+            storefollow = StoreFollow.objects.filter(followed_store=store)
+            serializer = StoreFollowSerializer(storefollow, many=True)
+        except Exception as e:
+            print(str(e))
+        return Response(serializer.data, status=200)
+    
+class StoreFollowing(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, pk):
+        store = get_object_or_404(Store, id=pk)
+        #storefollow = get_list_or_404(StoreFollow.objects.filter(following=store))
+        try:
+            storefollow = StoreFollow.objects.filter(following=store, follow=True)
+            serializer = StoreFollowSerializer(storefollow, many=True)
+        except Exception as e:
+            print(str(e))
+        return Response(serializer.data, status=200)
+            
 
-
+class StoreFollowingView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated] 
+            
+    def get(self, request, pk):
+        pass
 class UserProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]

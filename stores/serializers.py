@@ -33,7 +33,9 @@ class StoreFollowSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StoreFollow
-        fields = ('id', 'following', 'follower')
+        fields=["follower","followed_store","followed_at"]
+
+
 
 
 class StatusSerializer(serializers.ModelSerializer):
@@ -355,3 +357,34 @@ class ReviewSerializer(serializers.ModelSerializer):
         model = Review
         fields = ['id', 'store', 'user', 'rating', 'comment', 'created_at']
         read_only_fields = ['id', 'user', 'created_at']
+        
+class ClientStoreSerializer(serializers.ModelSerializer):
+    post_count = serializers.SerializerMethodField()
+    follower_count = serializers.SerializerMethodField()
+    following_count = serializers.SerializerMethodField()
+    is_following = serializers.SerializerMethodField()
+    products = ProductSerializer(many=True)
+
+    class Meta:
+        model = Store
+        fields = [
+            'id', 'name', 'description',
+            'post_count', 'follower_count', 'following_count',
+            'is_following', 'products'
+        ]
+
+    def get_post_count(self, obj):
+        return obj.products.count()
+
+    def get_follower_count(self, obj):
+        return obj.store_followers.count()
+
+    def get_following_count(self, obj):
+        # assuming store owner can follow other stores
+        return StoreFollow.objects.filter(follower=obj.owner, followed_store__isnull=False).count()
+
+    def get_is_following(self, obj):
+        user = self.context['request'].user
+        if user.is_authenticated:
+            return StoreFollow.objects.filter(follower=user, followed_store=obj).exists()
+        return False

@@ -188,23 +188,18 @@ class Review(models.Model):
     
  
 class StoreFollow(models.Model):
-    follower = models.ForeignKey(Store, related_name='following_set', on_delete=models.CASCADE, db_index=True, blank=True, null=True)
-    following = models.ForeignKey(Store, related_name='followers_set', on_delete=models.CASCADE, db_index=True, blank=True, null=True)
-    followed_at = models.DateTimeField(auto_now_add=True)
+    follower = models.ForeignKey(User, related_name='follows', on_delete=models.CASCADE, null=True)  # the user who follows
+    followed_store = models.ForeignKey(Store, related_name='store_followers', null=True, blank=True, on_delete=models.CASCADE)
+    followed_at = models.DateTimeField(auto_now_add=True, null=True)
 
     class Meta:
-        unique_together = ('follower', 'following')
-        indexes = [
-            models.Index(fields=['follower']),
-            models.Index(fields=['following']),
+        constraints = [
+            models.UniqueConstraint(fields=['follower', 'followed_store'], name='unique_store_follow'),
         ]
 
     def __str__(self):
-        return f"{self.follower.username} follows {self.following}"
-    
-
-
-    
+        return f"{self.follower.username} follows store {self.followed_store.name}"
+        
     
 
 class Status(models.Model):
