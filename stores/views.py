@@ -310,7 +310,7 @@ class StoreFollowView(APIView):
 
     def post(self, request, pk):
         try:
-            store = Store.objects.get(id=pk)
+            store = Store.objects.get(owner=request.user)
         except Store.DoesNotExist:
             return Response({"Message": "User Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
         try:
@@ -325,7 +325,31 @@ class StoreFollowView(APIView):
         }, status=200)
   
   
-        
+class StoreFollowers(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Exists, OuterRef
+
+        try:
+            my_store = Store.objects.get(owner=request.user)
+        except Store.DoesNotExist:
+            return Response({"message": "You don't own a store"}, status=404)
+
+        followers = StoreFollow.objects.filter(followed_store=my_store).select_related('follower')
+
+        follow_back_qs = StoreFollow.objects.filter(
+            follower=request.user,
+            followed_store__owner=OuterRef('follower')
+        )
+
+        followers = followers.annotate(is_following_back=Exists(follow_back_qs))
+
+        serializer = StoreFollowSerializer(followers, many=True)
+        return Response(serializer.data, status=200)
+
+
         
 class StoreUnfollowView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -349,51 +373,46 @@ class StoreUnfollowView(APIView):
         
 
 
-# class StoreFollowers(APIView):
+
+
+
+    
+# class StoreFollowing(APIView):
 #     authentication_classes = [JWTAuthentication, SessionAuthentication]
 #     permission_classes = [permissions.IsAuthenticated]
+    
 #     def get(self, request):
-#         user = request.user
-#         followers = user.followers_set.select_related('follower')
-#         users = [follow.follower for follow in followers]
-#         serializer = UserSerializer(users, many=True)
-#         return Response(serializer.data)
-
-class StoreFollowers(APIView):
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get(self, request, pk):
-        store = get_object_or_404(Store, id=pk)
-        #storefollow = get_list_or_404(StoreFollow.objects.filter(following=store))
-        try:
-            storefollow = StoreFollow.objects.filter(followed_store=store)
-            serializer = StoreFollowSerializer(storefollow, many=True)
-        except Exception as e:
-            print(str(e))
-        return Response(serializer.data, status=200)
-    
-class StoreFollowing(APIView):
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get(self, request, pk):
-        store = get_object_or_404(Store, id=pk)
-        #storefollow = get_list_or_404(StoreFollow.objects.filter(following=store))
-        try:
-            storefollow = StoreFollow.objects.filter(following=store, follow=True)
-            serializer = StoreFollowSerializer(storefollow, many=True)
-        except Exception as e:
-            print(str(e))
-        return Response(serializer.data, status=200)
+#         store = get_object_or_404(Store, owner=request.user)
+#         #storefollow = get_list_or_404(StoreFollow.objects.filter(following=store))
+#         try:
+#             storefollow = StoreFollow.objects.filter(following=store, follow=True)
+#             serializer = StoreFollowSerializer(storefollow, many=True)
+#         except Exception as e:
+#             print(str(e))
+#         return Response(serializer.data, status=200)
             
 
 class StoreFollowingView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
-    permission_classes = [permissions.IsAuthenticated] 
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Exists, OuterRef
+
+        following = StoreFollow.objects.filter(follower=request.user).select_related('followed_store')
+
+        they_follow_back_qs = StoreFollow.objects.filter(
+            follower=OuterRef('followed_store__owner'),
+            followed_store__owner=request.user
+        )
+
+        following = following.annotate(they_follow_me_back=Exists(they_follow_back_qs))
+
+        serializer = StoreFollowSerializer(following, many=True)
+        return Response(serializer.data, status=200)
             
-    def get(self, request, pk):
-        pass
+   
+   
 class UserProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]

@@ -27,14 +27,30 @@ from .models import ProductRating
 
 
 
+class ClientStoresSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Store
+        fields = ('id','name', 'category', 'description', 'address1',
+                  'store_image', 'address2','owner')
 
 class StoreFollowSerializer(serializers.ModelSerializer):
     follower = UserSerializer()
+    followed_store = ClientStoresSerializer(read_only=True)
+    #followed_store = serializers.PrimaryKeyRelatedField(read_only=True)
+    is_following_back = serializers.BooleanField(default=False)  # for followers endpoint
+    they_follow_me_back = serializers.BooleanField(default=False)  # for following endpoint
 
     class Meta:
         model = StoreFollow
-        fields=["follower","followed_store","followed_at"]
+        fields = [
+            'follower',
+            'followed_store',
+            'followed_at',
+            'is_following_back',
+            'they_follow_me_back'
+        ]
 
+        
 
 
 
@@ -388,3 +404,5 @@ class ClientStoreSerializer(serializers.ModelSerializer):
         if user.is_authenticated:
             return StoreFollow.objects.filter(follower=user, followed_store=obj).exists()
         return False
+    
+    

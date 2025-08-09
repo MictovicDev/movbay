@@ -15,9 +15,9 @@ urlpatterns = [
          name='product-detail'),
     path('follow/<str:pk>/', views.StoreFollowView.as_view(), name='followstore'),
     path('unfollow/<str:pk>/', views.StoreUnfollowView.as_view(), name='unfollow'),
-    path('followers/<str:pk>', views.StoreFollowers.as_view(),
+    path('followers/', views.StoreFollowers.as_view(),
          name='viewstorefollowers'),
-    path('following/<str:pk>/', views.StoreFollowingView.as_view(), name='following'),
+    path('following/', views.StoreFollowingView.as_view(), name='following'),
     path('userproducts/', views.UserProductListView.as_view(), name='user-product'),
     path('userproduct/<int:pk>/', views.UserProductDetailView.as_view(),
          name='user-product-detail'),
@@ -41,5 +41,6 @@ urlpatterns = [
          views.MoreFromSeller.as_view(), name='morefromseller'),
     path('rate-product/<str:pk>',
          views.ProductRatingView.as_view(), name='RateProduct'),
-    path('view-store/<str:store_id>/', views.ClientViewStore.as_view(), name='view-store')
+    path('view-store/<str:store_id>/',
+         views.ClientViewStore.as_view(), name='view-store')
 ]
