@@ -430,20 +430,27 @@ class DashBoardView(APIView):
     def get(self, request):
         try:
             user = request.user
-            store = Store.objects.select_related('owner').prefetch_related(
-                Prefetch('products'),
-                Prefetch(
-                    'statuses',
-                    queryset=Status.objects.filter(
-                        expires_at__gt=timezone.now())
+            store = (
+                    Store.objects
+                    .select_related('owner')
+                    .prefetch_related(
+                        Prefetch('products'),
+                        Prefetch(
+                            'statuses',
+                            queryset=Status.objects.filter(expires_at__gt=timezone.now())
+                        )
+                    )
+                    .annotate(
+                        product_count=Count('products', distinct=True),
+                        order_count=Count('order', distinct=True),
+                        following_count=Count('owner__follows', distinct=True),
+                        followers_count=Count('store_followers', distinct=True),   # Following
+                    )
+                    .get(owner=user)
                 )
-            ).annotate(
-                product_count=Count('products'),
-                order_count=Count('order'),
-                following_count=Count('following_set'),
-                followers_count=Count('following_set')).get(owner=user)
-            print(store)
+
             serializer = DashboardSerializer(store)
+                            
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(str(e), status=status.HTTP_404_NOT_FOUND)

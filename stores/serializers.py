@@ -32,6 +32,7 @@ class ClientStoresSerializer(serializers.ModelSerializer):
         model = Store
         fields = ('id','name', 'category', 'description', 'address1',
                   'store_image', 'address2','owner')
+               
 
 class StoreFollowSerializer(serializers.ModelSerializer):
     follower = UserSerializer()

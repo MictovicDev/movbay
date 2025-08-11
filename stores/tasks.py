@@ -141,6 +141,9 @@ def send_order_complete_email_async(from_email, to_emails, subject, html_content
 
 @shared_task
 def upload_status_files(status_id, image):
+    """
+    This
+    """
     try:
         try:
             status = Status.objects.get(id=status_id)
