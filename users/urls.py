@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .views import (
-    RegisterView, ActivateAccountView, ProfileView, UserTokenView, RiderProfileAPIView)
+    RegisterView, ActivateAccountView, ProfileView, UserTokenView, RiderProfileAPIView, DeleteAccountView)
 from django.urls import path, include
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
@@ -11,7 +11,7 @@ urlpatterns = [
     path('', RegisterView.as_view(), name='register_view'),
     path('login/', UserTokenView.as_view(), name='token_obtain_pair_email'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('delete-account/', views.DeleteAccountView.as_view())
+    path('delete-account/', DeleteAccountView.as_view()),
     path('activate/', ActivateAccountView.as_view(), name='activate-account'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('riderprofile/', RiderProfileAPIView.as_view(), name='riderprofile')
