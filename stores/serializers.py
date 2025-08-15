@@ -28,6 +28,7 @@ from .models import ProductRating
 
 
 class ClientStoresSerializer(serializers.ModelSerializer):
+    store_image = serializers.ImageField()
     class Meta:
         model = Store
         fields = ('id','name', 'category', 'description', 'address1',
@@ -378,6 +379,7 @@ class ClientStoreSerializer(serializers.ModelSerializer):
     follower_count = serializers.SerializerMethodField()
     following_count = serializers.SerializerMethodField()
     is_following = serializers.SerializerMethodField()
+    store_image = serializers.ImageField()
     products = ProductSerializer(many=True)
 
     class Meta:
