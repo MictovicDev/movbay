@@ -28,7 +28,7 @@ urlpatterns = [
     path('wallet/', include('wallet.urls')),
     path('payment/', include('payment.urls')),
     path('scan/', include('scanner.urls')),
-    path('chat/', include('chat.urls')),
+    path('chats/', include('chat.urls')),
     path('logistics/', include('logistics.urls')),
     path('notification/', include('notification.urls')),
     re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),

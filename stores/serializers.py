@@ -31,7 +31,7 @@ class ClientStoresSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
         fields = ('id','name', 'category', 'description', 'address1',
-                  'store_image', 'address2','owner')
+                  'store_image', 'address2','owner', 'store_image_url')
                
 
 class StoreFollowSerializer(serializers.ModelSerializer):

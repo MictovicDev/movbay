@@ -378,3 +378,4 @@ class PickedView(APIView):
         order.save()
         ride.save()
         return Response({"message": "Order marked for Delivery"}, status=200)
+    

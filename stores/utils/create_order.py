@@ -23,17 +23,20 @@ def create_order_with_items(user, order_data, reference, method):
     amount = order_data.get("total_amount")
     delivery_data = order_data['delivery']
     delivery = Delivery.objects.create(user=user, **delivery_data)
+    try:
+        if method == 'wallet':
+            sender_wallet = user.wallet
+            if sender_wallet.balance < amount:
+                raise ValueError("Insufficient Funds")
 
-    if method == 'wallet':
-        sender_wallet = user.wallet
-        if sender_wallet.balance < amount:
-            raise ValueError("Insufficient Funds")
+            sender_wallet.balance -= amount
+            sender_wallet.save()
 
-        sender_wallet.balance -= amount
-        sender_wallet.save()
-
-        platform_wallet.balance += amount
-        platform_wallet.save()
+            platform_wallet.balance += amount
+            platform_wallet.save()
+    except Exception as e:
+        return Response({"Message": f"Error Occured- {e}"}, status=400)
+        
 
     payment = Payment.objects.create(
         user=user,

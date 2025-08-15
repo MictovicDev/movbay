@@ -8,6 +8,7 @@ urlpatterns = [
     path('web-hook/', views.PaystackWebhookView.as_view(), name='webhook'),
     path('verify-payment/', views.VerifyTransaction.as_view(), name='payment-verification'),
     path('test-handler', views.TestHandler.as_view(), name='test'),
-    path('purchase-product/', views.PurchasePaymentView.as_view(), name='purchase_product')
+    path('purchase-product/', views.PurchasePaymentView.as_view(), name='purchase_product'),
+    #path('withdraw')
    
     ]

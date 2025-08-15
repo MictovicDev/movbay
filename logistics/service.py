@@ -1,6 +1,16 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
+import os
+from dotenv import load_dotenv
+from typing import Dict
+import requests
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+dotenv_path = BASE_DIR / ".env"
+load_dotenv(dotenv_path, override=True)
+
+django_env = os.getenv('DJANGO_ENV')
 
 # Abstract base class for logistics services
 class LogisticsService(ABC):
@@ -15,6 +25,39 @@ class MovbayExpress(LogisticsService):
 
 
 class SpeedyDispatch(LogisticsService):
+    """SpeedyDispatch Is For External Logistics API, in our Case Terminal
+
+    Args:
+        LogisticsService (_type_): _description_
+    """
+    def __init__(self, base_url):
+        self.base_url = base_url
+        self.secret_key = os.getenv('TERMINAL_TEST_SECRET_KEY')
+        
+   
+    def create_package(self) -> Dict:
+        headers = {
+        "Authorization": f"Bearer {self.secret_key}",
+        "Content-Type": "application/json"
+        }
+        
+        data = {
+            "height": 20,          # in cm
+            "length": 30,          # in cm
+            "name": "Medium Box",
+            "size_unit": "cm",
+            "type": "box",         # box, envelope, soft-packaging
+            "width": 15,           # in cm
+            "weight": 2,           # in kg
+            "weight_unit": "kg"
+        }
+        response = requests.post(self.url, headers=headers, json=data)
+
+        # Print the response
+        print("Status Code:", response.status_code)
+        print("Response Body:", response.json())
+        return 
+        
     
     def deliver(self, package_id: str) -> str:
         return f"SpeedyDispatch: Dispatching package {package_id} with high-speed delivery."

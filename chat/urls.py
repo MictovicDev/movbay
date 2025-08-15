@@ -3,5 +3,7 @@ from . import views
 
 
 urlpatterns = [
-     path('', views.ChatBoxAsyncView.as_view(), name='chats')
+     path('', views.ConversationView.as_view(), name='chats'),
+     path('<str:room_name>', views.ConversationDetailView.as_view(), name='conversation-detail'),
+     path('messages/<str:store_id>/', views.FastMessageCreateView.as_view(), name='messages')
 ]

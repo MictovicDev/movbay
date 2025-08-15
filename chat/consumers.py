@@ -4,104 +4,175 @@ import json
 from channels.db import database_sync_to_async
 import asyncio
 import redis
-from django.conf import settings
 from django.utils import timezone
+import logging
+from uuid import UUID
 
-class ChatConsumer(AsyncWebsocketConsumer):
+logger = logging.getLogger(__name__)
+
+class UUIDEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles UUID objects."""
+    def default(self, obj):
+        if isinstance(obj, UUID):
+            return str(obj)
+        return super().default(obj)
+
+class MessageConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.redis_client = redis.Redis.from_url("redis://localhost:6379/0")
+        self.redis_client = None  # Initialize in connect()
         self.debounce_delay = 2
         self.user = None
         self.user_group_name = None
+        self.room_name = None
+        self.debounce_tasks = {}  # Track running tasks
 
     async def connect(self):
-        """Handle WebSocket connection"""
-        # Get user from URL or token
-        self.user = self.scope["user"]
-        print(self.user)
-        if self.user.is_anonymous:
-            # Reject anonymous users
-            await self.close()
-            return
-        
-        # Create user-specific group name
-        self.user_group_name = f"user_{self.user.id}"
-        print(f"user_{self.user.id}")
-        # Join user group for personal notifications
-        await self.channel_layer.group_add(
-            self.user_group_name,
-            self.channel_name
-        )
-        
-        # Accept the connection
-        await self.accept()
-        
-        # Optional: Send connection confirmation
-        await self.send(text_data=json.dumps({
-            'type': 'connection_established',
-            'message': 'Connected successfully'
-        }))
+        """Handle WebSocket connection."""
+        try:
+            self.user = self.scope.get("user")
+            self.room_name = self.scope["url_route"]["kwargs"]["room_name"]
 
-    async def send_chat_update(self, chat_id, message_data):
-        # Set a key that expires after debounce_delay
-        debounce_key = f"chat_update_debounce:{chat_id}"
-        
-        # Store the latest update data
-        update_key = f"chat_update_data:{chat_id}"
-        self.redis_client.setex(update_key, self.debounce_delay + 1, 
-                               json.dumps(message_data))
-        
-        # If debounce key doesn't exist, this is first update in the window
-        if not self.redis_client.exists(debounce_key):
-            self.redis_client.setex(debounce_key, self.debounce_delay, "1")
-            
-            # Schedule the actual update after delay
-            asyncio.create_task(self._delayed_chat_update(chat_id))
-    
-    async def _delayed_chat_update(self, chat_id):
-        await asyncio.sleep(self.debounce_delay)
-        
-        # Get the latest update data
-        update_key = f"chat_update_data:{chat_id}"
-        data = self.redis_client.get(update_key)
-        
-        if data:
-            message_data = json.loads(data)
-            # Send to all users in the chat
-            await self.channel_layer.group_send(
-                f"user_{self.user_id}",
-                {
-                    'type': 'chat_list_update',
-                    'chat_id': chat_id,
-                    'last_message': message_data,
-                    'timestamp': timezone.now().isoformat()
-                }
+            # Check authentication
+            if not self.user or self.user.is_anonymous:
+                await self.close(code=4001)  # Unauthorized
+                return
+
+            # Initialize Redis connection
+            self.redis_client = redis.Redis.from_url(
+                "redis://localhost:6379/0", 
+                decode_responses=True  # Automatically decode responses
             )
-            
-            # Clean up
-            self.redis_client.delete(update_key)
 
+            self.user_group_name = self.room_name
 
-class MessageConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        self.store_id = self.scope['url_route']['kwargs']['store_id']
-        self.group_name = f"Chat{self}"
+            # Join room group
+            await self.channel_layer.group_add(
+                self.user_group_name,
+                self.channel_name
+            )
 
-        await self.channel_layer.group_add(
-            self.group_name,
-            self.channel_name
-        )
-        await self.accept()
+            await self.accept()
+
+            # Send connection confirmation
+            await self.send_json({
+                'type': 'connection_established',
+                'message': 'Connected successfully',
+                'room_name': self.room_name,
+                'user_id': self.user.id  # Now handled by UUIDEncoder
+            })
+
+            # Fetch and send initial conversations/messages
+            try:
+                conversations_data = await self.get_user_conversations(self.user)
+                await self.send_json({
+                    'type': 'initial_data',
+                    'messages': conversations_data
+                })
+            except Exception as e:
+                logger.error(f"Error fetching initial data: {e}")
+                await self.send_json({
+                    'type': 'error',
+                    'message': 'Failed to load initial data'
+                })
+
+        except Exception as e:
+            logger.error(f"Connection error: {e}")
+            await self.close(code=4000)
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(
-            self.group_name,
-            self.channel_name
-        )
+        """Handle WebSocket disconnection."""
+        if hasattr(self, 'user_group_name') and self.user_group_name:
+            await self.channel_layer.group_discard(
+                self.user_group_name,
+                self.channel_name
+            )
+        
+        # Cancel any pending debounce tasks
+        for task in self.debounce_tasks.values():
+            if not task.done():
+                task.cancel()
+        
+        # Close Redis connection if it exists
+        if self.redis_client:
+            await self.redis_client.aclose() if hasattr(self.redis_client, 'aclose') else None
 
-    async def status_created(self, event):
-        await self.send(text_data=json.dumps({
-            "type": "status.created",
-            "data": event["status"]
-        }))
+    async def receive(self, text_data):
+        """Handle incoming WebSocket messages."""
+        try:
+            data = json.loads(text_data)
+            message_type = data.get('type')
+            print(message_type)
+            if message_type == 'chat_message':
+                print(True)
+                # Handle incoming chat messages
+                await self.handle_chat_message(data)
+            elif message_type == 'ping':
+                # Handle ping/pong for connection health
+                await self.send_json({'type': 'pong'})
+            else:
+                logger.warning(f"Unknown message type: {message_type}")
+                
+        except json.JSONDecodeError:
+            await self.send_json({
+                'type': 'error',
+                'message': 'Invalid JSON format'
+            })
+        except Exception as e:
+            logger.error(f"Error handling message: {e}")
+            await self.send_json({
+                'type': 'error',
+                'message': 'Message processing failed'
+            })
+
+    async def handle_chat_message(self, data):
+        """Handle chat message processing."""
+        # Implement your chat message logic here
+        chat_id = data.get('chat_id')
+        message_content = data.get('message')
+        
+        if not chat_id or not message_content:
+            await self.send_json({
+                'type': 'error',
+                'message': 'Missing chat_id or message content'
+            })
+            return
+        
+        # Process the message (save to database, etc.)
+        # Then trigger debounced update
+        message_data = {
+            'content': message_content,
+            'user_id': self.user.id,  # UUIDEncoder will handle this
+            'timestamp': timezone.now().isoformat()
+        }
+        
+        await self.send_chat_update(chat_id, message_data)
+
+    @database_sync_to_async
+    def get_user_conversations(self, user):
+        """Fetch all conversations and messages for the user."""
+        try:
+            from chat.models import Conversation, Message
+            from .serializers import MessageSerializer
+
+            conversations = Conversation.objects.filter(room_name=self.room_name)
+            messages = Message.objects.filter(
+                chatbox__in=conversations
+            ).select_related('sender', 'receiver', 'chatbox').order_by("created_at")
+            
+            # No request context needed for this serializer
+
+            return MessageSerializer(messages, many=True).data
+            
+        except Exception as e:
+            logger.error(f"Database query error: {e}")
+            return []
+
+    async def chat_message(self, event):
+        print('called')
+        await self.send_json(event["message"])
+
+    async def send_json(self, data):
+        """Send JSON data with UUID handling."""
+        await self.send(text_data=json.dumps(data, cls=UUIDEncoder))
+    

@@ -53,7 +53,7 @@ class UserTokenView(APIView):
                 "email": user.email,  # use "username" unless you've overridden USERNAME_FIELD
                 "password": password
             })
-
+            print(user.email)
             if serializer.is_valid():
                 return Response({
                     "id": str(user.id),

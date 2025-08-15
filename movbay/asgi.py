@@ -37,8 +37,10 @@ application = ProtocolTypeRouter({
     "http": get_asgi_application(),  # Handles standard HTTP requests
     "websocket": JWTAuthMiddleware(
         URLRouter(
-            stores.routing.websocket_urlpatterns + chat.routing.websocket_urlpatterns +
-            payment.routing.websocket_urlpatterns + logistics.routing.websocket_urlpatterns
+            stores.routing.websocket_urlpatterns + 
+            chat.routing.websocket_urlpatterns +
+            payment.routing.websocket_urlpatterns +
+            logistics.routing.websocket_urlpatterns
         )
     ),
 })

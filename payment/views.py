@@ -172,23 +172,28 @@ class FundWallet(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        provider_name = request.data.get('provider_name')
-        payment_method = request.data.get('payment_method')
-        transaction_data = {
-            "email": request.user.email,
-            "amount": int(Decimal(request.data.get('amount', '0')) * 100),
-            "reference": generate_tx_ref(),
-            "currency": "NGN",
-            "metadata": {
-                "user_id": str(request.user.id),
-                "payment_type": 'fund-wallet'}
-        }
-        provider = PaymentProviderFactory.create_provider(
-            provider_name=provider_name)
-        method = PaymentMethodFactory.create_method(method_name=payment_method)
-        transaction_data = method.prepare_payment_data(transaction_data)
-        result = provider.initialize_payment(transaction_data)
-        return Response(result, status=status.HTTP_200_OK)
+        try:
+            provider_name = request.data.get('provider_name')
+            payment_method = request.data.get('payment_method')
+            transaction_data = {
+                "email": request.user.email,
+                "amount": int(Decimal(request.data.get('amount', '0')) * 100),
+                "reference": generate_tx_ref(),
+                "currency": "NGN",
+                "metadata": {
+                    "user_id": str(request.user.id),
+                    "payment_type": 'fund-wallet'}
+            }
+            provider = PaymentProviderFactory.create_provider(
+                provider_name=provider_name)
+            method = PaymentMethodFactory.create_method(method_name=payment_method)
+            transaction_data = method.prepare_payment_data(transaction_data)
+            result = provider.initialize_payment(transaction_data)
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"Messsage": f"Error Funding Wallet {e}"}, status=400)
+            
+        
 
 
 class PurchasePaymentView(APIView):
@@ -196,51 +201,61 @@ class PurchasePaymentView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        order_data = request.data
-        serializer = ShopSerializer(data=order_data)
-        if serializer.is_valid():
-            validated_data = serializer.validated_data
-            transaction_data = {
-                "email": request.user.email,
-                "amount": int(Decimal(validated_data['total_amount'])) * 100,
-                "reference": generate_tx_ref(),
-                "currency": "NGN",
-                "metadata": {
-                    "user_id": str(request.user),
-                    "payment_type": 'purchase-item',
-                    "cart_items": validated_data,
-                }, }
-            print(transaction_data.get('amount'))
-            payment_method = validated_data.get('payment_method')
-            print(payment_method)
-            if payment_method == 'wallet':
-                try:
-                    response = create_order_with_items(user=request.user,
-                                                       order_data=validated_data, reference=transaction_data.get('reference'), method='wallet')
-                    # print(response.data)
-                    if response.status_code == 201:
-                        return Response(response.data, status=status.HTTP_200_OK)
-                    else:
-                        return Response({"Message": "Order not Created"}, status=status.HTTP_400_BAD_REQUEST)
-                except Exception as e:
-                    return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+        try:
+            order_data = request.data
+            serializer = ShopSerializer(data=order_data)
+            if serializer.is_valid():
+                validated_data = serializer.validated_data
+                transaction_data = {
+                    "email": request.user.email,
+                    "amount": int(Decimal(validated_data['total_amount'])) * 100,
+                    "reference": generate_tx_ref(),
+                    "currency": "NGN",
+                    "metadata": {
+                        "user_id": str(request.user),
+                        "payment_type": 'purchase-item',
+                        "cart_items": validated_data,
+                    }, }
+                print(transaction_data.get('amount'))
+                payment_method = validated_data.get('payment_method')
+                delivery_method = validated_data.get('delivery_method')
+                
+                print(payment_method)
+                if payment_method == 'wallet':
+                    try:
+                        response = create_order_with_items(user=request.user,
+                                                        order_data=validated_data, reference=transaction_data.get('reference'), method='wallet')
+                        # print(response.data)
+                        if response.status_code == 201:
+                            return Response(response.data, status=status.HTTP_200_OK)
+                        else:
+                            return Response({"Message": "Order not Created"}, status=status.HTTP_400_BAD_REQUEST)
+                    except Exception as e:
+                        return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
 
-            else:
-                print(validated_data)
-                provider_name = validated_data['provider_name']
-                payment_method = validated_data['payment_method']
-                provider = PaymentProviderFactory.create_provider(
-                    provider_name=provider_name)
-                print(provider)
-                method = PaymentMethodFactory.create_method(
-                    method_name=payment_method)
-                print(method)
-                transaction_data = method.prepare_payment_data(
-                    transaction_data)
-                response = provider.initialize_payment(transaction_data)
-                print(response)
-                return Response(response, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=400)
+                else:
+                    print(validated_data)
+                    provider_name = validated_data['provider_name']
+                    payment_method = validated_data['payment_method']
+                    provider = PaymentProviderFactory.create_provider(
+                        provider_name=provider_name)
+                    print(provider)
+                    method = PaymentMethodFactory.create_method(
+                        method_name=payment_method)
+                    print(method)
+                    transaction_data = method.prepare_payment_data(
+                        transaction_data)
+                    response = provider.initialize_payment(transaction_data)
+                    print(response)
+                    return Response(response, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=400)
+        except Exception as e:
+            logger.info('Error Purchasing Items')
+            return Response({"Messsage": f"Error Processing Purchase{e}"}, status=400)
+            
+          
+            
+     
 
 
 

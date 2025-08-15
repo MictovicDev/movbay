@@ -42,7 +42,7 @@ class Payment(models.Model):
     currency = models.CharField(max_length=3, default='NGN')
     transaction_id = models.CharField(max_length=100, blank=True)
     success = models.BooleanField(default=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    #order = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
     type = models.CharField(max_length=250, blank=True,
                             null=True, choices=PAYMENT_TYPE)
     payment_method = models.CharField(

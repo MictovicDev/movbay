@@ -310,12 +310,11 @@ class StoreFollowView(APIView):
 
     def post(self, request, pk):
         try:
-            store = Store.objects.get(owner=request.user)
+            store = Store.objects.get(id=pk)
         except Store.DoesNotExist:
             return Response({"Message": "User Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
         try:
-            store_follow = StoreFollow.objects.create(follower=request.user, followed_store=store)
-
+            store_follow, created = StoreFollow.objects.get_or_create(follower=request.user, followed_store=store)
         except Exception as e:
             print(str(e))
         serializer = StoreFollowSerializer(store_follow)
@@ -337,7 +336,7 @@ class StoreFollowers(APIView):
         except Store.DoesNotExist:
             return Response({"message": "You don't own a store"}, status=404)
 
-        followers = StoreFollow.objects.filter(followed_store=my_store).select_related('follower')
+        followers = StoreFollow.objects.filter(followed_store=my_store)
 
         follow_back_qs = StoreFollow.objects.filter(
             follower=request.user,
@@ -361,11 +360,14 @@ class StoreUnfollowView(APIView):
         except Store.DoesNotExist:
             return Response({"Message": "User Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
         try:
-            store_follow = StoreFollow.objects.get(following=store, follower=request.user)
+            store_follow = StoreFollow.objects.get(followed_store=store, follower=request.user)
             store_follow.delete()
         except Exception as e:
             print(str(e))
-        serializer = StoreFollowSerializer(store_follow)
+        try:
+            serializer = StoreFollowSerializer(store_follow)
+        except Exception as e:
+            return Response(str(e), status=400)
         return Response({
             "message": "UnFollow Successful",
             "data": serializer.data

@@ -7,7 +7,6 @@ import string
 from stores.utils.helpers import user_file_path, validate_video_file_extension
 import random
 from django.db import models
-import cloudinary
 from users.models import UserProfile
 from cloudinary.models import CloudinaryField
 from payment.models import Payment
@@ -19,7 +18,6 @@ User = get_user_model()
 
 
 class Store(models.Model):
-    #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=250, blank=True, null=True, db_index=True)
     category = models.CharField(max_length=250, blank=True, null=True, db_index=True)
     store_image = models.ImageField(upload_to='Store/PP', blank=True, null=True)
@@ -107,32 +105,31 @@ class ProductImage(models.Model):
                 
 
 
-class Cart(models.Model):
-    #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='carts')
-    created_at = models.DateTimeField(auto_now_add=True)
+# class Cart(models.Model):
+#     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='carts')
+#     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.user.username}'s Cart"
+#     def __str__(self):
+#         return f"{self.user.username}'s Cart"
 
-    def total_items(self):
-        return sum(item.quantity for item in self.items.all())
+#     def total_items(self):
+#         return sum(item.quantity for item in self.items.all())
 
-    def total_price(self):
-        return sum(item.total_price() for item in self.items.all())
-
+#     def total_price(self):
+#         return sum(item.total_price() for item in self.items.all())
 
 
-class CartItem(models.Model):
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(default=1)
 
-    def total_price(self):
-        return self.product.discounted_price * self.quantity
+# class CartItem(models.Model):
+#     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
+#     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+#     quantity = models.PositiveIntegerField(default=1)
 
-    def __str__(self):
-        return f"{self.product.name} x {self.quantity}"
+#     def total_price(self):
+#         return self.product.discounted_price * self.quantity
+
+#     def __str__(self):
+#         return f"{self.product.name} x {self.quantity}"
     
 
 

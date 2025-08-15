@@ -76,6 +76,8 @@ class KYC(models.Model):
     
     
     
+class TerminalRiders(models.Model):
+    pass
     
     
     
