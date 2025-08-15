@@ -78,6 +78,21 @@ class UserTokenView(APIView):
             )
 
 
+
+
+class DeleteAccountView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        try:
+            user = request.user
+            user.is_active = False
+            user.save()
+            return Response({"Message": "Account Deleted Successfully"}, status=200)
+        except Exception as e:
+            return Response({"Message": "Error Deleting Account"}, status=400)
+
 class RegisterView(generics.ListCreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny]

@@ -53,8 +53,6 @@ class StoreFollowSerializer(serializers.ModelSerializer):
 
         
 
-
-
 class StatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Status
@@ -387,7 +385,7 @@ class ClientStoreSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description',
             'post_count', 'follower_count', 'following_count',
-            'is_following', 'products'
+            'is_following', 'products', 'store_image', 'store_image_url','store_image'
         ]
 
     def get_post_count(self, obj):
