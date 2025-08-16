@@ -15,6 +15,7 @@ from base64 import b64encode
 from rest_framework.response import Response
 from rest_framework import status
 from users.serializers import UserSerializer
+from users.serializers import UserProfileSerializer
 from .utils.get_store_cordinate import get_coordinates_from_address
 from logistics.models import KYC
 from rest_framework import serializers
@@ -36,8 +37,8 @@ class ClientStoresSerializer(serializers.ModelSerializer):
                
 
 class StoreFollowSerializer(serializers.ModelSerializer):
-    follower = UserSerializer()
-    followed_store = ClientStoresSerializer(read_only=True)
+    follower = UserProfileSerializer()
+    # followed_store = ClientStoresSerializer(read_only=True)
     #followed_store = serializers.PrimaryKeyRelatedField(read_only=True)
     is_following_back = serializers.BooleanField(default=False)  # for followers endpoint
     they_follow_me_back = serializers.BooleanField(default=False)  # for following endpoint

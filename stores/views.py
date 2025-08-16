@@ -314,7 +314,8 @@ class StoreFollowView(APIView):
         except Store.DoesNotExist:
             return Response({"Message": "User Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
         try:
-            store_follow, created = StoreFollow.objects.get_or_create(follower=request.user, followed_store=store)
+            profile = request.user.user_profile
+            store_follow, created = StoreFollow.objects.get_or_create(follower=profile, followed_store=store)
         except Exception as e:
             print(str(e))
         serializer = StoreFollowSerializer(store_follow)
@@ -332,6 +333,7 @@ class StoreFollowers(APIView):
         from django.db.models import Exists, OuterRef
 
         try:
+            profile = request.user.user_profile
             my_store = Store.objects.get(owner=request.user)
         except Store.DoesNotExist:
             return Response({"message": "You don't own a store"}, status=404)
@@ -339,7 +341,7 @@ class StoreFollowers(APIView):
         followers = StoreFollow.objects.filter(followed_store=my_store)
 
         follow_back_qs = StoreFollow.objects.filter(
-            follower=request.user,
+            follower=profile,
             followed_store__owner=OuterRef('follower')
         )
 
@@ -360,10 +362,11 @@ class StoreUnfollowView(APIView):
         except Store.DoesNotExist:
             return Response({"Message": "User Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
         try:
+            profile = request.user.user_profile
             store_follow = StoreFollow.objects.get(followed_store=store, follower=request.user)
             store_follow.delete()
         except Exception as e:
-            print(str(e))
+            return Response(str(e), status=400)
         try:
             serializer = StoreFollowSerializer(store_follow)
         except Exception as e:
@@ -400,19 +403,21 @@ class StoreFollowingView(APIView):
 
     def get(self, request):
         from django.db.models import Exists, OuterRef
+        try:
+            profile = request.user.user_profile
+            following = StoreFollow.objects.filter(follower=request.user).select_related('followed_store')
 
-        following = StoreFollow.objects.filter(follower=request.user).select_related('followed_store')
+            they_follow_back_qs = StoreFollow.objects.filter(
+                follower=OuterRef('followed_store__owner'),
+                followed_store__owner=profile
+            )
 
-        they_follow_back_qs = StoreFollow.objects.filter(
-            follower=OuterRef('followed_store__owner'),
-            followed_store__owner=request.user
-        )
+            following = following.annotate(they_follow_me_back=Exists(they_follow_back_qs))
 
-        following = following.annotate(they_follow_me_back=Exists(they_follow_back_qs))
-
-        serializer = StoreFollowSerializer(following, many=True)
-        return Response(serializer.data, status=200)
-            
+            serializer = StoreFollowSerializer(following, many=True)
+            return Response(serializer.data, status=200)
+        except Exception as e:
+            return Response(str(e), status=400)
    
    
 class UserProductListView(generics.ListAPIView):

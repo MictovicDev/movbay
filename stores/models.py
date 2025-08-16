@@ -185,7 +185,7 @@ class Review(models.Model):
     
  
 class StoreFollow(models.Model):
-    follower = models.ForeignKey(User, related_name='follows', on_delete=models.CASCADE, null=True)  # the user who follows
+    follower = models.ForeignKey(UserProfile, related_name='follows', on_delete=models.CASCADE, null=True)  # the user who follows
     followed_store = models.ForeignKey(Store, related_name='store_followers', null=True, blank=True, on_delete=models.CASCADE)
     followed_at = models.DateTimeField(auto_now_add=True, null=True)
 
@@ -195,7 +195,7 @@ class StoreFollow(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.follower.username} follows store {self.followed_store.name}"
+        return f"{self.follower} follows store {self.followed_store.owner}"
         
     
 
