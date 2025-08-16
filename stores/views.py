@@ -338,11 +338,15 @@ class StoreFollowers(APIView):
         except Store.DoesNotExist:
             return Response({"message": "You don't own a store"}, status=404)
 
-        followers = StoreFollow.objects.filter(followed_store=my_store)
+        followers = (
+            StoreFollow.objects
+            .filter(followed_store=my_store)
+            .select_related("follower__user")   # ✅ ensures serializer has data
+        )
 
         follow_back_qs = StoreFollow.objects.filter(
             follower=profile,
-            followed_store__owner=OuterRef('follower')
+            followed_store__owner=OuterRef("follower")  # check if I follow them back
         )
 
         followers = followers.annotate(is_following_back=Exists(follow_back_qs))
@@ -404,18 +408,27 @@ class StoreFollowingView(APIView):
     def get(self, request):
         from django.db.models import Exists, OuterRef
         try:
-            profile = request.user.user_profile
-            following = StoreFollow.objects.filter(follower=request.user).select_related('followed_store')
+            profile = request.user.user_profile  # ✅ get UserProfile of current user
 
-            they_follow_back_qs = StoreFollow.objects.filter(
-                follower=OuterRef('followed_store__owner'),
-                followed_store__owner=profile
+            # all stores this profile is following
+            following = (
+                StoreFollow.objects
+                .filter(follower=profile)
+                .select_related('followed_store', 'followed_store__owner')  # load related
             )
 
+            # subquery: check if that store owner also follows me back
+            they_follow_back_qs = StoreFollow.objects.filter(
+                follower=OuterRef('followed_store__owner'),   # store owner follows...
+                followed_store__owner=profile.user               # ...my store (UserProfile owner)
+            )
+
+            # annotate boolean field
             following = following.annotate(they_follow_me_back=Exists(they_follow_back_qs))
 
             serializer = StoreFollowSerializer(following, many=True)
             return Response(serializer.data, status=200)
+
         except Exception as e:
             return Response(str(e), status=400)
    
