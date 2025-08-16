@@ -154,6 +154,7 @@ class ActivateAccountView(generics.GenericAPIView):
                     user.save()
                     return Response({
                         'user': user.email,
+                        "user_type": user.user_type,
                         'token':  {
                             'access': str(token.access_token),
                             'refresh': str(token),

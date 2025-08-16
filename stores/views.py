@@ -450,24 +450,22 @@ class DashBoardView(APIView):
     def get(self, request):
         try:
             user = request.user
-            store = (
-                    Store.objects
-                    .select_related('owner')
-                    .prefetch_related(
-                        Prefetch('products'),
-                        Prefetch(
-                            'statuses',
-                            queryset=Status.objects.filter(expires_at__gt=timezone.now())
-                        )
-                    )
-                    .annotate(
-                        product_count=Count('products', distinct=True),
-                        order_count=Count('order', distinct=True),
-                        following_count=Count('owner__follows', distinct=True),
-                        followers_count=Count('store_followers', distinct=True),   # Following
-                    )
-                    .get(owner=user)
+            store = Store.objects \
+            .select_related('owner') \
+            .prefetch_related(
+                Prefetch('products'),
+                Prefetch(
+                    'statuses',
+                    queryset=Status.objects.filter(expires_at__gt=timezone.now())
                 )
+            ) \
+            .annotate(
+                product_count=Count('products', distinct=True),
+                order_count=Count('order', distinct=True),
+                following_count=Count('owner__user_profile__follows', distinct=True),
+                followers_count=Count('store_followers', distinct=True),  # since related_name="followers"
+            ) \
+            .get(owner=user)
 
             serializer = DashboardSerializer(store)
                             
