@@ -5,7 +5,8 @@ from .models import Conversation, Message
 import logging
 import asyncio
 from channels.layers import get_channel_layer
-
+from django.shortcuts import get_object_or_404
+from stores.models import Product
 User = get_user_model()
 
 logging.basicConfig(
@@ -17,22 +18,25 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task
-def save_message_to_db(user_id, store_id, content, timestamp):
+def save_message_to_db(user_id, product_id, content, timestamp):
     """Background task to save message to database"""
     try:
         with transaction.atomic():
-            user = User.objects.get(id=user_id)
+            user = get_object_or_404(User, id=user_id)
+            product = get_object_or_404(Product, id=product_id)
+                
             conversation, _ = Conversation.objects.get_or_create(
                 sender=user,
-                receiver_id=store_id,
-                room_name=f"user_{user_id}_{store_id}"
+                receiver_id=product.store.id,
+                room_name=f"user_{user.id}_{product.store.id}"
             )
             
             # Save with temp_id for client correlation
             message = Message.objects.create(
                 chatbox=conversation,
                 sender=user,
-                receiver_id=store_id,
+                receiver_id=product.store.id,
+                product = product,
                 content=content,
                 created_at=timestamp
             )

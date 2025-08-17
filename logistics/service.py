@@ -30,8 +30,8 @@ class SpeedyDispatch(LogisticsService):
     Args:
         LogisticsService (_type_): _description_
     """
-    def __init__(self, base_url):
-        self.base_url = base_url
+    def __init__(self):
+        self.base_url = 'https://api.terminal.africa/'
         self.secret_key = os.getenv('TERMINAL_TEST_SECRET_KEY')
         
    
@@ -51,7 +51,8 @@ class SpeedyDispatch(LogisticsService):
             "weight": 2,           # in kg
             "weight_unit": "kg"
         }
-        response = requests.post(self.url, headers=headers, json=data)
+        url = self.base_url + 'v1/packaging'
+        response = requests.post(url, headers=headers, json=data)
 
         # Print the response
         print("Status Code:", response.status_code)

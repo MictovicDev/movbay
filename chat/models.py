@@ -23,32 +23,6 @@ class Conversation(models.Model):
         return f"Conversation Between {self.sender.fullname} and {self.receiver.name}"
     
     
-    
-    
-    
-    
-    
-# class ChatRoom(models.Model):
-#     sender = models.ForeignKey(
-#         User, on_delete=models.CASCADE, blank=True, null=True, related_name='sender'
-#     )
-#     receiver = models.ForeignKey(
-#         Store, on_delete=models.CASCADE, blank=True, null=True
-#     )
-#     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-#     # product = models.ForeignKey(
-#     #     Product, on_delete=models.CASCADE, blank=True, null=True
-#     # )
-
-#     class Meta:
-#         indexes = [
-#             models.Index(fields=['sender']),
-#             models.Index(fields=['receiver']),
-#             models.Index(fields=['created_at']),
-#         ]
-
-#     def __str__(self):
-#         return f"Chat Between {self.sender.fullname} and {self.receiver.name}"
 
 
 class Message(models.Model):

@@ -20,6 +20,7 @@ import asyncio
 from .tasks import save_message_to_db
 from django.utils import timezone
 from asgiref.sync import async_to_sync
+from stores.models import Product
 
 class ConversationView(APIView):
     def get(self, request):
@@ -45,21 +46,22 @@ class ConversationDetailView(APIView):
 
 class FastMessageCreateView(APIView):
     
-    def post(self, request, store_id):
+    def post(self, request, product_id):
         data = request.data
         user = request.user
         content = data.get("content")
+        product = data.get('product')
         if not content:
             return Response({"error": "Content is required"}, status=400)
-       
+        product = get_object_or_404(Product, id=product_id)
         timestamp = timezone.now().isoformat()
-        room_name = f"user_{user.id}_{store_id}"
+        room_name = f"user_{user.id}_{product.store.id}"
         # Create message object for immediate response
         message_data = {
             "content": content,
             "chat_id": room_name,
             "sender": str(user.id),
-            "receiver": store_id,
+            "receiver": product.store.id,
             "timestamp": timestamp,
             "status": "sending"  # pending, sent, delivered, read
         }
@@ -70,7 +72,7 @@ class FastMessageCreateView(APIView):
             self._send_ws_message_immediate(room_name, message_data)
            
             # 2. Queue for database persistence (async)
-            save_message_to_db.delay(user.id, store_id, content, timestamp)
+            save_message_to_db.delay(user.id, product.id, content, timestamp)
            
             # 3. Return immediate response
             return Response(message_data, status=201)

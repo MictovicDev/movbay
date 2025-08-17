@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from .models import  Message, Conversation
 from users.serializers import UserSerializer
-from stores.serializers import ClientStoreSerializer
+from stores.serializers import ClientStoreSerializer, ProductSerializer
 from stores.models import Store
+
 
 
 
@@ -35,6 +36,7 @@ class ChatStoreSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
     receiver = ChatStoreSerializer(read_only=True)
+    product = ProductSerializer(read_only=True)
     class Meta:
         model = Message
         fields = '__all__'

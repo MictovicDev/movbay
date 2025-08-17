@@ -7,6 +7,7 @@ import redis
 from django.utils import timezone
 import logging
 from uuid import UUID
+from django.shortcuts import get_object_or_404
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
 
             # Fetch and send initial conversations/messages
             try:
-                conversations_data = await self.get_user_conversations(self.user)
+                conversations_data = await self.get_user_conversation()
                 await self.send_json({
                     'type': 'initial_data',
                     'messages': conversations_data
@@ -149,17 +150,18 @@ class MessageConsumer(AsyncWebsocketConsumer):
         await self.send_chat_update(chat_id, message_data)
 
     @database_sync_to_async
-    def get_user_conversations(self, user):
+    def get_user_conversation(self):
         """Fetch all conversations and messages for the user."""
         try:
             from chat.models import Conversation, Message
             from .serializers import MessageSerializer
-
-            conversations = Conversation.objects.filter(room_name=self.room_name)
+            print(self.room_name)
+            conversation = get_object_or_404(Conversation, room_name=self.room_name)
+            print(conversation)
             messages = Message.objects.filter(
-                chatbox__in=conversations
+                chatbox=conversation
             ).select_related('sender', 'receiver', 'chatbox').order_by("created_at")
-            
+
             # No request context needed for this serializer
 
             return MessageSerializer(messages, many=True).data
