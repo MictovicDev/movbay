@@ -12,6 +12,8 @@ from datetime import timedelta, datetime
 from django.utils import timezone
 from notification.models import Device
 from stores.tasks import send_push_notification
+from decimal import Decimal
+from rest_framework.exceptions import ValidationError
 
 User = get_user_model()
 
@@ -21,22 +23,23 @@ def create_order_with_items(user, order_data, reference, method):
     admin_user = User.objects.filter(is_superuser=True).first()
     platform_wallet, _ = Wallet.objects.get_or_create(owner=admin_user)
     amount = order_data.get("total_amount")
+    print(amount)
     delivery_data = order_data['delivery']
+    print(delivery_data)
     delivery = Delivery.objects.create(user=user, **delivery_data)
-    try:
-        if method == 'wallet':
+    
+    if method == 'wallet':
             sender_wallet = user.wallet
-            if sender_wallet.balance < amount:
-                raise ValueError("Insufficient Funds")
-
+            print("BALANCE:", sender_wallet.balance, "AMOUNT:", amount, type(amount))
+            print(user.wallet)
+            if Decimal(sender_wallet.balance) < Decimal(amount):
+                print(True)
+                raise ValidationError({"wallet": "Insufficient Funds"})
             sender_wallet.balance -= amount
             sender_wallet.save()
 
             platform_wallet.balance += amount
             platform_wallet.save()
-    except Exception as e:
-        return Response({"Message": f"Error Occured- {e}"}, status=400)
-        
 
     payment = Payment.objects.create(
         user=user,

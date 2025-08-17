@@ -31,7 +31,6 @@ class ConversationView(APIView):
         return Response(serializer.data, status=200)
 
  
-
 class ConversationDetailView(APIView):
     def get(self, request, room_name):
         # Fetch all conversations where the user is involved

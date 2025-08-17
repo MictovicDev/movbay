@@ -49,6 +49,20 @@ class Store(models.Model):
 
 class Product(models.Model):
     
+    CATEGORY = [
+        ('Electronics', 'Electronics'),
+        ('Fashion', 'Fashion'),
+        ('Furniture', 'Furniture'),
+        ('Beauty', 'Beauty'),
+        ('Car', 'Car'),
+        ('Sport', 'Sport'),
+        ('Shoes', 'Shoes'),
+        ('Bags', 'Bags'),
+        ('Home & Garden', 'Home & Garden'),
+        ('Books', 'Books'),
+        ('Others', 'Others')
+    ]
+    
     PRODUCT_CONDITION = [
         ('New', 'New'),
         ('Used', 'Used'),
@@ -63,7 +77,7 @@ class Product(models.Model):
     #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products', db_index=True)
     title = models.CharField(max_length=40, blank=True, null=True)
-    category = models.CharField(max_length=250, blank=True, null=True)
+    category = models.CharField(max_length=250, blank=True, null=True, choices=CATEGORY)
     brand = models.CharField(max_length=250, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     product_video = models.FileField('videos', blank=True, null=True)

@@ -9,7 +9,6 @@ from .models import (Store,
                      OrderItem,
                      OrderTracking
                      )
-
 from .tasks import upload_store_files, upload_video, upload_image
 from base64 import b64encode
 from rest_framework.response import Response
@@ -110,7 +109,6 @@ class StoreUpdateSerializer(serializers.ModelSerializer):
             return value
 
     
-
 class StoreSerializer(serializers.ModelSerializer):
     cac = serializers.FileField(required=False)
     nin = serializers.FileField(required=False)
@@ -191,6 +189,7 @@ class StoreSerializer(serializers.ModelSerializer):
             raise e
 
 
+
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
@@ -227,6 +226,7 @@ class UpdateProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = '__all__'
         read_only_fields = ['id', 'verified', 'store', 'created_at', 'updated_at']
+
 
 class ProductSerializer(serializers.ModelSerializer):
     verified = serializers.BooleanField(read_only=True)
@@ -297,13 +297,9 @@ class KYCSerializer(serializers.ModelSerializer):
     class Meta:
         model = KYC
         fields = ['rider','vehicle_type', 'plate_number', 'vehicle_color']
-        # read_only_fields = ('rider', 'nin', 'proof_of_address', 'drivers_licence')
-        # extra_kwargs = {
-        #     'nin_file': {'write_only': True},
-        #     'proof_of_address_file': {'write_only': True},
-        #     'drivers_licence_file': {'write_only': True},
-        # }
-  
+
+
+
 class RiderProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     kyc_verification = KYCSerializer(read_only=True, many=True)
@@ -334,6 +330,9 @@ class RideSerializer(serializers.ModelSerializer):
         model = Ride
         fields = '__all__'
 
+
+
+
 class OrderSerializer(serializers.ModelSerializer):
     order_items = OrderItemSerializer(read_only=True, many=True)
     status = serializers.CharField(read_only=True)
@@ -347,8 +346,6 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ['status', 'order_items', 'delivery', 'buyer', 'order_id', 'store', 'assigned', 'ride']
         
         
-    
-
 
 class ItemSerializer(serializers.Serializer):
     store = serializers.IntegerField()
@@ -365,7 +362,6 @@ class ShopSerializer(serializers.Serializer):
     total_amount = serializers.IntegerField()
 
 
-
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)
     store = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -375,6 +371,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = ['id', 'store', 'user', 'rating', 'comment', 'created_at']
         read_only_fields = ['id', 'user', 'created_at']
         
+            
 class ClientStoreSerializer(serializers.ModelSerializer):
     post_count = serializers.SerializerMethodField()
     follower_count = serializers.SerializerMethodField()
@@ -399,12 +396,15 @@ class ClientStoreSerializer(serializers.ModelSerializer):
 
     def get_following_count(self, obj):
         # assuming store owner can follow other stores
-        return StoreFollow.objects.filter(follower=obj.owner, followed_store__isnull=False).count()
+        return StoreFollow.objects.filter(follower=obj.owner.user_profile, followed_store__isnull=False).count()
 
     def get_is_following(self, obj):
-        user = self.context['request'].user
-        if user.is_authenticated:
-            return StoreFollow.objects.filter(follower=user, followed_store=obj).exists()
-        return False
+        try:
+            user = self.context['request'].user
+            if user.is_authenticated:
+                return StoreFollow.objects.filter(follower=user.user_profile, followed_store=obj).exists()
+            return False
+        except Exception as e:
+            return Response(str(e), status=400)
     
     

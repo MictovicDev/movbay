@@ -66,15 +66,19 @@ class ClientViewStore(APIView):
 
 
 class StoreListCreateView(generics.ListCreateAPIView):
-    queryset = store_qs = Store.objects.prefetch_related(
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    try:
+        queryset = store_qs = Store.objects.prefetch_related(
         Prefetch(
             'statuses',
             queryset=Status.objects.filter(expires_at__gt=timezone.now())
+            )
         )
-    )
-    serializer_class = StoreSerializer
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
+        serializer_class = StoreSerializer
+    except Exception as e:
+        print(e)
+        
 
 
 class DeliveryDetailsCreateView(generics.CreateAPIView):
@@ -158,7 +162,6 @@ class MarkAsDelivered(APIView):
         
         
 
-
 class ConfirmOrder(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -196,6 +199,7 @@ class ConfirmOrder(APIView):
         except Exception as e:
             print(f"DEBUG: An exception occurred: {e}")  # Debug 6
             return Response({"Message": f"Something went wrong - {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 class TrackOrder(APIView):
@@ -244,17 +248,17 @@ class MarkForDeliveryView(APIView):
                     if delivery_cordinates:
                         destination = (delivery_cordinates.get('latitude'),
                                     delivery_cordinates.get('longitude'))
-                    print(destination)
+                    #print(destination)
                     store_cordinates = get_coordinates_from_address(
                         order.store.address1)
                     origin = (store_cordinates.get('latitude'),
                             store_cordinates.get('longitude'))
-                    print(origin)
+                    #print(origin)
                     summary = get_eta_distance_and_fare(origin, destination)
-                    print(summary)
+                    #print(summary)
                     riders = get_nearby_drivers(store_cordinates.get(
                         'latitude'), store_cordinates.get('longitude'), radius_km=5)
-                    print(riders)
+                    #print(riders)
                     order.assigned = True
                     order.save()
                     transaction.on_commit(lambda: notify_drivers(riders, summary))
@@ -263,7 +267,7 @@ class MarkForDeliveryView(APIView):
                 except Exception as e:
                     return Response({"error": str(e)}, status=200)
             elif delivery_method == 'Speedy_Dispatch':
-                pass
+                print(order.order_items)
                 # Implement shiip algorithm here
 
             # Get nearby riders (5km range)

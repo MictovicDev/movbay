@@ -228,9 +228,10 @@ class PurchasePaymentView(APIView):
                         # print(response.data)
                         if response.status_code == 201:
                             return Response(response.data, status=status.HTTP_200_OK)
-                        else:
-                            return Response({"Message": "Order not Created"}, status=status.HTTP_400_BAD_REQUEST)
+                        # else:
+                        #     return Response({"Message": "Order not Created"}, status=status.HTTP_400_BAD_REQUEST)
                     except Exception as e:
+                        print(str(e))
                         return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
 
                 else:
