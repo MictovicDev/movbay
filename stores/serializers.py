@@ -37,7 +37,7 @@ class ClientStoresSerializer(serializers.ModelSerializer):
 
 class StoreFollowSerializer(serializers.ModelSerializer):
     follower = UserProfileSerializer()
-    # followed_store = ClientStoresSerializer(read_only=True)
+    followed_store = ClientStoresSerializer(read_only=True)
     #followed_store = serializers.PrimaryKeyRelatedField(read_only=True)
     is_following_back = serializers.BooleanField(default=False)  # for followers endpoint
     they_follow_me_back = serializers.BooleanField(default=False)  # for following endpoint

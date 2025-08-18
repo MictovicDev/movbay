@@ -373,10 +373,10 @@ class StoreUnfollowView(APIView):
         try:
             store = Store.objects.get(id=pk)
         except Store.DoesNotExist:
-            return Response({"Message": "User Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"Message": "Store Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
         try:
             profile = request.user.user_profile
-            store_follow = StoreFollow.objects.get(followed_store=store, follower=request.user)
+            store_follow = StoreFollow.objects.get(followed_store=store, follower=profile)
             store_follow.delete()
         except Exception as e:
             return Response(str(e), status=400)
@@ -428,8 +428,8 @@ class StoreFollowingView(APIView):
 
             # subquery: check if that store owner also follows me back
             they_follow_back_qs = StoreFollow.objects.filter(
-                follower=OuterRef('followed_store__owner'),   # store owner follows...
-                followed_store__owner=profile.user               # ...my store (UserProfile owner)
+                follower=OuterRef('followed_store__owner__user_profile'), 
+                followed_store__owner=profile.user                       
             )
 
             # annotate boolean field
