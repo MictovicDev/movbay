@@ -1,17 +1,19 @@
+from . import categories
 
-
-
-def calculate_order_package(order_items, mapping):
+def calculate_order_package(order_items):
     total_weight = 0
     max_length = 0
     max_width = 0
     total_height = 0
-
+    print(order_items)
     for item in order_items:
-        product = item["product"]
-        quantity = item["quantity"]
-
-        dims = mapping[product["category"]][product["size"]]
+        print(item)
+        product = item.product
+        quantity = item.count
+        print(product)
+        print(quantity)
+        
+        dims = categories[product.category][product.size]
         length, width, height, weight = dims["length"], dims["width"], dims["height"], dims["weight"]
 
         # Scale by quantity

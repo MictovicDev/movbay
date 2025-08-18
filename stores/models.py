@@ -77,7 +77,7 @@ class Product(models.Model):
     #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products', db_index=True)
     title = models.CharField(max_length=40, blank=True, null=True)
-    category = models.CharField(max_length=250, blank=True, null=True, choices=CATEGORY)
+    category = models.CharField(max_length=250, blank=True, null=True)
     brand = models.CharField(max_length=250, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     product_video = models.FileField('videos', blank=True, null=True)

@@ -42,6 +42,7 @@ from .tasks import send_order_complete_email_async
 from django.template.loader import render_to_string
 from .serializers import VerifyOrderSerializer,ClientStoreSerializer
 from django.shortcuts import get_object_or_404, get_list_or_404
+from stores.utils.calculate_order_package import calculate_order_package
 
 
 User = get_user_model()
@@ -267,7 +268,9 @@ class MarkForDeliveryView(APIView):
                 except Exception as e:
                     return Response({"error": str(e)}, status=200)
             elif delivery_method == 'Speedy_Dispatch':
-                print(order.order_items)
+                order_items = order.order_items.all()
+                calculate_order_package(order_items)
+                
                 # Implement shiip algorithm here
 
             # Get nearby riders (5km range)
@@ -283,6 +286,7 @@ class CustomProductPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 50
     
+  
     
 class ProductListCreateView(generics.ListCreateAPIView):
     serializer_class = ProductSerializer
@@ -292,6 +296,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return Product.objects.select_related('store').prefetch_related('store__owner').all()
+
 
 
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):

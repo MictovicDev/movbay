@@ -266,7 +266,10 @@ class ProductSerializer(serializers.ModelSerializer):
         product_video = validated_data.pop('product_video', None)
         store = user.store
         print(images)
-        product = Product.objects.create(store=store, **validated_data)
+        try:
+            product = Product.objects.create(store=store, **validated_data)
+        except Exception as e:
+            print(str(e))
         serialized_images = [
         {
                 "file_content": b64encode(image.read()).decode("utf-8"),
