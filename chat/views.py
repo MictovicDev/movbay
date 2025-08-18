@@ -20,7 +20,8 @@ import asyncio
 from .tasks import save_message_to_db
 from django.utils import timezone
 from asgiref.sync import async_to_sync
-from stores.models import Product
+from stores.models import Product, Status
+from rest_framework.permissions import IsAuthenticated
 
 class ConversationView(APIView):
     def get(self, request):
@@ -44,15 +45,21 @@ class ConversationDetailView(APIView):
 
 
 class FastMessageCreateView(APIView):
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
     
-    def post(self, request, product_id):
+    def post(self, request):
         data = request.data
         user = request.user
         content = data.get("content")
-        product = data.get('product')
+        product_id = data.get('product_id', None)
+        status_id = data.get('status_id', None)
         if not content:
             return Response({"error": "Content is required"}, status=400)
-        product = get_object_or_404(Product, id=product_id)
+        if product_id:
+            product = get_object_or_404(Product, id=product_id)
+        # if status_id:
+        #     status = get_object_or_404(Status, id=status_id)
         timestamp = timezone.now().isoformat()
         room_name = f"user_{user.id}_{product.store.id}"
         # Create message object for immediate response
@@ -62,17 +69,18 @@ class FastMessageCreateView(APIView):
             "sender": str(user.id),
             "receiver": product.store.id,
             "timestamp": timestamp,
-            "status": "sending"  # pending, sent, delivered, read
+            "status": "sending"  
         }
-        
         
         try:
             # 1. Send immediately via WebSocket
             self._send_ws_message_immediate(room_name, message_data)
            
             # 2. Queue for database persistence (async)
-            save_message_to_db.delay(user.id, product.id, content, timestamp)
-           
+            try:
+                save_message_to_db.delay(user.id, product.id, content, timestamp)
+            except Exception as e:
+                return Response(str(e), status=400)
             # 3. Return immediate response
             return Response(message_data, status=201)
            

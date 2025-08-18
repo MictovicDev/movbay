@@ -7,36 +7,35 @@ from stores.models import Store
 
 
 
+class ChatStoreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Store
+        fields = ['name', 'category','store_image_url','description', 'owner', 'address1']
 
 
+
+class MessageSerializer(serializers.ModelSerializer):
+    sender = UserSerializer(read_only=True)
+    receiver = ChatStoreSerializer(read_only=True)
+    product = ProductSerializer(read_only=True)
+    
+    class Meta:
+        model = Message
+        fields = ['chatbox', 'content', 'sender', 'receiver', 'delivered', 'seen', 'is_sender', 'is_receiver','status', 'created_at']
 
 
 class ConversationSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
     receiver = ClientStoreSerializer(read_only=True)
+    messages = MessageSerializer(many=True, read_only=True)
+    
     class Meta:
         model = Conversation
         fields = '__all__'
         
 
+   
+   
 
-# class ChatBoxSerializer(serializers.ModelSerializer):
-    
-#     class Meta:
-#         model = ChatBox
-#         fields = '__all__'
-   
-   
-class ChatStoreSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Store
-        fields = ['name', 'category','store_image_url','description', 'owner', 'address1']
         
         
-class MessageSerializer(serializers.ModelSerializer):
-    sender = UserSerializer(read_only=True)
-    receiver = ChatStoreSerializer(read_only=True)
-    product = ProductSerializer(read_only=True)
-    class Meta:
-        model = Message
-        fields = '__all__'

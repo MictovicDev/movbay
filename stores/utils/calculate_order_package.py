@@ -1,4 +1,4 @@
-from . import categories
+from .categories import categories
 
 def calculate_order_package(order_items):
     total_weight = 0
@@ -12,8 +12,10 @@ def calculate_order_package(order_items):
         quantity = item.count
         print(product)
         print(quantity)
-        
-        dims = categories[product.category][product.size]
+        try:
+            dims = categories[product.category][product.size]
+        except Exception as e:
+             dims = categories['others'][product.size]
         length, width, height, weight = dims["length"], dims["width"], dims["height"], dims["weight"]
 
         # Scale by quantity
@@ -29,4 +31,5 @@ def calculate_order_package(order_items):
         "weight": total_weight,
         "weight_unit": "kg",
         "size_unit": "cm"
+        
     }

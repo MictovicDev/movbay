@@ -6,7 +6,7 @@ import logging
 import asyncio
 from channels.layers import get_channel_layer
 from django.shortcuts import get_object_or_404
-from stores.models import Product
+from stores.models import Product, Status
 User = get_user_model()
 
 logging.basicConfig(
@@ -24,6 +24,7 @@ def save_message_to_db(user_id, product_id, content, timestamp):
         with transaction.atomic():
             user = get_object_or_404(User, id=user_id)
             product = get_object_or_404(Product, id=product_id)
+            # status = get_object_or_404(Status, id=status_id)
                 
             conversation, _ = Conversation.objects.get_or_create(
                 sender=user,
@@ -35,8 +36,10 @@ def save_message_to_db(user_id, product_id, content, timestamp):
             message = Message.objects.create(
                 chatbox=conversation,
                 sender=user,
-                receiver_id=product.store.id,
+                is_sender = True,
+                receiver=product.store,
                 product = product,
+                # status = status,
                 content=content,
                 created_at=timestamp
             )

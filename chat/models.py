@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from stores.models import Store, Product
+from stores.models import Store, Product, Status
 
 User = get_user_model()
 
@@ -30,12 +30,14 @@ class Message(models.Model):
     content = models.TextField()
     sender = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
     receiver = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True)
-    image = models.ImageField()
     delivered = models.BooleanField(default=False)
     seen = models.BooleanField(default=False)
+    is_sender = models.BooleanField(default=False)
+    is_receiver = models.BooleanField(default=False)
+    status = models.ForeignKey(Status, on_delete=models.CASCADE, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, blank=True, null=True)
-    image = models.ImageField(upload_to='temp/', blank=True, null=True)
+    
 
     class Meta:
         indexes = [

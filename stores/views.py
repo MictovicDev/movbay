@@ -43,6 +43,7 @@ from django.template.loader import render_to_string
 from .serializers import VerifyOrderSerializer,ClientStoreSerializer
 from django.shortcuts import get_object_or_404, get_list_or_404
 from stores.utils.calculate_order_package import calculate_order_package
+from logistics.service import SpeedyDispatch
 
 
 User = get_user_model()
@@ -269,7 +270,10 @@ class MarkForDeliveryView(APIView):
                     return Response({"error": str(e)}, status=200)
             elif delivery_method == 'Speedy_Dispatch':
                 order_items = order.order_items.all()
-                calculate_order_package(order_items)
+                SpeedyDispatch.create_package(calculate_order_package(order_items))
+                
+                
+                
                 
                 # Implement shiip algorithm here
 
@@ -354,11 +358,18 @@ class StoreFollowers(APIView):
         )
 
         follow_back_qs = StoreFollow.objects.filter(
-            follower=profile,
-            followed_store__owner=OuterRef("follower")  # check if I follow them back
-        )
+                follower=profile,
+                followed_store__owner__profile=OuterRef("follower")  # compare profile to profile
+            )
 
-        followers = followers.annotate(is_following_back=Exists(follow_back_qs))
+        followers = (
+            StoreFollow.objects
+            .filter(followed_store=my_store)
+            .annotate(
+                is_followed_back=Exists(follow_back_qs)
+            )
+            .select_related("follower__user")
+        )
 
         serializer = StoreFollowSerializer(followers, many=True)
         return Response(serializer.data, status=200)
