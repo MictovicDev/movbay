@@ -44,6 +44,12 @@ class MessageConsumer(AsyncWebsocketConsumer):
             if not self.user or self.user.is_anonymous:
                 await self.close(code=4001)  # Unauthorized
                 return
+            
+            # Check conversation membership
+            is_member = await self.is_user_in_conversation(self.user, self.room_name)
+            if not is_member:
+                await self.close(code=4003)  # Forbidden (not a participant)
+                return
 
             # Initialize Redis connection
             self.redis_client = redis.Redis.from_url(
@@ -154,6 +160,15 @@ class MessageConsumer(AsyncWebsocketConsumer):
         }
         
         await self.send_chat_update(chat_id, message_data)
+        
+    @database_sync_to_async
+    def is_user_in_conversation(self, user, room_name):
+        try:
+            from chat.models import Conversation
+            conv = Conversation.objects.get(room_name=room_name)
+            return conv.sender_id == user.id or conv.receiver_id == user.id
+        except Conversation.DoesNotExist:
+            return False
 
     @database_sync_to_async
     def get_user_conversation(self):

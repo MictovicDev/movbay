@@ -1,11 +1,12 @@
 from rest_framework import serializers
 from .models import  Message, Conversation
-from users.serializers import UserSerializer
-from stores.serializers import ClientStoreSerializer, ProductSerializer
-from stores.models import Store
+from users.serializers import UserSerializer, UserProfileSerializer
+from stores.serializers import ClientStoreSerializer, ProductSerializer, ProductImageSerializer
+from stores.models import Store, Product
+from django.contrib.auth import get_user_model
 
 
-
+User = get_user_model()
 
 class ChatStoreSerializer(serializers.ModelSerializer):
     class Meta:
@@ -14,19 +15,33 @@ class ChatStoreSerializer(serializers.ModelSerializer):
 
 
 
+class MessageUserSerializer(serializers.ModelSerializer):
+    user_profile = UserProfileSerializer()
+    class Meta:
+        model = User
+        fields = ['id','user_profile']
+        
+        
+class MessageProductSerializer(serializers.ModelSerializer):
+    product_images = ProductImageSerializer(many=True)
+    class Meta:
+        model = Product
+        fields = ['id','product_images', 'title', 'description', 'category']
+    
+
 class MessageSerializer(serializers.ModelSerializer):
-    sender = serializers.CharField(source="sender.id", read_only=True)
-    receiver = serializers.CharField(source="receiver.id", read_only=True)
-    product = ProductSerializer(read_only=True)
+    sender = MessageUserSerializer(read_only=True)
+    receiver = MessageUserSerializer(read_only=True)
+    product = MessageProductSerializer(read_only=True)
     
     class Meta:
         model = Message
-        fields = ['chatbox', 'content', 'sender', 'receiver', 'delivered','product', 'seen', 'is_sender', 'is_receiver','status', 'created_at']
+        fields = ['chatbox', 'content', 'sender', 'receiver', 'delivered','product', 'seen','status', 'created_at']
 
 
 class ConversationSerializer(serializers.ModelSerializer):
-    sender = UserSerializer(read_only=True)
-    # receiver = ClientStoreSerializer(read_only=True)
+    sender = MessageUserSerializer(read_only=True)
+    receiver = MessageUserSerializer(read_only=True)
     messages = MessageSerializer(many=True, read_only=True)
     
     class Meta:

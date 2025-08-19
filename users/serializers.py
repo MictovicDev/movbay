@@ -90,10 +90,10 @@ class ActivateAccountSerializer(serializers.Serializer):
     
     
 class UserSerializer(serializers.ModelSerializer):
-
+    id = serializers.UUIDField(read_only=True)
     class Meta:
         model = User
-        fields = ('username', 'fullname', 'phone_number')
+        fields = ('id','username', 'fullname', 'phone_number')
         
 
 class RiderSerializer(serializers.ModelSerializer):
