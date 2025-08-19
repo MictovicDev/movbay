@@ -15,18 +15,18 @@ class ChatStoreSerializer(serializers.ModelSerializer):
 
 
 class MessageSerializer(serializers.ModelSerializer):
-    sender = UserSerializer(read_only=True)
-    receiver = ChatStoreSerializer(read_only=True)
+    sender = serializers.CharField(source="sender.id", read_only=True)
+    receiver = serializers.CharField(source="receiver.id", read_only=True)
     product = ProductSerializer(read_only=True)
     
     class Meta:
         model = Message
-        fields = ['chatbox', 'content', 'sender', 'receiver', 'delivered', 'seen', 'is_sender', 'is_receiver','status', 'created_at']
+        fields = ['chatbox', 'content', 'sender', 'receiver', 'delivered','product', 'seen', 'is_sender', 'is_receiver','status', 'created_at']
 
 
 class ConversationSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
-    receiver = ClientStoreSerializer(read_only=True)
+    # receiver = ClientStoreSerializer(read_only=True)
     messages = MessageSerializer(many=True, read_only=True)
     
     class Meta:

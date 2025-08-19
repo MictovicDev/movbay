@@ -17,6 +17,12 @@ class UUIDEncoder(json.JSONEncoder):
         if isinstance(obj, UUID):
             return str(obj)
         return super().default(obj)
+    
+# class UUIDEncoder(json.JSONEncoder):
+#     def default(self, obj):
+#         if isinstance(obj, uuid.UUID):
+#             return str(obj)   # convert UUID -> str
+#         return super().default(obj)
 
 class MessageConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
