@@ -8,14 +8,15 @@ User = get_user_model()
 
 class Conversation(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='sender')
-    receiver = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='receiver')
+    receiver = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='receiver')
+    #receiver = models.CharField(max_length=250, blank=True, null=True)
     room_name = models.CharField(max_length=250, blank=True, null=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     
     class Meta:
         indexes = [
             models.Index(fields=['sender']),
-            models.Index(fields=['receiver']),
+            #models.Index(fields=['receiver']),
             models.Index(fields=['room_name']),
             models.Index(fields=['created_at']),
         ]
@@ -30,7 +31,8 @@ class Message(models.Model):
     chatbox = models.ForeignKey(Conversation, on_delete=models.CASCADE, blank=True, null=True, related_name='messages')
     content = models.TextField()
     sender = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='message_sender')
-    receiver = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='message_receiver')
+    # receiver = models.CharField(max_length=250, blank=True, null=True)
+    receiver = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='message_receiver')
     delivered = models.BooleanField(default=False)
     seen = models.BooleanField(default=False)
     # is_sender = models.BooleanField(default=False)

@@ -61,17 +61,11 @@ class ProductMessageCreateView(APIView):
             return Response({"error": "Content is required"}, status=400)
 
         product = get_object_or_404(Product, id=product_id)
-        room_name = f"user_{str(user.id)[:5]}_{str(product.store.owner.id)[:5]}"
+        room_name = f"user_{str(user.id)[:5]}_{str(product.store.id)}"
         
-        conversation = Conversation.objects.filter(
-            Q(sender=user, receiver=product.store.owner) |
-            Q(sender=product.store.owner, receiver=user)
-        ).first()
-        
-        if not conversation:
-            conversation = Conversation.objects.create(
+        conversation, _ = Conversation.objects.get_or_create(
                 sender=user,
-                receiver=product.store.owner,
+                receiver=product.store,
                 room_name=room_name
             )
         room_name = conversation.room_name
@@ -81,7 +75,7 @@ class ProductMessageCreateView(APIView):
         message = Message(
             content=content,
             sender=user,
-            receiver=product.store.owner,
+            receiver=product.store,
             product=product,
             chatbox=conversation,
             created_at=timestamp,
@@ -89,6 +83,7 @@ class ProductMessageCreateView(APIView):
         
         # Serialize the instance
         serializer = MessageSerializer(message)
+        print(serializer.data)
         try:
             # 1. Send immediately via WebSocket
             self._send_ws_message_immediate(
@@ -99,11 +94,12 @@ class ProductMessageCreateView(APIView):
             save_message_to_db.delay(
                 user_id=str(user.id), timestamp=timestamp.isoformat(), content=content, room_name=room_name, product_id=product.id
             )
-
+            # return Response({"Message": "Message Sent Successfully"}, status=200)
             # 3. Return serialized message immediately
             return Response(serializer.data, status=201)
 
         except Exception as e:
+            print(e)
             return Response({"error": str(e)}, status=400)
 
     def _send_ws_message_immediate(self, room_name, message_data):
@@ -140,8 +136,8 @@ class DirectMessageCreateView(APIView):
         )
         if conversation.sender == request.user:
             other_user = conversation.receiver
-        elif conversation.receiver == request.user:
-            other_user = conversation.sender
+        elif conversation.receiver.owner == request.user:
+            other_user = conversation.sender.store
         else:
             other_user = None  # user not in this conversation
         # Create an unsaved Message instance

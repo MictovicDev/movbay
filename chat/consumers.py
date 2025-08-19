@@ -78,6 +78,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
             # Fetch and send initial conversations/messages
             try:
                 conversations_data = await self.get_user_conversation()
+                print(type(conversations_data))
                 await self.send_json({
                     'type': 'initial_data',
                     'messages': conversations_data
@@ -176,16 +177,14 @@ class MessageConsumer(AsyncWebsocketConsumer):
         try:
             from chat.models import Conversation, Message
             from .serializers import MessageSerializer
-            print(self.room_name)
             conversation = get_object_or_404(Conversation, room_name=self.room_name)
-            print(conversation)
+           
             messages = Message.objects.filter(
                 chatbox=conversation
             ).select_related('sender', 'receiver', 'chatbox').order_by("created_at")
-
             # No request context needed for this serializer
-
-            return MessageSerializer(messages, many=True).data
+            serializer = MessageSerializer(messages, many=True)
+            return list(serializer.data) 
             
         except Exception as e:
             logger.error(f"Database query error: {e}")

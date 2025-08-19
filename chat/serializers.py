@@ -31,17 +31,17 @@ class MessageProductSerializer(serializers.ModelSerializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = MessageUserSerializer(read_only=True)
-    receiver = MessageUserSerializer(read_only=True)
+    receiver = ChatStoreSerializer(read_only=True)
     product = MessageProductSerializer(read_only=True)
     
     class Meta:
         model = Message
-        fields = ['chatbox', 'content', 'sender', 'receiver', 'delivered','product', 'seen','status', 'created_at']
+        fields = ['chatbox', 'content', 'sender', 'receiver', 'delivered','product', 'created_at']
 
 
 class ConversationSerializer(serializers.ModelSerializer):
     sender = MessageUserSerializer(read_only=True)
-    receiver = MessageUserSerializer(read_only=True)
+    receiver = ChatStoreSerializer(read_only=True)
     messages = MessageSerializer(many=True, read_only=True)
     
     class Meta:

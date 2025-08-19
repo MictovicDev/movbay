@@ -37,7 +37,6 @@ def save_message_to_db(user_id, timestamp, content, room_name, product_id=None):
                 message = Message.objects.create(
                     chatbox=conversation,
                     sender=user,
-                    is_sender=True,
                     receiver=other_user,
                     content=content,
                     created_at=timestamp
@@ -45,19 +44,11 @@ def save_message_to_db(user_id, timestamp, content, room_name, product_id=None):
 
             elif product_id:
                 product = get_object_or_404(Product, id=product_id)
-                conversation = Conversation.objects.filter(
-                    Q(sender=user, receiver=product.store.owner) |
-                    Q(sender=product.store.owner, receiver=user)
-                ).first()
-                if not conversation:
-                    conversation = Conversation.objects.create(
-                        sender=user,
-                        receiver=product.store.owner,
-                        room_name=room_name
-                    )
+                conversation = get_object_or_404(
+                    Conversation, room_name=room_name)
                 if conversation.sender == user:
                     other_user = conversation.receiver
-                elif conversation.receiver == user:
+                elif conversation.receiver.owner == user:
                     other_user = conversation.sender
                 else:
                     other_user = None  # user not in this conversation
@@ -65,7 +56,6 @@ def save_message_to_db(user_id, timestamp, content, room_name, product_id=None):
                 message = Message.objects.create(
                     chatbox=conversation,
                     sender=user,
-                    is_sender=True,
                     receiver=other_user,
                     product=product,
                     content=content,

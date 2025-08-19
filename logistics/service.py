@@ -31,7 +31,7 @@ class SpeedyDispatch(LogisticsService):
         LogisticsService (_type_): _description_
     """
     def __init__(self):
-        self.base_url = 'https://api.terminal.africa/'
+        self.base_url = 'https://sandbox.terminal.africa/v1'
         self.secret_key = os.getenv('TERMINAL_TEST_SECRET_KEY')
         
    

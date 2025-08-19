@@ -29,17 +29,17 @@ def create_order_with_items(user, order_data, reference, method):
     delivery = Delivery.objects.create(user=user, **delivery_data)
     
     if method == 'wallet':
-            sender_wallet = user.wallet
-            print("BALANCE:", sender_wallet.balance, "AMOUNT:", amount, type(amount))
-            print(user.wallet)
-            if Decimal(sender_wallet.balance) < Decimal(amount):
-                print(True)
-                raise ValidationError({"wallet": "Insufficient Funds"})
-            sender_wallet.balance -= amount
-            sender_wallet.save()
+        sender_wallet = user.wallet
+        print("BALANCE:", sender_wallet.balance, "AMOUNT:", amount, type(amount))
+        print(user.wallet)
+        if Decimal(sender_wallet.balance) < Decimal(amount):
+            print(True)
+            raise ValidationError({"wallet": "Insufficient Funds"})
+        sender_wallet.balance -= amount
+        sender_wallet.save()
 
-            platform_wallet.balance += amount
-            platform_wallet.save()
+        platform_wallet.balance += amount
+        platform_wallet.save()
 
     payment = Payment.objects.create(
         user=user,
