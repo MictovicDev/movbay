@@ -16,6 +16,7 @@ class ChatStoreSerializer(serializers.ModelSerializer):
 
 
 class MessageUserSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
     user_profile = UserProfileSerializer()
     class Meta:
         model = User

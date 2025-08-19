@@ -31,7 +31,7 @@ def save_message_to_db(user_id, timestamp, content, room_name, product_id=None):
                 if conversation.sender == user:
                     other_user = conversation.receiver
                 elif conversation.receiver == user:
-                    other_user = conversation.sender
+                    other_user = conversation.receiver.store
                 else:
                     other_user = None  # user not in this conversation
                 message = Message.objects.create(
