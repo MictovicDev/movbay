@@ -118,7 +118,7 @@ class StoreSerializer(serializers.ModelSerializer):
     city = serializers.CharField(required=False)
     state = serializers.CharField(required=False)
     address2 = serializers.CharField(required=False)
-    country = serializers.CharField()
+    country = serializers.CharField(required=False)
 
     class Meta:
         model = Store
