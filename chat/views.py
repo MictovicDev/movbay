@@ -61,23 +61,6 @@ class ProductMessageCreateView(APIView):
         
         serializer = MessageSerializer(message)
         
-        # Alternative Option 2: Create message data dict directly
-        # message_data = {
-        #     'id': str(uuid.uuid4()),  # Generate UUID for immediate use
-        #     'content': content,
-        #     'sender': {
-        #         'id': str(user.id),
-        #         'user_profile': user.user_profile.__dict__ if hasattr(user, 'user_profile') else {}
-        #     },
-        #     'receiver': {
-        #         'id': str(product.store.id),
-        #         'name': product.store.name,
-        #         # ... other store fields
-        #     },
-        #     'created_at': timestamp.isoformat(),
-        #     'delivered': False,
-        # }
-        
         try:
             # 1. Send immediately via WebSocket
             self._send_ws_message_immediate(

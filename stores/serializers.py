@@ -115,6 +115,10 @@ class StoreSerializer(serializers.ModelSerializer):
     store_image = serializers.ImageField()
     statuses = StatusSerializer(many=True, required=False)
     owner = UserSerializer(required=False)
+    city = serializers.CharField(required=False)
+    state = serializers.CharField(required=False)
+    address2 = serializers.CharField()
+    country = serializers.CharField()
 
     class Meta:
         model = Store

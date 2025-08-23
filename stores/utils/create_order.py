@@ -14,6 +14,7 @@ from notification.models import Device
 from stores.tasks import send_push_notification
 from decimal import Decimal
 from rest_framework.exceptions import ValidationError
+# from stores.tasks import get_shipping_rates
 
 User = get_user_model()
 
@@ -27,6 +28,7 @@ def create_order_with_items(user, order_data, reference, method):
     delivery_data = order_data['delivery']
     print(delivery_data)
     delivery = Delivery.objects.create(user=user, **delivery_data)
+    print(delivery)
     
     if method == 'wallet':
         sender_wallet = user.wallet
@@ -114,5 +116,7 @@ def create_order_with_items(user, order_data, reference, method):
         data = "You have a new order on movbay, click to confirm it."
         send_push_notification.delay(
             token=device.token, title='New Order Available', notification_type="New Order", data=data)
-
+        # get_shipping_rates.delay(order)
+    
+    
     return Response(response_data, status=status.HTTP_201_CREATED)

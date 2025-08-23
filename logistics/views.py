@@ -189,6 +189,9 @@ class RideDetailView(APIView):
         serializer = RideSerializer(ride)
         return Response(serializer.data, status=200)
 
+class CreateTerminalPackage(APIView):
+    pass
+    
 
 class BaseRiderProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -379,3 +382,4 @@ class PickedView(APIView):
         ride.save()
         return Response({"message": "Order marked for Delivery"}, status=200)
     
+

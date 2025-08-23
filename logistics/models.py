@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from users.models import RiderProfile
 from cloudinary.models import CloudinaryField
-from stores.models import Order
+from stores.models import Order,Store
 
 User = get_user_model()
 
@@ -73,11 +73,138 @@ class KYC(models.Model):
     
     def __str__(self):
         return f"{self.rider.user} Bank details"
+
+
+class Address(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='addresses')
+    terminal_address_id = models.CharField(max_length=100, blank=True, null=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='store_address')
     
+   
     
+    def __str__(self):
+        return f"{self.user}"
+
+
+class Parcel(models.Model):
+    CURRENCY_CHOICES = [
+        ('NGN', 'Nigerian Naira'),
+        ('USD', 'US Dollar'),
+        ('GBP', 'British Pound'),
+        ('EUR', 'Euro'),
+    ]
     
-class TerminalRiders(models.Model):
-    pass
+    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='parcels')
+    terminal_parcel_id = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Parcel details
+    description = models.CharField(max_length=255)
+    # weight = models.DecimalField(max_digits=10, decimal_places=2, help_text="Weight in kg")
+    # length = models.DecimalField(max_digits=10, decimal_places=2, help_text="Length in cm")
+    # width = models.DecimalField(max_digits=10, decimal_places=2, help_text="Width in cm")
+    # height = models.DecimalField(max_digits=10, decimal_places=2, help_text="Height in cm")
+    # value = models.DecimalField(max_digits=15, decimal_places=2, help_text="Declared value")
+    # currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='NGN')
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.description} - {self.weight}kg"
+
+class ShippingRate(models.Model):
+    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    terminal_rate_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
+    #order = models.ForeignKey(Order, on_delete=models.CASCADE, blank=True, null=True)
+    # Related objects
+    pickup_address = models.ForeignKey(Address, on_delete=models.CASCADE, related_name='pickup_rates')
+    delivery_address = models.ForeignKey(Address, on_delete=models.CASCADE, related_name='delivery_rates')
+    parcel = models.ForeignKey(Parcel, on_delete=models.CASCADE, related_name='rates')
+    
+    # Rate details
+    carrier_name = models.CharField(max_length=100)
+    #carrier_code = models.CharField(max_length=50)
+    #service_type = models.CharField(max_length=100)
+    total = models.DecimalField(max_digits=15, decimal_places=2)
+    currency = models.CharField(max_length=3, default='NGN')
+    delivery_time = models.CharField(max_length=100)
+    
+    # Additional rate information
+    pickup_time = models.CharField(max_length=250, blank=True, null=True)
+    #transit_time = models.IntegerField(help_text="Transit time in days", null=True, blank=True)
+    
+    # Metadata
+    is_active = models.BooleanField(default=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['total']
+    
+    def __str__(self):
+        return f"{self.carrier_name} - {self.total} {self.currency}"
+    
+
+class Shipment(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('confirmed', 'Confirmed'),
+        ('picked_up', 'Picked Up'),
+        ('in_transit', 'In Transit'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+        ('failed', 'Failed'),
+    ]
+    
+    PICKUP_TIME_CHOICES = [
+        ('morning', 'Morning (8AM - 12PM)'),
+        ('afternoon', 'Afternoon (12PM - 5PM)'),
+        ('evening', 'Evening (5PM - 8PM)'),
+    ]
+    
+    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shipments')
+    terminal_shipment_id = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Related objects
+    rate = models.ForeignKey(ShippingRate, on_delete=models.CASCADE)
+    
+    # Shipment details
+    pickup_date = models.DateField()
+    pickup_time = models.CharField(max_length=20, choices=PICKUP_TIME_CHOICES, default='morning')
+    delivery_note = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    
+    # Tracking information
+    tracking_number = models.CharField(max_length=100, blank=True)
+    current_location = models.CharField(max_length=255, blank=True)
+    
+    # Metadata
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Shipment {self.terminal_shipment_id or self.id} - {self.status}"
+
+class ShipmentTracking(models.Model):
+    shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, related_name='tracking_events')
+    status = models.CharField(max_length=100)
+    description = models.TextField()
+    location = models.CharField(max_length=255, blank=True)
+    timestamp = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+    
+    def __str__(self):
+        return f"{self.shipment.terminal_shipment_id} - {self.status}"
     
     
     

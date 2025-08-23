@@ -67,7 +67,12 @@ else:
 print('Called Production')
 # Redis configuratio
 CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
-
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_RESULT_EXPIRES = 86400
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'

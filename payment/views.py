@@ -37,6 +37,7 @@ from stores.models import Store
 from .utils.helper import generate_tx_ref
 from stores.serializers import ShopSerializer
 
+
 User = get_user_model()
 
 logger = logging.getLogger(__name__)

@@ -13,6 +13,17 @@ from stores.models import Store
 from django.core.files.base import ContentFile
 import logging
 from users.utils.email import EmailManager
+from logistics.service import SpeedyDispatch
+# from .utils.create_speedy_dispatch import handle_speedy_dispatch
+from typing import List, Dict, Any
+from celery import shared_task
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+from logistics.service import SpeedyDispatch
+from .utils.calculate_order_package import calculate_order_package
+from logistics.models import ShippingRate, Address, Parcel
+from stores.models import Product
+import logging
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -196,5 +207,160 @@ def update_to_arriving(order_tracking):
         order_tracking.save()
     except OrderTracking.DoesNotExist:
         logger.info("Error Tracking Order")
+        
+        
+        
+
+logger = logging.getLogger(__name__)
+
+def process_shipping_rates(rates_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Process and format shipping rates for frontend."""
+    processed_rates = []
+    for rate in rates_data:
+        processed_rate = {
+            'rate_id': rate.get('rate_id'),
+            'carrier_name': rate.get('carrier_name'),
+            'carrier_logo': rate.get('carrier_logo'),
+            'amount': rate.get('amount'),
+            'currency': rate.get('currency'),
+            'delivery_time': rate.get('delivery_time'),
+            'pickup_time': rate.get('pickup_time'),
+            'service_description': rate.get('carrier_rate_description'),
+            'dropoff_required': rate.get('dropoff_required', False),
+            'includes_insurance': rate.get('includes_insurance', False),
+            'recommended': rate.get('metadata', {}).get('recommended', False)
+        }
+        processed_rates.append(processed_rate)
+    processed_rates.sort(key=lambda x: x['amount'])
+    logger.debug("Processed shipping rates: %s", processed_rates)
+    return processed_rates
+
+def get_best_rate(rates: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Select the best shipping rate (recommended or cheapest)."""
+    recommended_rate = next((r for r in rates if r.get("recommended")), None)
+    return recommended_rate or min(rates, key=lambda r: r["amount"])
+
+@shared_task(bind=True, ignore_result=False)
+def handle_speedy_dispatch_task(self, user_id: int, product_id: int, delivery_details: Dict[str, Any], order_items_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Handle Speedy dispatch logic as a background task.
+
+    Args:
+        user_id: ID of the authenticated user.
+        product_id: ID of the product being shipped.
+        delivery_details: Dictionary containing delivery address details.
+        order_items_data: Serialized order items data.
+
+    Returns:
+        Dictionary with task result or error details.
+    """
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    try:
+        # Validate inputs
+        if not product_id or not delivery_details or not order_items_data:
+            logger.error("Invalid input: user_id=%s, product_id=%s, delivery_details=%s, order_items=%s",
+                         user_id, product_id, delivery_details, order_items_data)
+            return {"status": "error", "error": "Invalid input data"}
+
+        user = get_object_or_404(User, id=user_id)
+        product = get_object_or_404(Product, id=product_id)
+        dispatch = SpeedyDispatch()
+        logger.info(order_items_data)
+        # Deserialize order_items if needed (depends on how order_items is passed)
+        # Assuming order_items_data is a list of dicts; adjust based on your model
+        order_items = order_items_data  # Modify this if order_items needs deserialization
+
+        with transaction.atomic():
+            # Step 1: Calculate package details
+            payload = calculate_order_package(order_items)
+            logger.info("Package payload calculated for product %s", product_id)
+
+            # Step 2: Create addresses
+            pickup_result = dispatch.create_pickupaddress(product_id)
+            if not pickup_result.get('status'):
+                logger.error("Failed to create pickup address for product %s", product_id)
+                return {"status": "error", "error": "Failed to create pickup address"}
+            pickup_address_id = pickup_result['data']['address_id']
+            pickup_address = Address.objects.create(
+                user=user, terminal_address_id=pickup_address_id, store=product.store
+            )
+
+            delivery_result = dispatch.create_deliveryaddress(delivery_details)
+            if not delivery_result.get('status'):
+                logger.error("Failed to create delivery address for product %s", product_id)
+                return {"status": "error", "error": "Failed to create delivery address"}
+            delivery_address_id = delivery_result['data']['address_id']
+            delivery_address = Address.objects.create(
+                user=user, terminal_address_id=delivery_address_id
+            )
+
+            # Step 3: Create package
+            package_result = dispatch.create_package(payload)
+            if not package_result.get('status'):
+                logger.error("Failed to create package for product %s", product_id)
+                return {"status": "error", "error": "Failed to create package"}
+
+            # Step 4: Create parcel
+            parcel_result = dispatch.create_parcel(
+                order_items,
+                payload.get('weight'),
+                package_result['data']['packaging_id']
+            )
+            if not parcel_result.get('status'):
+                logger.error("Failed to create parcel for product %s", product_id)
+                return {"status": "error", "error": "Failed to create parcel"}
+            parcel = Parcel.objects.create(
+                user=user, terminal_parcel_id=parcel_result['data']['parcel_id']
+            )
+            logger.info("Parcel created: %s", parcel.terminal_parcel_id)
+
+            # Step 5: Get shipping rates
+            rates_result = dispatch.get_shipping_rates(
+                pickup_address_id,
+                delivery_address_id,
+                parcel_result['data']['parcel_id']
+            )
+            if not rates_result.get('status') or not rates_result.get('data'):
+                logger.error("No shipping rates available for product %s", product_id)
+                return {"status": "error", "error": "No shipping rates available"}
+
+            # Step 6: Process rates and select best option
+            rates = process_shipping_rates(rates_result['data'])
+            best_rate = get_best_rate(rates)
+            logger.info("Best rate selected for product %s: %s", product_id, best_rate)
+
+            # Step 7: Save best rate to database
+            ShippingRate.objects.create(
+                terminal_rate_id=best_rate['rate_id'],
+                pickup_address=pickup_address,
+                delivery_address=delivery_address,
+                parcel=parcel,
+                carrier_name=best_rate['carrier_name'],
+                currency=best_rate['currency'],
+                delivery_time=best_rate['delivery_time'],
+                pickup_time=best_rate['pickup_time'],
+                total=best_rate['amount']
+            )
+
+        # Return task result
+        return {
+            "status": "success",
+            "message": "Shipping rates retrieved successfully",
+            "data": {
+                "rates": rates,
+                "pickup_address_id": pickup_address_id,
+                "delivery_address_id": delivery_address_id,
+                "parcel_id": parcel_result['data']['parcel_id']
+            }
+        }
+
+    except (ValueError, KeyError, Product.DoesNotExist, User.DoesNotExist) as e:
+        logger.error("Speedy dispatch task error for product %s: %s", product_id, str(e), exc_info=True)
+        return {"status": "error", "error": f"Speedy dispatch failed: {str(e)}"}
+    except Exception as e:
+        logger.critical("Unexpected error in speedy dispatch task for product %s: %s", product_id, str(e), exc_info=True)
+        self.retry(countdown=60, max_retries=3)  # Retry up to 3 times with 60s delay
+        return {"status": "error", "error": "An unexpected error occurred"}
         
     

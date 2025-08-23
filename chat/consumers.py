@@ -167,7 +167,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
         try:
             from chat.models import Conversation
             conv = Conversation.objects.get(room_name=room_name)
-            return conv.sender_id == user.id or conv.receiver_id == user.id
+            return conv.sender.id == user.id or conv.receiver.id == user.id or conv.receiver.id ==user.store.id
         except Conversation.DoesNotExist:
             return False
 

@@ -1,3 +1,4 @@
+from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import render
 from rest_framework import generics, permissions
 from rest_framework.views import APIView
@@ -12,12 +13,12 @@ from rest_framework import status
 from django.db.models import Count
 from .permissions import IsProductOwner, IsStoreOwner
 from django.contrib.auth import get_user_model
-from .serializers import (StoreFollowSerializer, 
+from .serializers import (StoreFollowSerializer,
                           UserSerializer,
                           DashboardSerializer,
-                          StatusSerializer, 
+                          StatusSerializer,
                           OrderTrackingSerializer,
-                          StoreUpdateSerializer, 
+                          StoreUpdateSerializer,
                           ReviewSerializer,
                           UpdateProductSerializer,
                           ProductRatingSerializer)
@@ -26,26 +27,34 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 import json
 import datetime
-from .tasks import upload_status_files,send_push_notification, upload_store_files
+from .tasks import upload_status_files, send_push_notification, upload_store_files
 from base64 import b64encode
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from logistics.utils.get_riders import get_nearby_drivers
 from logistics.utils.eta import get_eta_distance_and_fare
-from .utils.get_store_cordinate import get_coordinates_from_address 
+from .utils.get_store_cordinate import get_coordinates_from_address
 from django.db import transaction
 from .models import Review
 from users.models import RiderProfile
 from logistics.models import Ride
 from users.utils.otp import OTPManager
-from .tasks import send_order_complete_email_async
+from .tasks import send_order_complete_email_async, handle_speedy_dispatch_task
 from django.template.loader import render_to_string
-from .serializers import VerifyOrderSerializer,ClientStoreSerializer
+from .serializers import VerifyOrderSerializer, ClientStoreSerializer
 from django.shortcuts import get_object_or_404, get_list_or_404
 from stores.utils.calculate_order_package import calculate_order_package
 from logistics.service import SpeedyDispatch
+# from .utils.create_speedy_dispatch import handle_speedy_dispatch
+from logistics.models import Address
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from celery.result import AsyncResult
+import logging
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
@@ -72,15 +81,14 @@ class StoreListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     try:
         queryset = store_qs = Store.objects.prefetch_related(
-        Prefetch(
-            'statuses',
-            queryset=Status.objects.filter(expires_at__gt=timezone.now())
+            Prefetch(
+                'statuses',
+                queryset=Status.objects.filter(expires_at__gt=timezone.now())
             )
         )
         serializer_class = StoreSerializer
     except Exception as e:
         print(e)
-        
 
 
 class DeliveryDetailsCreateView(generics.CreateAPIView):
@@ -133,12 +141,10 @@ class GetUserOrder(APIView):
             return Response(str(e), status=status.HTTP_204_NO_CONTENT)
 
 
-
 class MarkAsDelivered(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
-    
+
     def post(self, request, pk):
         # if request.user.user_type=='Rider':
         #     return Response({"message":"Rider cannot mark an Order as Delivered"})
@@ -149,20 +155,20 @@ class MarkAsDelivered(APIView):
         otp = otp_manager.generate_otp()
         print(otp)
         order.otp_secret = secret
-        html_content = render_to_string('emails/ordercomplete.html',{'user': buyer.username, 'order_otp': otp })
+        html_content = render_to_string(
+            'emails/ordercomplete.html', {'user': buyer.username, 'order_otp': otp})
         print(html_content)
         print(buyer.email)
         send_order_complete_email_async.delay(from_email='noreply@movbay.com',
-                                            to_emails=buyer.email,
-                                            subject='Order Verification',
-                                            html_content=html_content)
+                                              to_emails=buyer.email,
+                                              subject='Order Verification',
+                                              html_content=html_content)
         order.status = 'completed'
         order.completed = True
         order.order_tracking.all()[0].completed = True
         order.save()
         return Response({"message": "Order has been Completed"}, status=200)
-        
-        
+
 
 class ConfirmOrder(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -203,7 +209,6 @@ class ConfirmOrder(APIView):
             return Response({"Message": f"Something went wrong - {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
 class TrackOrder(APIView):
     serializer_class = OrderTrackingSerializer
 
@@ -216,7 +221,7 @@ class TrackOrder(APIView):
 
 class MarkForDeliveryView(APIView):
     def post(self, request, pk):
-        
+
         def notify_drivers(drivers, summary):
             try:
                 for driver in drivers:
@@ -225,16 +230,16 @@ class MarkForDeliveryView(APIView):
                     if device_token:
                         try:
                             send_push_notification.delay(
-                            token=device_token,
-                            title='New Ride Alert on movbay',
-                            notification_type="Ride Alert",
-                            data='You have a new ride suggestion on Movbay, check it out and start earning')
+                                token=device_token,
+                                title='New Ride Alert on movbay',
+                                notification_type="Ride Alert",
+                                data='You have a new ride suggestion on Movbay, check it out and start earning')
                         except Exception as e:
                             print(str(e))
                             return Response(str(e), status=400)
             except Exception as e:
                 return Response({"message": f"Error occured -- {str(e)}"}, status=400)
-            
+
         with transaction.atomic():
             order = get_object_or_404(Order, order_id=pk)
             order_tracking, _ = OrderTracking.objects.get_or_create(
@@ -249,49 +254,48 @@ class MarkForDeliveryView(APIView):
                         order.delivery.delivery_address)
                     if delivery_cordinates:
                         destination = (delivery_cordinates.get('latitude'),
-                                    delivery_cordinates.get('longitude'))
-                    #print(destination)
+                                       delivery_cordinates.get('longitude'))
+                    # print(destination)
                     store_cordinates = get_coordinates_from_address(
                         order.store.address1)
                     origin = (store_cordinates.get('latitude'),
-                            store_cordinates.get('longitude'))
-                    #print(origin)
+                              store_cordinates.get('longitude'))
+                    # print(origin)
                     summary = get_eta_distance_and_fare(origin, destination)
-                    #print(summary)
+                    # print(summary)
                     riders = get_nearby_drivers(store_cordinates.get(
                         'latitude'), store_cordinates.get('longitude'), radius_km=5)
-                    #print(riders)
+                    # print(riders)
                     order.assigned = True
                     order.save()
-                    transaction.on_commit(lambda: notify_drivers(riders, summary))
-                    ride = Ride.objects.create(latitude=origin[0], longitude=origin[1], order=order,**summary)
+                    transaction.on_commit(
+                        lambda: notify_drivers(riders, summary))
+                    ride = Ride.objects.create(
+                        latitude=origin[0], longitude=origin[1], order=order, **summary)
                     return Response({"message": "Request Sent Waiting for Riders to accept"}, status=200)
                 except Exception as e:
                     return Response({"error": str(e)}, status=200)
-            elif delivery_method == 'Speedy_Dispatch':
-                order_items = order.order_items.all()
-                SpeedyDispatch.create_package(calculate_order_package(order_items))
-                
-                
-                
-                
-                # Implement shiip algorithm here
 
-            # Get nearby riders (5km range)
+            elif delivery_method == 'Speedy_Dispatch': 
+                
+                pass
+                # handle_speedy_dispatch(order)
+                
+                # payload = calculate_order_package(order_items)
+                # result = dispatch.create_pickupaddress(order=order)
+                # result6 = dispatch.create_deliveryaddress(order=order)
+                # result2 = dispatch.create_package(payload)
+                # result3 = dispatch.create_parcel(order, payload.get(
+                #     'weight'), result2.get('data')['packaging_id'])
+                # result4 = dispatch.get_shipping_rates(result.get('data')['address_id'], result6.get('data')['address_id'], result3.get('data')['parcel_id'])
 
-            # # Send FCM/WebSocket notification to each nearby rider
-            # for rider in riders:
-            #     notify_rider(rider, order)
-
-from rest_framework.pagination import PageNumberPagination
 
 class CustomProductPagination(PageNumberPagination):
     page_size = 6
     page_size_query_param = 'page_size'
     max_page_size = 50
-    
-  
-    
+
+
 class ProductListCreateView(generics.ListCreateAPIView):
     serializer_class = ProductSerializer
     pagination_class = CustomProductPagination
@@ -300,7 +304,6 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return Product.objects.select_related('store').prefetch_related('store__owner').all()
-
 
 
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -328,7 +331,8 @@ class StoreFollowView(APIView):
             return Response({"Message": "User Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
         try:
             profile = request.user.user_profile
-            store_follow, created = StoreFollow.objects.get_or_create(follower=profile, followed_store=store)
+            store_follow, created = StoreFollow.objects.get_or_create(
+                follower=profile, followed_store=store)
         except Exception as e:
             print(str(e))
         serializer = StoreFollowSerializer(store_follow)
@@ -336,8 +340,8 @@ class StoreFollowView(APIView):
             "message": "Follow Successful",
             "data": serializer.data
         }, status=200)
-  
-  
+
+
 class StoreFollowers(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -358,9 +362,10 @@ class StoreFollowers(APIView):
         )
 
         follow_back_qs = StoreFollow.objects.filter(
-                follower=profile,
-                followed_store__owner__profile=OuterRef("follower")  # compare profile to profile
-            )
+            follower=profile,
+            followed_store__owner__profile=OuterRef(
+                "follower")  # compare profile to profile
+        )
 
         followers = (
             StoreFollow.objects
@@ -375,11 +380,10 @@ class StoreFollowers(APIView):
         return Response(serializer.data, status=200)
 
 
-        
 class StoreUnfollowView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def post(self, request, pk):
         try:
             store = Store.objects.get(id=pk)
@@ -387,7 +391,8 @@ class StoreUnfollowView(APIView):
             return Response({"Message": "Store Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
         try:
             profile = request.user.user_profile
-            store_follow = StoreFollow.objects.get(followed_store=store, follower=profile)
+            store_follow = StoreFollow.objects.get(
+                followed_store=store, follower=profile)
             store_follow.delete()
         except Exception as e:
             return Response(str(e), status=400)
@@ -399,17 +404,12 @@ class StoreUnfollowView(APIView):
             "message": "UnFollow Successful",
             "data": serializer.data
         }, status=200)
-        
 
 
-
-
-
-    
 # class StoreFollowing(APIView):
 #     authentication_classes = [JWTAuthentication, SessionAuthentication]
 #     permission_classes = [permissions.IsAuthenticated]
-    
+
 #     def get(self, request):
 #         store = get_object_or_404(Store, owner=request.user)
 #         #storefollow = get_list_or_404(StoreFollow.objects.filter(following=store))
@@ -419,7 +419,7 @@ class StoreUnfollowView(APIView):
 #         except Exception as e:
 #             print(str(e))
 #         return Response(serializer.data, status=200)
-            
+
 
 class StoreFollowingView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -434,25 +434,27 @@ class StoreFollowingView(APIView):
             following = (
                 StoreFollow.objects
                 .filter(follower=profile)
-                .select_related('followed_store', 'followed_store__owner')  # load related
+                # load related
+                .select_related('followed_store', 'followed_store__owner')
             )
 
             # subquery: check if that store owner also follows me back
             they_follow_back_qs = StoreFollow.objects.filter(
-                follower=OuterRef('followed_store__owner__user_profile'), 
-                followed_store__owner=profile.user                       
+                follower=OuterRef('followed_store__owner__user_profile'),
+                followed_store__owner=profile.user
             )
 
             # annotate boolean field
-            following = following.annotate(they_follow_me_back=Exists(they_follow_back_qs))
+            following = following.annotate(
+                they_follow_me_back=Exists(they_follow_back_qs))
 
             serializer = StoreFollowSerializer(following, many=True)
             return Response(serializer.data, status=200)
 
         except Exception as e:
             return Response(str(e), status=400)
-   
-   
+
+
 class UserProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -471,24 +473,27 @@ class DashBoardView(APIView):
         try:
             user = request.user
             store = Store.objects \
-            .select_related('owner') \
-            .prefetch_related(
-                Prefetch('products'),
-                Prefetch(
-                    'statuses',
-                    queryset=Status.objects.filter(expires_at__gt=timezone.now())
-                )
-            ) \
-            .annotate(
-                product_count=Count('products', distinct=True),
-                order_count=Count('order', distinct=True),
-                following_count=Count('owner__user_profile__follows', distinct=True),
-                followers_count=Count('store_followers', distinct=True),  # since related_name="followers"
-            ) \
-            .get(owner=user)
+                .select_related('owner') \
+                .prefetch_related(
+                    Prefetch('products'),
+                    Prefetch(
+                        'statuses',
+                        queryset=Status.objects.filter(
+                            expires_at__gt=timezone.now())
+                    )
+                ) \
+                .annotate(
+                    product_count=Count('products', distinct=True),
+                    order_count=Count('order', distinct=True),
+                    following_count=Count(
+                        'owner__user_profile__follows', distinct=True),
+                    # since related_name="followers"
+                    followers_count=Count('store_followers', distinct=True),
+                ) \
+                .get(owner=user)
 
             serializer = DashboardSerializer(store)
-                            
+
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(str(e), status=status.HTTP_404_NOT_FOUND)
@@ -497,14 +502,12 @@ class DashBoardView(APIView):
 class StoreDetailView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-  
 
     def get(self, request, pk):
         store = get_object_or_404(Store, id=pk)
         serializer = StoreSerializer(store)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    
+
     def put(self, request, pk):
         try:
             store = Store.objects.get(pk=pk)
@@ -517,7 +520,7 @@ class StoreDetailView(APIView):
 
             # Extract and read files
             file_data = {}
-            
+
             if 'cac' in request.FILES:
                 file_data['cac'] = request.FILES['cac'].read()
             if 'nin' in request.FILES:
@@ -536,7 +539,6 @@ class StoreDetailView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
     def patch(self, request, pk):
         try:
             store = Store.objects.get(pk=pk)
@@ -544,7 +546,8 @@ class StoreDetailView(APIView):
             if store.owner != request.user:
                 return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
-            serializer = StoreUpdateSerializer(store, data=request.data, partial=True)
+            serializer = StoreUpdateSerializer(
+                store, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
 
             # Extract and read files
@@ -567,7 +570,6 @@ class StoreDetailView(APIView):
             return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class ReviewView(APIView):
@@ -601,11 +603,13 @@ class ReviewView(APIView):
 class MoreFromSeller(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def post(self, request, pk):
         product = get_object_or_404(Product, id=pk)
         store = request.user.store
-        product = Product.objects.filter(store=store).exclude(id=product.id)[:4]
+        product = Product.objects.filter(
+            store=store).exclude(id=product.id)[:4]
+
 
 class StatusView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
@@ -676,10 +680,10 @@ class ProductStatusView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-
 class VerifyOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [JWTAuthentication, SessionAuthentication]
+
     def post(self, request, pk):
         serializer = VerifyOrderSerializer(data={'otp': request.data['otp']})
         if serializer.is_valid():
@@ -694,7 +698,8 @@ class VerifyOrderView(APIView):
                             return Response({"message": "Ride is Ongoing"})
                     if OTPManager(order_secret).verify_otp(otp):
                         order.completed = True
-                        order_tracking = get_object_or_404(OrderTracking, order=order)
+                        order_tracking = get_object_or_404(
+                            OrderTracking, order=order)
                         order_tracking.completed = True
                         order_tracking.save()
                         order.save()
@@ -705,7 +710,8 @@ class VerifyOrderView(APIView):
                     if OTPManager(order_secret).verify_otp(otp):
                         try:
                             ride = get_object_or_404(Ride, order=order)
-                            order_tracking = get_object_or_404(OrderTracking, order=order)
+                            order_tracking = get_object_or_404(
+                                OrderTracking, order=order)
                             ride.completed = True
                             order_tracking.completed = True
                             order_tracking.save()
@@ -716,16 +722,13 @@ class VerifyOrderView(APIView):
                     else:
                         return Response({'message': 'Invalid or expired OTP'}, status=400)
             except Order.DoesNotExist:
-                return Response({'message': 'Order not found'}, status=404) 
-             
-        
-                    
-            
+                return Response({'message': 'Order not found'}, status=404)
+
+
 class MoreFromSeller(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
-    
+
     def get(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
 
@@ -736,27 +739,27 @@ class MoreFromSeller(APIView):
         more_from_seller = Product.objects.filter(
             store=product.store
         ).exclude(id=product.id)[:4]
-        more_from_seller_data = ProductSerializer(more_from_seller, many=True).data
+        more_from_seller_data = ProductSerializer(
+            more_from_seller, many=True).data
 
         # Related products by categories
         related_products = Product.objects.filter(
-            category = product.category
+            category=product.category
         ).exclude(id=product.id).distinct()[:4]
-        related_products_data = ProductSerializer(related_products, many=True).data
+        related_products_data = ProductSerializer(
+            related_products, many=True).data
 
         return Response({
             'product': product_data.get('id'),
             'more_from_seller': more_from_seller_data,
             'related_products': related_products_data
         }, status=status.HTTP_200_OK)
-        
-        
+
 
 class ProductRatingView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
-    
+
     def get(self, request, pk):
         """Retrieve all ratings for a given product."""
         product = get_object_or_404(Product, id=pk)
@@ -784,8 +787,135 @@ class ProductRatingView(APIView):
                 status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-        
+
+
+
+class GetShipMentRate(APIView):
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
     
+    def post(self, request, product_id):
+        user = request.user
+        # product_id = request.data.get('product_id')
+        delivery_details = request.data.get('delivery_details')
+        order_items = request.data.get('items')
+        print
+        # Trigger the Celery task
+        task = handle_speedy_dispatch_task.delay(
+            user_id=user.id,
+            product_id=product_id,
+            delivery_details=delivery_details,
+            order_items_data=order_items
+        )
+
+        return Response({
+            "status": "success",
+            "message": "Shipping rate processing started",
+            "task_id": task.id
+        }, status=status.HTTP_202_ACCEPTED)
+        # handle_speedy_dispatch(user, product_id, delivery_details, order_items)
         
-            
+
+
+class TaskStatusView(APIView):
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    """API endpoint to check the status of a Celery task via GET request.
+
+    Args:
+        task_id: The ID of the Celery task to check.
+    """
+    def get(self, request, task_id):
+        """Handle GET request to check Celery task status.
+
+        Args:
+            request: The HTTP request object.
+            task_id: The ID of the Celery task (from URL).
+
+        Returns:
+            Response: JSON response with task status, result, or error.
+        """
+        try:
+            # Ensure user is authenticated
+            # if not request.user.is_authenticated:
+            #     logger.warning("Unauthorized attempt to check task %s", task_id)
+            #     return Response(
+            #         {
+            #             "status": "error",
+            #             "message": "Authentication required",
+            #             "error": "User must be logged in"
+            #         },
+            #         status=status.HTTP_401_UNAUTHORIZED
+            #     )
+
+            # Get task result
+            task_result = AsyncResult(task_id)
+            if not task_result:
+                logger.error("Invalid task_id: %s", task_id)
+                return Response(
+                    {
+                        "status": "error",
+                        "message": "Invalid task ID",
+                        "error": "Task not found"
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Check if the task belongs to the user
+            task_args = task_result.args or ()  # Get task arguments
+            # if not task_args or task_args[0] != request.user.id:
+            #     logger.warning("User %s attempted to access unauthorized task %s", request.user.id, task_id)
+            #     return Response(
+            #         {
+            #             "status": "error",
+            #             "message": "Unauthorized",
+            #             "error": "You do not have permission to access this task"
+            #         },
+            #         status=status.HTTP_403_FORBIDDEN
+            #     )
+
+            # Check task status
+            if task_result.ready():
+                if task_result.successful():
+                    logger.info("Task %s completed successfully for user %s", task_id, request.user.id)
+                    return Response(
+                        {
+                            "status": "success",
+                            "message": "Task completed successfully",
+                            "data": task_result.result
+                        },
+                        status=status.HTTP_200_OK
+                    )
+                else:
+                    error_message = str(task_result.result) if task_result.result else "Unknown task error"
+                    logger.error("Task %s failed for user %s: %s", task_id, request.user.id, error_message)
+                    return Response(
+                        {
+                            "status": "error",
+                            "message": "Task failed",
+                            "error": error_message
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                logger.info("Task %s is still processing for user %s", task_id, request.user.id)
+                return Response(
+                    {
+                        "status": "pending",
+                        "message": "Task is still processing",
+                        "data": None
+                    },
+                    status=status.HTTP_202_ACCEPTED
+                )
+
+        except Exception as e:
+            logger.critical("Unexpected error checking task %s for user %s: %s", task_id, request.user.id, str(e), exc_info=True)
+            return Response(
+                {
+                    "status": "error",
+                    "message": "Internal server error",
+                    "error": "An unexpected error occurred"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
