@@ -276,11 +276,11 @@ class MarkForDeliveryView(APIView):
                 except Exception as e:
                     return Response({"error": str(e)}, status=200)
 
-            elif delivery_method == 'Speedy_Dispatch': 
-                
+            elif delivery_method == 'Speedy_Dispatch':
+
                 pass
                 # handle_speedy_dispatch(order)
-                
+
                 # payload = calculate_order_package(order_items)
                 # result = dispatch.create_pickupaddress(order=order)
                 # result6 = dispatch.create_deliveryaddress(order=order)
@@ -684,6 +684,10 @@ class VerifyOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [JWTAuthentication, SessionAuthentication]
 
+    """
+    Endpoint Used to Verify the completion of an Order, Either By a Seller or a Rider
+    """
+
     def post(self, request, pk):
         serializer = VerifyOrderSerializer(data={'otp': request.data['otp']})
         if serializer.is_valid():
@@ -702,6 +706,7 @@ class VerifyOrderView(APIView):
                             OrderTracking, order=order)
                         order_tracking.completed = True
                         order_tracking.save()
+                        order.store.owner.wallet.amount += order.amount
                         order.save()
                         return Response({"message": "Order Completed Succesfully"}, status=200)
                     else:
@@ -789,11 +794,10 @@ class ProductRatingView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 class GetShipMentRate(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def post(self, request, product_id):
         user = request.user
         # product_id = request.data.get('product_id')
@@ -814,18 +818,18 @@ class GetShipMentRate(APIView):
             "task_id": task.id
         }, status=status.HTTP_202_ACCEPTED)
         # handle_speedy_dispatch(user, product_id, delivery_details, order_items)
-        
 
 
 class TaskStatusView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
+
     """API endpoint to check the status of a Celery task via GET request.
 
     Args:
         task_id: The ID of the Celery task to check.
     """
+
     def get(self, request, task_id):
         """Handle GET request to check Celery task status.
 
@@ -878,7 +882,8 @@ class TaskStatusView(APIView):
             # Check task status
             if task_result.ready():
                 if task_result.successful():
-                    logger.info("Task %s completed successfully for user %s", task_id, request.user.id)
+                    logger.info(
+                        "Task %s completed successfully for user %s", task_id, request.user.id)
                     return Response(
                         {
                             "status": "success",
@@ -888,8 +893,10 @@ class TaskStatusView(APIView):
                         status=status.HTTP_200_OK
                     )
                 else:
-                    error_message = str(task_result.result) if task_result.result else "Unknown task error"
-                    logger.error("Task %s failed for user %s: %s", task_id, request.user.id, error_message)
+                    error_message = str(
+                        task_result.result) if task_result.result else "Unknown task error"
+                    logger.error("Task %s failed for user %s: %s",
+                                 task_id, request.user.id, error_message)
                     return Response(
                         {
                             "status": "error",
@@ -899,7 +906,8 @@ class TaskStatusView(APIView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
             else:
-                logger.info("Task %s is still processing for user %s", task_id, request.user.id)
+                logger.info("Task %s is still processing for user %s",
+                            task_id, request.user.id)
                 return Response(
                     {
                         "status": "pending",
@@ -910,7 +918,8 @@ class TaskStatusView(APIView):
                 )
 
         except Exception as e:
-            logger.critical("Unexpected error checking task %s for user %s: %s", task_id, request.user.id, str(e), exc_info=True)
+            logger.critical("Unexpected error checking task %s for user %s: %s",
+                            task_id, request.user.id, str(e), exc_info=True)
             return Response(
                 {
                     "status": "error",
