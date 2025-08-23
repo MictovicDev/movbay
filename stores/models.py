@@ -283,7 +283,7 @@ class Order(models.Model):
     out_for_delivery = models.BooleanField(default=False)
     payment = models.ForeignKey(Payment, on_delete=models.PROTECT, blank=True, null=True)
     locked = models.BooleanField(default=False)
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='store')
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='order')
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     otp_secret = models.CharField(max_length=250, blank=True, null=True)
     code = models.CharField(max_length=250, null=True, blank=True)

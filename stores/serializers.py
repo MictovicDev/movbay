@@ -117,13 +117,13 @@ class StoreSerializer(serializers.ModelSerializer):
     owner = UserSerializer(required=False)
     city = serializers.CharField(required=False)
     state = serializers.CharField(required=False)
-    address2 = serializers.CharField()
+    address2 = serializers.CharField(required=False)
     country = serializers.CharField()
 
     class Meta:
         model = Store
         fields = ('id','name', 'category', 'description', 'address1',
-                  'store_image', 'address2', 'cac', 'nin', 'statuses', 'owner')
+                  'store_image', 'address2', 'country', 'city', 'state', 'cac', 'nin', 'statuses', 'owner')
 
     def validate_cac(self, value):
         if value:
