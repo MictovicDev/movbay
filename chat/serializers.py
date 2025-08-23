@@ -11,7 +11,7 @@ User = get_user_model()
 class ChatStoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
-        fields = ['name', 'category','store_image_url','description', 'owner', 'address1']
+        fields = ['name', 'category','store_image_url','description', 'store_image', 'owner', 'address1']
 
 
 

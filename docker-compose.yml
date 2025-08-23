@@ -1,3 +1,115 @@
+# version: '3.8'
+
+# services:
+#   db:
+#     image: postgres:15-alpine
+#     container_name: movbay_database
+#     restart: unless-stopped
+#     env_file:
+#       - .env
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     networks:
+#       - movbay_network
+#     command: >
+#       postgres -c max_connections=100
+#                -c shared_buffers=128MB
+#                -c effective_cache_size=512MB
+#                -c maintenance_work_mem=32MB
+#                -c wal_buffers=8MB
+#                -c work_mem=4MB
+#     deploy:
+#       resources:
+#         limits:
+#           cpus: '0.5'
+#           memory: 512M
+
+#   redis:
+#     image: redis:7-alpine
+#     container_name: movbay_redis
+#     restart: unless-stopped
+#     volumes:
+#       - redis_data:/data
+#     networks:
+#       - movbay_network
+#     command: >
+#       redis-server --maxmemory 256mb
+#                    --maxmemory-policy allkeys-lru
+#                    --save 900 1 --save 300 10 --save 60 10000
+#     deploy:
+#       resources:
+#         limits:
+#           memory: 256M
+
+#   web:
+#     build: .
+#     container_name: movbay_web
+#     restart: unless-stopped
+#     env_file:
+#       - .env
+#     volumes:
+#       - ./movbay:/app/movbay
+#       - static_volume:/app/movbay/staticfiles
+#       - media_volume:/app/movbay/media
+#     depends_on:
+#       - redis
+#     networks:
+#       - movbay_network
+#     deploy:
+#       resources:
+#         limits:
+#           memory: 600M
+
+#   celery:
+#     build: .
+#     container_name: movbay_celery
+#     command: celery -A movbay worker --loglevel=info --concurrency=2 --prefetch-multiplier=2
+#     env_file:
+#       - .env
+#     volumes:
+#       - ./movbay:/app/movbay
+#     depends_on:
+#       - redis
+#     networks:
+#       - movbay_network
+#     deploy:
+#       resources:
+#         limits:
+#           memory: 512M
+
+#   nginx:
+#     image: nginx:alpine
+#     container_name: movbay_nginx
+#     restart: unless-stopped
+#     ports:
+#       - "80:80"
+#       - "443:443"
+#     volumes:
+#       - /etc/letsencrypt:/etc/letsencrypt:ro
+#       - ./nginx/conf.d:/etc/nginx/conf.d:ro
+#       - static_volume:/app/movbay/staticfiles
+#       - media_volume:/var/www/html/media
+#     depends_on:
+#       - web
+#     networks:
+#       - movbay_network
+#     deploy:
+#       resources:
+#         limits:
+#           memory: 256M
+
+# volumes:
+#   redis_data:
+#   postgres_data:
+#   static_volume:
+#   media_volume:
+
+# networks:
+#   movbay_network:
+#     driver: bridge
+
+
+
 version: '3.8'
 
 services:
@@ -76,6 +188,23 @@ services:
       resources:
         limits:
           memory: 512M
+
+  celery_beat:
+    build: .
+    container_name: movbay_celery_beat
+    command: celery -A movbay beat --loglevel=info
+    env_file:
+      - .env
+    volumes:
+      - ./movbay:/app/movbay
+    depends_on:
+      - redis
+    networks:
+      - movbay_network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   nginx:
     image: nginx:alpine

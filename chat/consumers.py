@@ -8,8 +8,11 @@ from django.utils import timezone
 import logging
 from uuid import UUID
 from django.shortcuts import get_object_or_404
+import os
 
 logger = logging.getLogger(__name__)
+
+
 
 class UUIDEncoder(json.JSONEncoder):
     """Custom JSON encoder that handles UUID objects."""
@@ -53,7 +56,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
 
             # Initialize Redis connection
             self.redis_client = redis.Redis.from_url(
-                "redis://localhost:6379/0", 
+                os.getenv('REDIS_URL', "redis://localhost:6379/0"),
                 decode_responses=True  # Automatically decode responses
             )
 
@@ -64,6 +67,8 @@ class MessageConsumer(AsyncWebsocketConsumer):
                 self.user_group_name,
                 self.channel_name
             )
+            
+            self.redis_client.sadd(f"online_users:{self.room_name}", str(self.user.id))
 
             await self.accept()
 

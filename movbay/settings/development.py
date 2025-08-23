@@ -43,6 +43,14 @@ CELERY_TIMEZONE = 'UTC'
 CELERY_RESULT_EXPIRES = 86400
 
 
+CELERY_BEAT_SCHEDULE = {
+    'delete-expired-statuses': {
+        'task': 'stores.tasks.delete_expired_statuses',
+        'schedule': 20.0,  # every hour
+    },
+}
+
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",

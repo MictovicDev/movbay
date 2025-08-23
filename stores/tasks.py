@@ -24,6 +24,7 @@ from .utils.calculate_order_package import calculate_order_package
 from logistics.models import ShippingRate, Address, Parcel
 from stores.models import Product
 import logging
+from django.utils import timezone
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -209,7 +210,9 @@ def update_to_arriving(order_tracking):
         logger.info("Error Tracking Order")
         
         
-        
+@shared_task
+def delete_expired_statuses():
+    Status.objects.filter(expires_at__lte=timezone.now()).delete()     
 
 logger = logging.getLogger(__name__)
 
