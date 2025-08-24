@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from stores.models import Store, Product, Status
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 
 User = get_user_model()
 
@@ -32,7 +34,10 @@ class Message(models.Model):
     content = models.TextField()
     sender = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='message_sender')
     # receiver = models.CharField(max_length=250, blank=True, null=True)
-    receiver = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='message_receiver')
+    receiver_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
+    receiver_object_id = models.PositiveIntegerField(null=True, blank=True)
+    receiver = GenericForeignKey('receiver_content_type', 'receiver_object_id')
+    #receiver = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='message_receiver')
     delivered = models.BooleanField(default=False)
     seen = models.BooleanField(default=False)
     # is_sender = models.BooleanField(default=False)
@@ -42,12 +47,12 @@ class Message(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, blank=True, null=True)
     
 
-    class Meta:
-        indexes = [
-            models.Index(fields=['chatbox']),
-            models.Index(fields=['sender']),
-            models.Index(fields=['receiver']),
-        ]
+    # class Meta:
+    #     indexes = [
+    #         models.Index(fields=['chatbox']),
+    #         models.Index(fields=['sender']),
+    #         models.Index(fields=['receiver']),
+    #     ]
 
     def __str__(self):
         return f"Message Between {self.sender} and {self.receiver}"

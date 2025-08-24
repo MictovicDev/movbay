@@ -128,13 +128,12 @@ class DirectMessageCreateView(APIView):
 
         timestamp = timezone.now()
         conversation, _ = Conversation.objects.get_or_create(room_name=room_name)
-        
         if conversation.sender == request.user:
             other_user = conversation.receiver
-        elif conversation.receiver.owner == request.user:
-            other_user = conversation.sender.store
+        elif getattr(conversation.receiver, "owner", None) == request.user:
+            other_user = conversation.sender
         else:
-            other_user = None  # user not in this conversation
+            other_user = None
 
         # Save the message first
         message = Message.objects.create(

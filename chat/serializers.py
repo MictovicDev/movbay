@@ -32,12 +32,19 @@ class MessageProductSerializer(serializers.ModelSerializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = MessageUserSerializer(read_only=True)
-    receiver = ChatStoreSerializer(read_only=True)
+    receiver = serializers.SerializerMethodField()
     product = MessageProductSerializer(read_only=True)
     
     class Meta:
         model = Message
         fields = ['chatbox', 'content', 'sender', 'receiver', 'delivered','product', 'created_at']
+        
+    def get_receiver(self, obj):
+        if isinstance(obj.receiver, Store):
+            return ChatStoreSerializer(obj.receiver).data
+        elif isinstance(obj.receiver, User):
+            return MessageUserSerializer(obj.receiver).data
+        return None
 
 
 class ConversationSerializer(serializers.ModelSerializer):

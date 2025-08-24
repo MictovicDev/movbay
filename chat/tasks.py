@@ -30,10 +30,10 @@ def save_message_to_db(user_id, timestamp, content, room_name, product_id=None):
                     Conversation, room_name=room_name)
                 if conversation.sender == user:
                     other_user = conversation.receiver
-                elif conversation.receiver == user:
-                    other_user = conversation.receiver.store
+                elif getattr(conversation.receiver, "owner", None) == user:
+                    other_user = conversation.sender
                 else:
-                    other_user = None  # user not in this conversation
+                    other_user = None
                 message = Message.objects.create(
                     chatbox=conversation,
                     sender=user,
@@ -48,11 +48,10 @@ def save_message_to_db(user_id, timestamp, content, room_name, product_id=None):
                     Conversation, room_name=room_name)
                 if conversation.sender == user:
                     other_user = conversation.receiver
-                elif conversation.receiver.owner == user:
+                elif getattr(conversation.receiver, "owner", None) == user:
                     other_user = conversation.sender
                 else:
-                    other_user = None  # user not in this conversation
-
+                    other_user = None
                 message = Message.objects.create(
                     chatbox=conversation,
                     sender=user,
