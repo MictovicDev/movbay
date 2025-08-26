@@ -43,6 +43,6 @@ urlpatterns = [
          views.ProductRatingView.as_view(), name='RateProduct'),
     path('view-store/<str:store_id>/',
          views.ClientViewStore.as_view(), name='view-store'),
-    path('get-shipment-rate/<str:product_id>/', views.GetShipMentRate.as_view(), name='shipment-rate'),
+    path('get-shipment-rate/', views.GetShippingRate.as_view(), name='shipment-rate'),
     path('confirm-task/<str:task_id>/', views.TaskStatusView.as_view(), name='task-status')
 ]

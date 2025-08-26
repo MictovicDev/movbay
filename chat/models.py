@@ -35,7 +35,7 @@ class Message(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='message_sender')
     # receiver = models.CharField(max_length=250, blank=True, null=True)
     receiver_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
-    receiver_object_id = models.PositiveIntegerField(null=True, blank=True)
+    receiver_object_id = models.CharField(max_length=50, null=True, blank=True)
     receiver = GenericForeignKey('receiver_content_type', 'receiver_object_id')
     #receiver = models.ForeignKey(Store, on_delete=models.CASCADE, blank=True, null=True, related_name='message_receiver')
     delivered = models.BooleanField(default=False)

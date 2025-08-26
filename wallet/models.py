@@ -22,12 +22,14 @@ class WalletTransactions(models.Model):
     Transaction_type = (
         ('Withdrawal', 'Withdrawal'),
         ('Item-Purchase', 'Item-Purchase'),
+        ('Account-Funded', 'Account-Funded')
     )
     content = models.TextField()
     type = models.CharField(
         max_length=250, choices=Transaction_type, blank=True, null=True)
     wallet = models.ForeignKey(
         Wallet, on_delete=models.CASCADE, related_name='wallet_transactions')
+    completed = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.wallet.owner} Wallet Transactions"

@@ -105,12 +105,20 @@ class PaystackWebhookView(View):
         data = calculate_wallet_fee(amount)
         amount = data.get('wallet_credit')
         if payment_type == 'fund-wallet':
-            Payment.objects.create(user=user, provider='paystack', amount=amount,
-                                   transaction_id=reference, status='success', payment_method=payment_type)
-            wallet = Wallet.objects.get(owner=user)
-            wallet.balance += int(amount)
-            wallet.total_deposit += int(amount)
-            wallet.save()
+            with transaction.atomic():
+                Payment.objects.create(
+                    user=user,
+                    provider='paystack',
+                    amount=amount,
+                    transaction_id=reference,
+                    status='success',
+                    payment_method=payment_type
+                )
+                wallet = Wallet.objects.get(owner=user)
+                wallet.balance += int(amount)
+                wallet.total_deposit += int(amount)
+                wallet.save()
+                WalletTransactions.objects.create(content='Account Funded Succesfully', type='Account-Funded', wallet=wallet)
         elif payment_type == 'purchase-item':
             print(True)
             try:

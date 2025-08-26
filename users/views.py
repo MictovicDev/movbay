@@ -219,6 +219,7 @@ class RiderProfileAPIView(APIView):
         if serializer.is_valid():
             serializer.save(rider=rider)
             return Response(serializer.data)
+        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)   
 
             

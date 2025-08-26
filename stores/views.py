@@ -53,6 +53,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from celery.result import AsyncResult
 import logging
+from wallet.models import Wallet
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -213,10 +214,14 @@ class TrackOrder(APIView):
     serializer_class = OrderTrackingSerializer
 
     def get(self, request, pk):
-        order = get_object_or_404(Order, order_id=pk)
-        order_tracking = order.order_tracking.all()[0]
-        serializer = OrderTrackingSerializer(order_tracking)
-        return Response(serializer.data, status=200)
+        try:
+            order = get_object_or_404(Order, order_id=pk)
+            order_tracking = order.order_tracking.all()[0]
+            serializer = OrderTrackingSerializer(order_tracking)
+            return Response(serializer.data, status=200)
+        except Exception as e:
+            logger.info("Error Occured During Product Tracking")
+            return Response({"Message": "Error Tracking Order"}, status=400)
 
 
 class MarkForDeliveryView(APIView):
@@ -226,7 +231,7 @@ class MarkForDeliveryView(APIView):
             try:
                 for driver in drivers:
                     device_token = driver.get('driver').device.all()[0].token
-                    print(device_token)
+                    logger.info(device_token)
                     if device_token:
                         try:
                             send_push_notification.delay(
@@ -693,6 +698,8 @@ class VerifyOrderView(APIView):
         if serializer.is_valid():
             try:
                 order = get_object_or_404(Order, order_id=pk)
+                if order.completed == True:
+                    return Response({"message": "Order Already Completed Succesfully"}, status=200)
                 otp = serializer.validated_data['otp']
                 ride = order.ride.all()
                 order_secret = order.otp_secret
@@ -706,7 +713,14 @@ class VerifyOrderView(APIView):
                             OrderTracking, order=order)
                         order_tracking.completed = True
                         order_tracking.save()
-                        order.store.owner.wallet.amount += order.amount
+                        print(order.store.owner.wallet.balance)
+                        owner = order.store.owner
+                        wallet = get_object_or_404(Wallet, owner=owner)
+                        admin_wallet = get_object_or_404(Wallet, owner__email='admin@mail.com')
+                        admin_wallet.balance -= order.amount
+                        wallet.balance += order.amount
+                        admin_wallet.save()
+                        wallet.save()
                         order.save()
                         return Response({"message": "Order Completed Succesfully"}, status=200)
                     else:
@@ -794,6 +808,86 @@ class ProductRatingView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
+{
+  "delivery_details": {
+    "fullname": "John Doe",
+    "phone_number": "+2348012345678",
+    "email_address": "johndoe@example.com",
+    "country": "NG",
+    "city": "Lagos",
+    "state": "Lagos",
+    "delivery_address": "12 Admiralty Way, Lekki",
+    "alternative_address": "Block B, Flat 2"
+  },
+  "items": [
+    {
+      "amount": 49000,
+      "product": 2,
+      "store": 2,
+      "quantity": 1
+    },
+    {
+      "amount": 9900,
+      "product": 2,
+      "quantity": 1,
+      "store": 2
+    }
+  ]
+}
+
+
+class GetShippingRate(APIView):
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        per_kg = 200
+        delivery_details = request.data.get('delivery_details')
+        order_items = request.data.get('items')
+        
+        delivery_cordinates = get_coordinates_from_address(
+            delivery_details.get('delivery_address')
+        )
+        print(delivery_cordinates)
+        if delivery_cordinates:
+            destination = (
+                delivery_cordinates.get('latitude'),
+                delivery_cordinates.get('longitude')
+            )
+       
+        # package weight cost
+        package_details = calculate_order_package(order_items=order_items)
+        weight_cost = package_details.get('weight') * per_kg
+
+        delivery_price = []
+        # track stores so you only charge once per store
+        unique_store_ids = set()
+        
+        for item in order_items:
+            store_id = item.get('store')
+            if store_id not in unique_store_ids:  
+                unique_store_ids.add(store_id)
+
+                store = get_object_or_404(Store, id=store_id)
+                store_cordinates = get_coordinates_from_address(store.address1)
+                origin = (
+                    store_cordinates.get('latitude'),
+                    store_cordinates.get('longitude')
+                )
+                
+                summary = get_eta_distance_and_fare(origin, destination)
+                delivery_price.append(summary.get('fare_amount'))
+        print(delivery_price)
+
+        # total cost = fares for each unique store + weight cost
+        delivery_cost = sum(delivery_price) + weight_cost +300
+        
+        return Response(delivery_cost, status=200)
+
+               
+
 class GetShipMentRate(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -803,7 +897,6 @@ class GetShipMentRate(APIView):
         # product_id = request.data.get('product_id')
         delivery_details = request.data.get('delivery_details')
         order_items = request.data.get('items')
-        print
         # Trigger the Celery task
         task = handle_speedy_dispatch_task.delay(
             user_id=user.id,

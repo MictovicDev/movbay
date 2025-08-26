@@ -3,6 +3,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 import uuid
 
+
 User = get_user_model()
 
 
@@ -64,10 +65,12 @@ class Payment(models.Model):
 
 
 class Transactions(models.Model):
+    
     owner = models.ForeignKey(
         User, on_delete=models.CASCADE, blank=True, null=True)
     payment = models.ForeignKey(
         Payment, on_delete=models.CASCADE, blank=True, null=True)
-
+    order = models.ForeignKey('stores.Order', on_delete=models.CASCADE, blank=True, null=True)
+    body = models.CharField(max_length=250, blank=True, null=True)
     def __str__(self):
         return f"{self.owner.username} Transactions"

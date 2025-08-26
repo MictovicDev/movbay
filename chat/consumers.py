@@ -184,9 +184,11 @@ class MessageConsumer(AsyncWebsocketConsumer):
             from .serializers import MessageSerializer
             conversation = get_object_or_404(Conversation, room_name=self.room_name)
            
-            messages = Message.objects.filter(
-                chatbox=conversation
-            ).select_related('sender', 'receiver', 'chatbox').order_by("created_at")
+            messages = (
+                Message.objects.filter(chatbox=conversation)
+                .select_related('sender', 'chatbox')  # drop 'receiver'
+                .order_by("created_at")
+            )
             # No request context needed for this serializer
             serializer = MessageSerializer(messages, many=True)
             return list(serializer.data) 

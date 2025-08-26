@@ -177,9 +177,13 @@ class DirectMessageCreateView(APIView):
 # Your other views remain the same
 class ConversationView(APIView):
     def get(self, request):
-        conversations = Conversation.objects.filter(
-            Q(sender=request.user) | Q(receiver=request.user.store)
-        )
+        user = request.user
+        filters = Q(sender=user)
+
+        if hasattr(user, "store"):  # only add if store exists
+            filters |= Q(receiver=user.store)
+
+        conversations = Conversation.objects.filter(filters)
         serializer = ConversationSerializer(
             conversations, many=True, context={'request': request}
         )

@@ -15,6 +15,8 @@ from stores.tasks import send_push_notification
 from decimal import Decimal
 from rest_framework.exceptions import ValidationError
 # from stores.tasks import get_shipping_rates
+from wallet.models import WalletTransactions
+
 
 User = get_user_model()
 
@@ -39,7 +41,7 @@ def create_order_with_items(user, order_data, reference, method):
             raise ValidationError({"wallet": "Insufficient Funds"})
         sender_wallet.balance -= amount
         sender_wallet.save()
-
+        WalletTransactions.objects.create(content='Payment For Purchase Made Succesfully', type='Item-Purchase', wallet=sender_wallet)
         platform_wallet.balance += amount
         platform_wallet.save()
 
