@@ -48,7 +48,19 @@ class Store(models.Model):
             models.Index(fields=['owner']),
         ]
         ordering = ['name']
-        
+  
+  
+class DeliveryOption(models.Model):
+    DELIVERY_CHOICES = [
+        ('Movbay_Express', 'Movbay_Express'),
+        ('Speedy_Dispatch', 'Speedy_Dispatch'),
+        ('Pickup', 'Pickup')
+    ]
+    name = models.CharField(max_length=50, choices=DELIVERY_CHOICES, unique=True)
+
+    def __str__(self):
+        return self.name
+          
 
 class Product(models.Model):
     
@@ -72,11 +84,7 @@ class Product(models.Model):
         ('Refurbished', 'Refurbished')
     ]
     
-    DELIVERY_CHOICES = [
-        ('Movbay_Express', 'Movbay_Express'),
-        ('Speedy_Dispatch', 'Speedy_Dispatch'),
-        ('Pickup_Hub', 'Pickup_Hub')
-    ]
+    
     #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products', db_index=True)
     title = models.CharField(max_length=40, blank=True, null=True)
@@ -93,7 +101,11 @@ class Product(models.Model):
     size = models.CharField(max_length=250, blank=True, null=True)
     pickup_available = models.BooleanField(default=True)
     delivery_available = models.BooleanField(default=True)
-    delivery_type = models.CharField(max_length=250, choices=DELIVERY_CHOICES, blank=True, null=True)
+    delivery_types = models.ManyToManyField(
+        DeliveryOption,
+        blank=True,
+        related_name="products"
+    )
     auto_post_to_story = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)

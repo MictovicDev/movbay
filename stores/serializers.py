@@ -23,24 +23,26 @@ from logistics.models import Ride
 from users.utils.otp import OTPManager
 # from logistics.serializers import RiderSerializer
 from users.models import RiderProfile
-from .models import ProductRating
-
+from .models import ProductRating, DeliveryOption
 
 
 class ClientStoresSerializer(serializers.ModelSerializer):
     store_image = serializers.ImageField()
+
     class Meta:
         model = Store
-        fields = ('id','name', 'category', 'description', 'address1',
-                  'store_image', 'address2','owner', 'store_image_url')
-               
+        fields = ('id', 'name', 'category', 'description', 'address1',
+                  'store_image', 'address2', 'owner', 'store_image_url')
+
 
 class StoreFollowSerializer(serializers.ModelSerializer):
     follower = UserProfileSerializer()
     followed_store = ClientStoresSerializer(read_only=True)
-    #followed_store = serializers.PrimaryKeyRelatedField(read_only=True)
-    is_following_back = serializers.BooleanField(default=False)  # for followers endpoint
-    they_follow_me_back = serializers.BooleanField(default=False)  # for following endpoint
+    # followed_store = serializers.PrimaryKeyRelatedField(read_only=True)
+    is_following_back = serializers.BooleanField(
+        default=False)  # for followers endpoint
+    they_follow_me_back = serializers.BooleanField(
+        default=False)  # for following endpoint
 
     class Meta:
         model = StoreFollow
@@ -52,7 +54,6 @@ class StoreFollowSerializer(serializers.ModelSerializer):
             'they_follow_me_back'
         ]
 
-        
 
 class StatusSerializer(serializers.ModelSerializer):
     class Meta:
@@ -74,14 +75,12 @@ class DashboardSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-
 class StoreUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
-        fields = ('id','name', 'category', 'description', 'address1',
+        fields = ('id', 'name', 'category', 'description', 'address1',
                   'store_image', 'address2', 'cac', 'nin', 'statuses', 'owner')
-        
-        
+
     def validate_cac(self, value):
         if value:
             # Alternatively, check file extension if content_type is not reliable
@@ -108,7 +107,7 @@ class StoreUpdateSerializer(serializers.ModelSerializer):
         else:
             return value
 
-    
+
 class StoreSerializer(serializers.ModelSerializer):
     cac = serializers.FileField(required=False)
     nin = serializers.FileField(required=False)
@@ -122,7 +121,7 @@ class StoreSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Store
-        fields = ('id','name', 'category', 'description', 'address1',
+        fields = ('id', 'name', 'category', 'description', 'address1',
                   'store_image', 'address2', 'country', 'city', 'state', 'cac', 'nin', 'statuses', 'owner')
 
     def validate_cac(self, value):
@@ -163,14 +162,15 @@ class StoreSerializer(serializers.ModelSerializer):
                 except Exception as e:
                     print(str(e))
                 otp_m = OTPManager()
-                response = get_coordinates_from_address(validated_data.get('address1'))
-                    
+                response = get_coordinates_from_address(
+                    validated_data.get('address1'))
+
                 try:
                     files = {
-                    "cac": cac.read(),
-                    "nin": nin.read(),
-                    "store_image": store_image.read()
-                }
+                        "cac": cac.read(),
+                        "nin": nin.read(),
+                        "store_image": store_image.read()
+                    }
                 except Exception as e:
                     print(str(e))
                 validated_data['owner'] = user
@@ -193,7 +193,6 @@ class StoreSerializer(serializers.ModelSerializer):
             raise e
 
 
-
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
@@ -206,18 +205,24 @@ class VerifyOrderSerializer(serializers.Serializer):
 
 class ProductRatingSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+
     class Meta:
         model = ProductRating
-        fields = ['rating', 'comment', 'user']  # Only include fields the user should POST
+        # Only include fields the user should POST
+        fields = ['rating', 'comment', 'user']
         read_only_fields = ['id', 'user', 'product']
+
 
 class UpdateProductSerializer(serializers.ModelSerializer):
     verified = serializers.BooleanField(read_only=True)
     store = serializers.PrimaryKeyRelatedField(read_only=True)
-    created_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
-    updated_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
+    created_at = serializers.DateTimeField(
+        format="%Y-%m-%d %H:%M", read_only=True)
+    updated_at = serializers.DateTimeField(
+        format="%Y-%m-%d %H:%M", read_only=True)
     images = serializers.ListField(required=False, write_only=True)
-    product_images = ProductImageSerializer(many=True, required=False, read_only=True)
+    product_images = ProductImageSerializer(
+        many=True, required=False, read_only=True)
 
     def __init__(self, *args, **kwargs):
         # make all fields optional (for partial updates)
@@ -229,7 +234,8 @@ class UpdateProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = '__all__'
-        read_only_fields = ['id', 'verified', 'store', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'verified',
+                            'store', 'created_at', 'updated_at']
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -241,10 +247,24 @@ class ProductSerializer(serializers.ModelSerializer):
         format="%Y-%m-%d %H:%M", read_only=True)
     images = serializers.ListField(required=True, write_only=True)
     product_images = ProductImageSerializer(many=True, required=False)
+    delivery_types = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=True,
+        write_only=True
+    )
+    # Read-only field to show delivery types in response
+    delivery_type_names = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Product
         fields = '__all__'
+        # exclude = ['delivery_types']
+
+    def get_delivery_type_names(self, obj):
+        if not obj.pk:
+            return []
+        return [dt.name for dt in obj.delivery_types.all()]
 
     def validate_product_video(self, value):
         if value:
@@ -264,18 +284,29 @@ class ProductSerializer(serializers.ModelSerializer):
         pass
 
     def create(self, validated_data):
-        user = self.context['request'].user
-        images = validated_data.pop('images', [])
-        post_to_story = validated_data.pop('auto_post_to_story', False)
-        product_video = validated_data.pop('product_video', None)
-        store = user.store
-        print(images)
+        try:
+            user = self.context['request'].user
+            images = validated_data.pop('images', [])
+            post_to_story = validated_data.pop('auto_post_to_story', False)
+            product_video = validated_data.pop('product_video', None)
+            delivery_types_names = validated_data.pop('delivery_types', None)
+            print(delivery_types_names)
+            store = user.store
+            print(images)
+        except Exception as e:
+            print(str(e))
         try:
             product = Product.objects.create(store=store, **validated_data)
         except Exception as e:
             print(str(e))
+        if delivery_types_names:
+            delivery_options = DeliveryOption.objects.filter(
+                name__in=delivery_types_names
+            )
+            print(delivery_options)
+            product.delivery_types.set(delivery_options)
         serialized_images = [
-        {
+            {
                 "file_content": b64encode(image.read()).decode("utf-8"),
                 "filename": image.name,
                 "product_id": product.id
@@ -294,35 +325,35 @@ class ProductSerializer(serializers.ModelSerializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(required=False)
-    
+
     class Meta:
         model = OrderItem
         fields = ['product', 'amount', 'count']
-  
+
 
 class KYCSerializer(serializers.ModelSerializer):
     class Meta:
         model = KYC
-        fields = ['rider','vehicle_type', 'plate_number', 'vehicle_color']
-
+        fields = ['rider', 'vehicle_type', 'plate_number', 'vehicle_color']
 
 
 class RiderProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     kyc_verification = KYCSerializer(read_only=True, many=True)
-    
+
     class Meta:
-        model = RiderProfile   
+        model = RiderProfile
         fields = '__all__'
-        
+
+
 class OrderTrackingSerializer(serializers.ModelSerializer):
     driver = RiderProfileSerializer(read_only=True)
-    
+
     class Meta:
         model = OrderTracking
         fields = '__all__'
-    
-    
+
+
 class DeliverySerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
 
@@ -338,8 +369,6 @@ class RideSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-
-
 class OrderSerializer(serializers.ModelSerializer):
     order_items = OrderItemSerializer(read_only=True, many=True)
     status = serializers.CharField(read_only=True)
@@ -350,9 +379,9 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ['status', 'order_items', 'delivery', 'buyer', 'order_id', 'store', 'assigned', 'ride']
-        
-        
+        fields = ['status', 'order_items', 'delivery',
+                  'buyer', 'order_id', 'store', 'assigned', 'ride']
+
 
 class ItemSerializer(serializers.Serializer):
     store = serializers.IntegerField()
@@ -377,8 +406,8 @@ class ReviewSerializer(serializers.ModelSerializer):
         model = Review
         fields = ['id', 'store', 'user', 'rating', 'comment', 'created_at']
         read_only_fields = ['id', 'user', 'created_at']
-        
-            
+
+
 class ClientStoreSerializer(serializers.ModelSerializer):
     post_count = serializers.SerializerMethodField()
     follower_count = serializers.SerializerMethodField()
@@ -392,7 +421,7 @@ class ClientStoreSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description',
             'post_count', 'follower_count', 'following_count',
-            'is_following', 'products', 'store_image', 'store_image_url','store_image'
+            'is_following', 'products', 'store_image', 'store_image_url', 'store_image'
         ]
 
     def get_post_count(self, obj):
@@ -413,5 +442,3 @@ class ClientStoreSerializer(serializers.ModelSerializer):
             return False
         except Exception as e:
             return Response(str(e), status=400)
-    
-    

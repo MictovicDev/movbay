@@ -17,7 +17,7 @@ CORS_ALLOWED_ORIGINS = [
 CELERY_BEAT_SCHEDULE = {
     'delete-expired-statuses': {
         'task': 'stores.tasks.delete_expired_statuses',
-        'schedule': 30,
+        'schedule': 3600,
     },
 }
 
