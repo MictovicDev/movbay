@@ -101,12 +101,16 @@ class Product(models.Model):
     size = models.CharField(max_length=250, blank=True, null=True)
     pickup_available = models.BooleanField(default=True)
     delivery_available = models.BooleanField(default=True)
-    delivery_types = models.ManyToManyField(
-        DeliveryOption,
-        blank=True,
-        related_name="products"
-    )
-    auto_post_to_story = models.BooleanField(default=True)
+    movbay_express = models.BooleanField(default=False)
+    speed_dispatch = models.BooleanField(default=False)
+    pickup = models.BooleanField(default=False)
+    # delivery_types = models.ManyToManyField(
+    #     DeliveryOption,
+    #     blank=True,
+    #     related_name="products"
+    # )
+    auto_post_to_story = models.BooleanField(default=False)
+    free_delivery = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
