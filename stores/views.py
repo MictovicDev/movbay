@@ -21,7 +21,8 @@ from .serializers import (StoreFollowSerializer,
                           StoreUpdateSerializer,
                           ReviewSerializer,
                           UpdateProductSerializer,
-                          ProductRatingSerializer)
+                          ProductRatingSerializer,
+                          ProductDeliveryTypeSerializer)
 from .models import Status
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -309,6 +310,47 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return Product.objects.select_related('store').prefetch_related('store__owner').all()
+    
+    
+    
+class ProductDeliveryTypesView(APIView):
+    def post(self, request, *args, **kwargs):
+        product_ids = request.data.get("product_ids", [])
+
+        if not isinstance(product_ids, list) or not product_ids:
+            return Response(
+                {"error": "product_ids must be a non-empty list"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        products = Product.objects.filter(id__in=product_ids)
+
+        if not products.exists():
+            return Response(
+                {"error": "No products found for given IDs"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Start with all delivery types as True
+        delivery_options = {
+            "movbay_express": True,
+            "speed_dispatch": True,
+            "pickup": True
+        }
+
+        # Take intersection → keep True only if ALL products support it
+        for product in products:
+            delivery_options["movbay_express"] &= product.movbay_express
+            delivery_options["speed_dispatch"] &= product.speed_dispatch
+            delivery_options["pickup"] &= product.pickup
+
+        return Response(
+            {
+                "products_checked": list(products.values_list("id", flat=True)),
+                "available_delivery_types": delivery_options
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):

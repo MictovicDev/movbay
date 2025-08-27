@@ -247,24 +247,19 @@ class ProductSerializer(serializers.ModelSerializer):
         format="%Y-%m-%d %H:%M", read_only=True)
     images = serializers.ListField(required=True, write_only=True)
     product_images = ProductImageSerializer(many=True, required=False)
-    delivery_types = serializers.ListField(
-        child=serializers.CharField(),
-        required=False,
-        allow_empty=True,
-        write_only=True
-    )
+    # delivery_types = serializers.ListField(
+    #     child=serializers.CharField(),
+    #     required=False,
+    #     allow_empty=True,
+    #     write_only=True
+    # )
     # Read-only field to show delivery types in response
-    delivery_type_names = serializers.SerializerMethodField(read_only=True)
+    # delivery_type_names = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Product
         fields = '__all__'
         # exclude = ['delivery_types']
-
-    def get_delivery_type_names(self, obj):
-        if not obj.pk:
-            return []
-        return [dt.name for dt in obj.delivery_types.all()]
 
     def validate_product_video(self, value):
         if value:
@@ -322,6 +317,12 @@ class ProductSerializer(serializers.ModelSerializer):
             Status.objects.create(store=store, image=images[0])
         return product
 
+
+class ProductDeliveryTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'movbay_express', 'speed_dispatch', 'pickup']
+        
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(required=False)
