@@ -4,18 +4,20 @@ import dj_database_url
 
 DEBUG = True
 #ALLOWED_HOSTS = ['*']
-DOMAIN_NAME = os.getenv('DOMAIN_NAME')
-IP = os.getenv('IP')
-DOMAIN = os.getenv('DOMAIN')
-ALT_DOMAIN = os.getenv('ALT_DOMAIN')
+DOMAIN_NAME = os.getenv('DOMAIN_NAME', None)
+IP = os.getenv('IP', None)
+DOMAIN = os.getenv('DOMAIN', None)
+ALT_DOMAIN = os.getenv('ALT_DOMAIN', None)
+CORS_ORIGIN = os.getenv("CORS_ORIGIN", None)
+CSRF_COOKIE = os.getenv("CSRF_COOKIE_DOMAIN", None)
 
 ALLOWED_HOSTS = [DOMAIN_NAME, IP, DOMAIN, ALT_DOMAIN, 'localhost']
 
-SESSION_COOKIE_DOMAIN = ".movbay.com"
-CSRF_COOKIE_DOMAIN = ".movbay.com"
+SESSION_COOKIE_DOMAIN = CSRF_COOKIE
+CSRF_COOKIE_DOMAIN = CSRF_COOKIE
 
 CORS_ALLOWED_ORIGINS = [
-    "https://api.movbay.com",
+    CORS_ORIGIN,
 ]
 
 
@@ -79,8 +81,8 @@ else:
 
 print('Called Production')
 # Redis configuratio
-CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
-CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+CELERY_BROKER_URL = os.getenv("REDIS_URL", None)
+CELERY_RESULT_BACKEND = os.getenv("REDIS_URL")
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -93,7 +95,7 @@ SESSION_CACHE_ALIAS = 'default'
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv("REDIS_URL", "redis://redis:6379/1"),
+        "LOCATION": os.getenv("REDIS_URL", None),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
