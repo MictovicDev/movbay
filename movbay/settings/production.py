@@ -4,7 +4,12 @@ import dj_database_url
 
 DEBUG = True
 #ALLOWED_HOSTS = ['*']
-ALLOWED_HOSTS = ['api.movbay.com', '162.0.231.122', 'www.movbay.com', 'movbay.com', 'localhost']
+DOMAIN_NAME = os.getenv('DOMAIN_NAME')
+IP = os.getenv('IP')
+DOMAIN = os.getenv('DOMAIN')
+ALT_DOMAIN = os.getenv('ALT_DOMAIN')
+
+ALLOWED_HOSTS = [DOMAIN_NAME, IP, DOMAIN, ALT_DOMAIN, 'localhost']
 
 SESSION_COOKIE_DOMAIN = ".movbay.com"
 CSRF_COOKIE_DOMAIN = ".movbay.com"
