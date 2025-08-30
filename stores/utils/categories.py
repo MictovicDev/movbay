@@ -143,7 +143,7 @@ categories = {
     "L": { "length": 120, "width": 80, "height": 60, "weight": 30 },
     "XL": { "length": 200, "width": 120, "height": 100, "weight": 60 }
   },
-  "other": {
+  "others": {
     "S": { "length": 20, "width": 15, "height": 10, "weight": 0.5 },
     "M": { "length": 40, "width": 30, "height": 20, "weight": 2 },
     "L": { "length": 60, "width": 40, "height": 30, "weight": 5 },

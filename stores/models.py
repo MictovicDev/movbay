@@ -115,7 +115,7 @@ class Product(models.Model):
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return f"{self.store.name if self.store else 'No Store'} - {self.title or 'Unnamed Product'}"
+        return f"{self.store.name if self.id else 'No Store'} - {self.id or 'Unnamed Product'}"
 
     class Meta:
         indexes = [
@@ -276,8 +276,8 @@ class Delivery(models.Model):
     postal_code = models.PositiveBigIntegerField()
     
     
-    def __str__(self):
-        return f"{self.user} Delivery" 
+    # def __str__(self):
+    #     return f"{self.user} Delivery" 
 
 class Order(models.Model):
     STATUS_CHOICES = [

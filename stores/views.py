@@ -55,6 +55,7 @@ from rest_framework import status
 from celery.result import AsyncResult
 import logging
 from wallet.models import Wallet
+from stores.utils.create_speedy_dispatch import handle_speedy_dispatch
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -283,10 +284,9 @@ class MarkForDeliveryView(APIView):
                     return Response({"error": str(e)}, status=200)
 
             elif delivery_method == 'Speedy_Dispatch':
-
-                pass
-                # handle_speedy_dispatch(order)
-
+                print()
+                result = handle_speedy_dispatch(order)
+                return result
                 # payload = calculate_order_package(order_items)
                 # result = dispatch.create_pickupaddress(order=order)
                 # result6 = dispatch.create_deliveryaddress(order=order)
@@ -619,6 +619,15 @@ class StoreDetailView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class HealthCheckView(APIView):
+    #authentication_classes = [None]
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request):
+        product = Product.objects.all()
+        store = Store.objects.all()
+        return Response({"Message": "Healthy"}, status=200)
+
 class ReviewView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -760,6 +769,7 @@ class VerifyOrderView(APIView):
                         wallet = get_object_or_404(Wallet, owner=owner)
                         admin_wallet = get_object_or_404(Wallet, owner__email='admin@mail.com')
                         admin_wallet.balance -= order.amount
+                        print(wallet.balance)
                         wallet.balance += order.amount
                         admin_wallet.save()
                         wallet.save()
@@ -884,49 +894,57 @@ class GetShippingRate(APIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
-        user = request.user
-        per_kg = 200
-        delivery_details = request.data.get('delivery_details')
-        order_items = request.data.get('items')
-        
-        delivery_cordinates = get_coordinates_from_address(
-            delivery_details.get('delivery_address')
-        )
-        print(delivery_cordinates)
-        if delivery_cordinates:
-            destination = (
-                delivery_cordinates.get('latitude'),
-                delivery_cordinates.get('longitude')
+        try:
+            user = request.user
+            per_kg = 200
+            delivery_details = request.data.get('delivery_details')
+            order_items = request.data.get('items')
+            
+            delivery_cordinates = get_coordinates_from_address(
+                delivery_details.get('delivery_address')
             )
-       
-        # package weight cost
-        package_details = calculate_order_package(order_items=order_items)
-        weight_cost = package_details.get('weight') * per_kg
-
-        delivery_price = []
-        # track stores so you only charge once per store
-        unique_store_ids = set()
-        
-        for item in order_items:
-            store_id = item.get('store')
-            if store_id not in unique_store_ids:  
-                unique_store_ids.add(store_id)
-
-                store = get_object_or_404(Store, id=store_id)
-                store_cordinates = get_coordinates_from_address(store.address1)
-                origin = (
-                    store_cordinates.get('latitude'),
-                    store_cordinates.get('longitude')
+            print(f"Delivery_Address {delivery_details.get('delivery_address')}")
+            if delivery_cordinates:
+                destination = (
+                    delivery_cordinates.get('latitude'),
+                    delivery_cordinates.get('longitude')
                 )
-                
-                summary = get_eta_distance_and_fare(origin, destination)
-                delivery_price.append(summary.get('fare_amount'))
-        print(delivery_price)
+            print(delivery_details.get('delivery_address'))
+            # package weight cost
+            package_details = calculate_order_package(order_items=order_items)
+            weight_cost = package_details.get('weight') * per_kg
 
-        # total cost = fares for each unique store + weight cost
-        delivery_cost = sum(delivery_price) + weight_cost +300
-        
-        return Response(delivery_cost, status=200)
+            delivery_price = []
+            # track stores so you only charge once per store
+            unique_store_ids = set()
+            print(unique_store_ids)
+            for item in order_items:
+                store_id = item.get('store')
+                if store_id not in unique_store_ids:  
+                    unique_store_ids.add(store_id)
+
+                    store = get_object_or_404(Store, id=store_id)
+                    print(store.address1)
+                    
+                    store_cordinates = get_coordinates_from_address(store.address1)
+                    print(store_cordinates)
+                    
+                    origin = (
+                        store_cordinates.get('latitude'),
+                        store_cordinates.get('longitude')
+                    )
+                    
+                    summary = get_eta_distance_and_fare(origin, destination)
+                    delivery_price.append(summary.get('fare_amount'))
+                print(unique_store_ids)
+            print(delivery_price)
+
+            # total cost = fares for each unique store + weight cost
+            delivery_cost = sum(delivery_price) + weight_cost + 300
+            
+            return Response(delivery_cost, status=200)
+        except Exception as e:
+            logger.info(f"An Error Occured {str(e)}")
 
                
 

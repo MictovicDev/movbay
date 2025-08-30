@@ -5,5 +5,6 @@ from . import views
 
 urlpatterns = [
    path('', views.WalletDetailView.as_view(), name='wallet'),
-   path('withdrawal/', views.Withdrawal.as_view(), name='withdrawal')
+   path('withdrawal/', views.Withdrawal.as_view(), name='withdrawal'),
+   path('transactions/', views.TransactionHistory.as_view(), name='transaction-history')
 ]

@@ -55,7 +55,7 @@ def create_order_with_items(user, order_data, reference, method):
         payment_method='wallet'
     )
 
-    Transactions.objects.create(owner=user, payment=payment)
+    
 
     response_data = []
     created_orders = {}  # store_id -> order_instance

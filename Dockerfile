@@ -68,6 +68,8 @@ RUN mkdir -p /app/movbay/staticfiles /app/movbay/media
 # RUN python manage.py collectstatic --noinput
 
 # Default command to run the application
-CMD ["gunicorn", "movbay.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--workers", "4", "--threads", "2", "--bind", "0.0.0.0:8000"]
+# CMD ["gunicorn", "movbay.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--workers", "4", "--threads", "2", "--bind", "0.0.0.0:8000"]
 #CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD ["gunicorn", "movbay.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--workers", "5", "--bind", "0.0.0.0:8000"]
+
 #CMD ["uvicorn", "movbay.asgi:application", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

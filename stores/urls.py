@@ -3,6 +3,7 @@ from . import views
 from django.urls import path
 
 urlpatterns = [
+    path('health-check', views.HealthCheckView.as_view(), name='health-check'),
     path('stores/', views.StoreListCreateView.as_view(), name='store-list'),
     path('stores/<str:pk>/', views.StoreDetailView.as_view(), name='store-list'),
     path('dashboard/', views.DashBoardView.as_view(), name='dashboard'),
@@ -13,7 +14,8 @@ urlpatterns = [
     path('products/', views.ProductListCreateView.as_view(), name='products'),
     path('products/<int:pk>/', views.ProductDetailView.as_view(),
          name='product-detail'),
-    path("products/delivery-types/", views.ProductDeliveryTypesView.as_view(), name="product-delivery-types"),
+    path("products/delivery-types/", views.ProductDeliveryTypesView.as_view(),
+         name="product-delivery-types"),
     path('follow/<str:pk>/', views.StoreFollowView.as_view(), name='followstore'),
     path('unfollow/<str:pk>/', views.StoreUnfollowView.as_view(), name='unfollow'),
     path('followers/', views.StoreFollowers.as_view(),
@@ -45,5 +47,6 @@ urlpatterns = [
     path('view-store/<str:store_id>/',
          views.ClientViewStore.as_view(), name='view-store'),
     path('get-shipment-rate/', views.GetShippingRate.as_view(), name='shipment-rate'),
-    path('confirm-task/<str:task_id>/', views.TaskStatusView.as_view(), name='task-status')
+    path('confirm-task/<str:task_id>/',
+         views.TaskStatusView.as_view(), name='task-status')
 ]

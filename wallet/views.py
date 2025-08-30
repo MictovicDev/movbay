@@ -3,12 +3,14 @@ from rest_framework.views import APIView
 from rest_framework.authentication import SessionAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
-from .models import Wallet
-from .serializers import WalletSerializer
+from .models import Wallet, WalletTransactions
+from .serializers import WalletSerializer, WalletTransactionSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from  payment.factories import PaymentProviderFactory
 from payment.utils.fees import calculate_withdrawal_fee
+from rest_framework.pagination import PageNumberPagination
+
 
 class WalletDetailView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -67,5 +69,23 @@ class Withdrawal(APIView):
         else:
             return Response({"message" "Invalid_Account Number"}, status=status.HTTP_400_BAD_REQUEST)
         return Response(response, status=status.HTTP_200_OK)
+    
+    
+class TransactionHistory(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    
+    def get(self, request):
+        wallet_transactions = WalletTransactions.objects.all().order_by('-created_at')
+        paginator = PageNumberPagination()
+        paginator.page_size = 5  # items per page
+        result_page = paginator.paginate_queryset(wallet_transactions, request)
+        
+        # Serialize the paginated data
+        serializer = WalletTransactionSerializer(result_page, many=True)
+        
+        # Return paginated response
+        return paginator.get_paginated_response(serializer.data)
         
     

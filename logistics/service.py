@@ -115,21 +115,22 @@ class SpeedyDispatch(LogisticsService):
         return self._make_request('POST', 'addresses', pickup_address)
     
     
-    def create_deliveryaddress(self, delivery_details:dict) -> Dict:
+    def create_deliveryaddress(self, order:Order) -> Dict:
         """Create address on Terminal Africa"""
-        print(delivery_details.get('email_address'))
+        delivery_details = order.delivery
+        # print(delivery_details.get('email_address'))
         
         delivery_address = {
-                    "first_name": delivery_details.get('fullname'),
-                    "last_name": delivery_details.get('fullname'),
-                    "phone": delivery_details.get('phone_number'),
-                    "email": delivery_details.get('email_address'),
-                    "country": delivery_details.get('country'),
-                    "city": delivery_details.get('city'),
-                    "state": delivery_details.get('state'),
+                    "first_name": delivery_details.fullname,
+                    "last_name": delivery_details.fullname,
+                    "phone": str(delivery_details.phone_number),
+                    "email": delivery_details.email,
+                    "country": 'NG',
+                    "city": delivery_details.city,
+                    "state": delivery_details.state,
                     # "zip": delivery_details.get(''),
-                    "line1": delivery_details.get('delivery_address'),
-                    "line2": delivery_details.get('alternative_address'),
+                    "line1": delivery_details.delivery_address,
+                    "line2": delivery_details.alternative_address,
                 }
         print("Payload to Terminal:", delivery_address)
         return self._make_request('POST', 'addresses', delivery_address)
@@ -137,25 +138,26 @@ class SpeedyDispatch(LogisticsService):
 
     def create_parcel(self, order_items, weight, packaging_id) -> Dict:
         """Create parcel on Terminal Africa"""
-        product_ids = [item["product"] for item in order_items]
+        product_ids = [item.product.id for item in order_items]
         products = Product.objects.in_bulk(product_ids)  # one DB query for all products
 
         payload = {
             "description": "This is a Delivery From Movbay, Please Handle with Care",
             "items": [
                 {
-                    "name": products[order_item["product"]].title,
-                    "description": products[order_item["product"]].description,
-                    "quantity": order_item["quantity"],
+                    "name": products[order_item.product.id].title,
+                    "description": products[order_item.product.id].description,
+                    "quantity": order_item.count,
                     "weight": weight / len(order_items),  # evenly distribute weight
                     "currency": "NGN",
-                    "value": order_item["amount"]
+                    "value": order_item.amount,  # if it's a field, not a dict key
                 }
                 for order_item in order_items
             ],
-            "packaging": packaging_id,  # Use an actual packaging ID from your account
+            "packaging": packaging_id,
             "weight_unit": "kg",
         }
+
 
         return self._make_request('POST', 'parcels', payload)
 
