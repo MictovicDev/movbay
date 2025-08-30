@@ -4,6 +4,7 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from .models import Wallet, WalletTransactions
+from stores.models import Store
 from .serializers import WalletSerializer, WalletTransactionSerializer
 from rest_framework.response import Response
 from rest_framework import status
@@ -32,6 +33,7 @@ class Withdrawal(APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
+        user = request.user
         sent_amount = response.get('data').get('amount')
         calculated_amount = calculate_withdrawal_fee(sent_amount)
         if request.user.wallet.balance < calculated_amount:

@@ -136,7 +136,7 @@ class GetUserOrder(APIView):
     def get(self, request):
         try:
             print(request.user.username)
-            orders = Order.objects.filter(buyer=request.user)
+            orders = Order.objects.filter(buyer=request.user, completed=False)
             serializer = OrderSerializer(orders, many=True)
             return Response(serializer.data, status=200)
         except Exception as e:
