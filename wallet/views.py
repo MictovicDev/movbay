@@ -11,7 +11,7 @@ from rest_framework import status
 from  payment.factories import PaymentProviderFactory
 from payment.utils.fees import calculate_withdrawal_fee
 from rest_framework.pagination import PageNumberPagination
-
+from django.shortcuts import get_object_or_404
 
 class WalletDetailView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -79,7 +79,9 @@ class TransactionHistory(APIView):
     
     
     def get(self, request):
-        wallet_transactions = WalletTransactions.objects.all().order_by('-created_at')
+        user = request.user
+        wallet = get_object_or_404(Wallet, owner=user)
+        wallet_transactions = WalletTransactions.objects.filter(wallet=wallet).order_by('-created_at')
         paginator = PageNumberPagination()
         paginator.page_size = 5  # items per page
         result_page = paginator.paginate_queryset(wallet_transactions, request)

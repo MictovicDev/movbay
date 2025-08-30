@@ -30,6 +30,7 @@ class WalletTransactions(models.Model):
     wallet = models.ForeignKey(
         Wallet, on_delete=models.CASCADE, related_name='wallet_transactions')
     completed = models.BooleanField(default=False)
+    amount = models.PositiveBigIntegerField()
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
 
     def __str__(self):

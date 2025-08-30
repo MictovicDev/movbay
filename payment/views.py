@@ -118,7 +118,7 @@ class PaystackWebhookView(View):
                 wallet.balance += int(amount)
                 wallet.total_deposit += int(amount)
                 wallet.save()
-                WalletTransactions.objects.create(content='Account Funded Succesfully', type='Account-Funded', wallet=wallet)
+                WalletTransactions.objects.create(content='Account Funded Succesfully', type='Account-Funded', wallet=wallet, amount=amount)
         elif payment_type == 'purchase-item':
             print(True)
             try:
