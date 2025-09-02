@@ -310,9 +310,8 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return Product.objects.select_related('store').prefetch_related('store__owner').all()
-    
-    
-    
+
+
 class ProductDeliveryTypesView(APIView):
     def post(self, request, *args, **kwargs):
         product_ids = request.data.get("product_ids", [])
@@ -620,13 +619,14 @@ class StoreDetailView(APIView):
 
 
 class HealthCheckView(APIView):
-    #authentication_classes = [None]
+    # authentication_classes = [None]
     permission_classes = [permissions.AllowAny]
-    
+
     def get(self, request):
         product = Product.objects.all()
         store = Store.objects.all()
         return Response({"Message": "Healthy"}, status=200)
+
 
 class ReviewView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -767,7 +767,8 @@ class VerifyOrderView(APIView):
                         print(order.store.owner.wallet.balance)
                         owner = order.store.owner
                         wallet = get_object_or_404(Wallet, owner=owner)
-                        admin_wallet = get_object_or_404(Wallet, owner__email='admin@mail.com')
+                        admin_wallet = get_object_or_404(
+                            Wallet, owner__email='admin@mail.com')
                         admin_wallet.balance -= order.amount
                         print(wallet.balance)
                         wallet.balance += order.amount
@@ -860,93 +861,133 @@ class ProductRatingView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 {
-  "delivery_details": {
-    "fullname": "John Doe",
-    "phone_number": "+2348012345678",
-    "email_address": "johndoe@example.com",
-    "country": "NG",
-    "city": "Lagos",
-    "state": "Lagos",
-    "delivery_address": "12 Admiralty Way, Lekki",
-    "alternative_address": "Block B, Flat 2"
-  },
-  "items": [
-    {
-      "amount": 49000,
-      "product": 2,
-      "store": 2,
-      "quantity": 1
+    "delivery_details": {
+        "fullname": "John Doe",
+        "phone_number": "+2348012345678",
+        "email_address": "johndoe@example.com",
+        "country": "NG",
+        "city": "Lagos",
+        "state": "Lagos",
+        "delivery_address": "12 Admiralty Way, Lekki",
+        "alternative_address": "Block B, Flat 2"
     },
-    {
-      "amount": 9900,
-      "product": 2,
-      "quantity": 1,
-      "store": 2
-    }
-  ]
+    "items": [
+        {
+            "amount": 49000,
+            "product": 2,
+            "store": 2,
+            "quantity": 1
+        },
+        {
+            "amount": 9900,
+            "product": 2,
+            "quantity": 1,
+            "store": 2
+        }
+    ]
 }
 
 
 class GetShippingRate(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def post(self, request):
         try:
             user = request.user
             per_kg = 200
             delivery_details = request.data.get('delivery_details')
             order_items = request.data.get('items')
-            
-            delivery_cordinates = get_coordinates_from_address(
+
+            # Convert delivery address → coordinates
+            delivery_coordinates = get_coordinates_from_address(
                 delivery_details.get('delivery_address')
             )
-            print(f"Delivery_Address {delivery_details.get('delivery_address')}")
-            if delivery_cordinates:
-                destination = (
-                    delivery_cordinates.get('latitude'),
-                    delivery_cordinates.get('longitude')
+            if not delivery_coordinates:
+                return Response(
+                    {"error": "Invalid delivery address"},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
-            print(delivery_details.get('delivery_address'))
-            # package weight cost
+
+            destination = (
+                delivery_coordinates.get('latitude'),
+                delivery_coordinates.get('longitude')
+            )
+
+            # Calculate weight-based cost
             package_details = calculate_order_package(order_items=order_items)
             weight_cost = package_details.get('weight') * per_kg
 
-            delivery_price = []
-            # track stores so you only charge once per store
+            movbay_delivery_price = []
+            terminal_delivery = []
+            outside_stores = []
             unique_store_ids = set()
-            print(unique_store_ids)
+
             for item in order_items:
                 store_id = item.get('store')
-                if store_id not in unique_store_ids:  
+                if not store_id:
+                    continue
+
+                # Skip store if already processed
+                if store_id in unique_store_ids:
+                    continue
+
+                store = get_object_or_404(Store, id=store_id)
+
+                # Compare states safely
+                delivery_state = delivery_details.get(
+                    'state', '').strip().lower()
+                store_state = store.state.strip().lower()
+                print(delivery_state, store_state)
+
+                if store_state != delivery_state:
+                    print("Store is in another state")
+                    # Store is in another state → handle with Celery
+                    # print(store.id, user.id, delivery_details, outside_stores)
+                    outside_stores.append(item)
+                    result = handle_speedy_dispatch_task(
+                        store_id=store.id, user_id=user.id,
+                        delivery_details=delivery_details,
+                        order_items_data=outside_stores)
                     unique_store_ids.add(store_id)
+                    terminal_delivery.append({store.id: result})
+                    continue  # skip fare calculation
+                # Same state → calculate fare
+                unique_store_ids.add(store_id)
 
-                    store = get_object_or_404(Store, id=store_id)
-                    print(store.address1)
-                    
-                    store_cordinates = get_coordinates_from_address(store.address1)
-                    print(store_cordinates)
-                    
-                    origin = (
-                        store_cordinates.get('latitude'),
-                        store_cordinates.get('longitude')
-                    )
-                    
-                    summary = get_eta_distance_and_fare(origin, destination)
-                    delivery_price.append(summary.get('fare_amount'))
-                print(unique_store_ids)
-            print(delivery_price)
+                store_coordinates = get_coordinates_from_address(
+                    store.address1)
+                print('Store Coordinates:', store_coordinates)
+                if not store_coordinates:
+                    continue  # skip if store address is invalid
 
-            # total cost = fares for each unique store + weight cost
-            delivery_cost = sum(delivery_price) + weight_cost + 300
-            
-            return Response(delivery_cost, status=200)
+                origin = (
+                    store_coordinates.get('latitude'),
+                    store_coordinates.get('longitude')
+                )
+                print(store_state, origin, delivery_state)
+                summary = get_eta_distance_and_fare(origin, destination)
+                print(summary)
+                if summary and summary.get('fare_amount'):
+                    movbay_delivery_price.append(summary.get('fare_amount'))
+
+            if movbay_delivery_price:
+                movbay_delivery_cost = sum(movbay_delivery_price) + weight_cost + 300
+            else:
+                movbay_delivery_cost = 0
+                
+            #shiip_delivery_cost = sum(terminal_delivery_price)
+                
+            return Response({"movbay_delivery_cost": movbay_delivery_cost, "shiip_delivery_cost": terminal_delivery}, status=200)
+
         except Exception as e:
-            logger.info(f"An Error Occured {str(e)}")
+            logger.error(f"An Error Occurred: {str(e)}")
+            return Response(
+                {"error": "Something went wrong while calculating shipping"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-               
 
 class GetShipMentRate(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]

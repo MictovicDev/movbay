@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from .models import Address, Parcel, ShippingRate, Shipment
 from django.shortcuts import get_object_or_404
-from stores.models import Product, Order
+from stores.models import Product, Order, Store
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -86,19 +86,22 @@ class SpeedyDispatch(LogisticsService):
             raise Exception(f"API request failed: {str(e)}")
         
 
-    def create_pickupaddress(self, product_id: int = None, order_id: int = None) -> Dict:
+    def create_pickupaddress(self, product_id: int = None, order_id: int = None, store_id: int = None) -> Dict:
         # print(self.api_key)
         """Create address on Terminal Africa"""
         print(product_id)
         if product_id:
             product = get_object_or_404(Product, id=product_id)
-            store = product.store
+            store = product.store 
         elif order_id:
             order = get_object_or_404(Order, id=order_id)
             store = order.store
+        elif store_id:
+            store = get_object_or_404(Store, id=store_id)   
         else:
             raise ValueError("Either product_id or order_id must be provided.")
         print(store.owner.email)
+        print('Me'+store.name)
         pickup_address = {
                     "first_name": store.name,
                     "last_name": store.owner.username,
@@ -115,22 +118,23 @@ class SpeedyDispatch(LogisticsService):
         return self._make_request('POST', 'addresses', pickup_address)
     
     
-    def create_deliveryaddress(self, order:Order) -> Dict:
+    def create_deliveryaddress(self, delivery_details:Dict) -> Dict:
         """Create address on Terminal Africa"""
-        delivery_details = order.delivery
-        # print(delivery_details.get('email_address'))
-        
+        #delivery_details = order.delivery
+        print(delivery_details.get('email_address'))
+        #print(delivery_details.get('email'))
+        print(delivery_details)
         delivery_address = {
-                    "first_name": delivery_details.fullname,
-                    "last_name": delivery_details.fullname,
-                    "phone": str(delivery_details.phone_number),
-                    "email": delivery_details.email,
+                    "first_name": delivery_details.get('fullname'),
+                    "last_name": delivery_details.get('fullname'),
+                    "phone": str(delivery_details.get('phone_number')),
+                    "email": delivery_details.get('email_address'),
                     "country": 'NG',
-                    "city": delivery_details.city,
-                    "state": delivery_details.state,
+                    "city": delivery_details.get('city'),
+                    "state": delivery_details.get('state'),
                     # "zip": delivery_details.get(''),
-                    "line1": delivery_details.delivery_address,
-                    "line2": delivery_details.alternative_address,
+                    "line1": delivery_details.get('delivery_address'),
+                    "line2": delivery_details.get('alternative_address'),
                 }
         print("Payload to Terminal:", delivery_address)
         return self._make_request('POST', 'addresses', delivery_address)
@@ -138,19 +142,19 @@ class SpeedyDispatch(LogisticsService):
 
     def create_parcel(self, order_items, weight, packaging_id) -> Dict:
         """Create parcel on Terminal Africa"""
-        product_ids = [item.product.id for item in order_items]
+        product_ids = [item.get('product') for item in order_items]
         products = Product.objects.in_bulk(product_ids)  # one DB query for all products
 
         payload = {
             "description": "This is a Delivery From Movbay, Please Handle with Care",
             "items": [
                 {
-                    "name": products[order_item.product.id].title,
-                    "description": products[order_item.product.id].description,
-                    "quantity": order_item.count,
+                    "name": products[order_item.get('product')].title,
+                    "description": products[order_item.get('product')].description,
+                    "quantity": order_item.get('quantity', 1),
                     "weight": weight / len(order_items),  # evenly distribute weight
                     "currency": "NGN",
-                    "value": order_item.amount,  # if it's a field, not a dict key
+                    "value": order_item.get('amount'),  # if it's a field, not a dict key
                 }
                 for order_item in order_items
             ],

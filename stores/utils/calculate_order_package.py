@@ -28,9 +28,9 @@ def calculate_order_package(order_items):
     # print(order_items)
     for item in order_items:
         print(item)
-        product = get_object_or_404(Product, id=item.product.id)
-        print(product)
-        quantity = item.count
+        product_id = item.get('product')
+        product = get_object_or_404(Product, id=product_id)
+        quantity = item.get('quantity', 1)
         print(product)
         print(quantity)
         try:

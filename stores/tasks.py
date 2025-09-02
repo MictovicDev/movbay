@@ -217,34 +217,25 @@ def delete_expired_statuses():
 logger = logging.getLogger(__name__)
 
 def process_shipping_rates(rates_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Process and format shipping rates for frontend."""
+    """Process and return only carrier name + amount for shipping rates."""
     processed_rates = []
     for rate in rates_data:
-        processed_rate = {
-            'rate_id': rate.get('rate_id'),
+        processed_rates.append({
             'carrier_name': rate.get('carrier_name'),
-            'carrier_logo': rate.get('carrier_logo'),
-            'amount': rate.get('amount'),
-            'currency': rate.get('currency'),
-            'delivery_time': rate.get('delivery_time'),
-            'pickup_time': rate.get('pickup_time'),
-            'service_description': rate.get('carrier_rate_description'),
-            'dropoff_required': rate.get('dropoff_required', False),
-            'includes_insurance': rate.get('includes_insurance', False),
-            'recommended': rate.get('metadata', {}).get('recommended', False)
-        }
-        processed_rates.append(processed_rate)
+            'amount': rate.get('amount')
+        })
     processed_rates.sort(key=lambda x: x['amount'])
-    logger.debug("Processed shipping rates: %s", processed_rates)
+    logger.debug("Processed shipping rates (amounts only): %s", processed_rates)
     return processed_rates
+
 
 def get_best_rate(rates: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Select the best shipping rate (recommended or cheapest)."""
     recommended_rate = next((r for r in rates if r.get("recommended")), None)
     return recommended_rate or min(rates, key=lambda r: r["amount"])
 
-@shared_task(bind=True, ignore_result=False)
-def handle_speedy_dispatch_task(self, user_id: int, product_id: int, delivery_details: Dict[str, Any], order_items_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+# @shared_task(bind=True, ignore_result=False)
+def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, delivery_details: Dict[str, Any] = None, order_items_data: List[Dict[str, Any]] = None, store_id: str = None) -> Dict[str, Any]:
     """Handle Speedy dispatch logic as a background task.
 
     Args:
@@ -257,17 +248,14 @@ def handle_speedy_dispatch_task(self, user_id: int, product_id: int, delivery_de
         Dictionary with task result or error details.
     """
     from django.contrib.auth import get_user_model
+    print(order_items_data)
     User = get_user_model()
-
+    print("Starting Speedy Dispatch Task")
     try:
-        # Validate inputs
-        if not product_id or not delivery_details or not order_items_data:
-            logger.error("Invalid input: user_id=%s, product_id=%s, delivery_details=%s, order_items=%s",
-                         user_id, product_id, delivery_details, order_items_data)
-            return {"status": "error", "error": "Invalid input data"}
-
         user = get_object_or_404(User, id=user_id)
-        product = get_object_or_404(Product, id=product_id)
+        store = get_object_or_404(Store, id=store_id)
+        print(store)
+        #product = get_object_or_404(Product, id=product_id)
         dispatch = SpeedyDispatch()
         logger.info(order_items_data)
         # Deserialize order_items if needed (depends on how order_items is passed)
@@ -277,16 +265,19 @@ def handle_speedy_dispatch_task(self, user_id: int, product_id: int, delivery_de
         with transaction.atomic():
             # Step 1: Calculate package details
             payload = calculate_order_package(order_items)
+            print(f"Me {payload}")
             logger.info("Package payload calculated for product %s", product_id)
 
             # Step 2: Create addresses
-            pickup_result = dispatch.create_pickupaddress(product_id)
+            print(store_id)
+            pickup_result = dispatch.create_pickupaddress(store_id=store_id)
+            
             if not pickup_result.get('status'):
                 logger.error("Failed to create pickup address for product %s", product_id)
                 return {"status": "error", "error": "Failed to create pickup address"}
             pickup_address_id = pickup_result['data']['address_id']
             pickup_address = Address.objects.create(
-                user=user, terminal_address_id=pickup_address_id, store=product.store
+                user=user, terminal_address_id=pickup_address_id, store=store
             )
 
             delivery_result = dispatch.create_deliveryaddress(delivery_details)
@@ -329,29 +320,33 @@ def handle_speedy_dispatch_task(self, user_id: int, product_id: int, delivery_de
                 return {"status": "error", "error": "No shipping rates available"}
 
             # Step 6: Process rates and select best option
+
             rates = process_shipping_rates(rates_result['data'])
             best_rate = get_best_rate(rates)
-            logger.info("Best rate selected for product %s: %s", product_id, best_rate)
+            logger.info(rates)
+            #logger.info("Best rate selected for product %s: %s", product_id, best_rate)
 
             # Step 7: Save best rate to database
-            ShippingRate.objects.create(
-                terminal_rate_id=best_rate['rate_id'],
-                pickup_address=pickup_address,
-                delivery_address=delivery_address,
-                parcel=parcel,
-                carrier_name=best_rate['carrier_name'],
-                currency=best_rate['currency'],
-                delivery_time=best_rate['delivery_time'],
-                pickup_time=best_rate['pickup_time'],
-                total=best_rate['amount']
-            )
+            # ShippingRate.objects.create(
+            #     terminal_rate_id=best_rate['rate_id'],
+            #     pickup_address=pickup_address,
+            #     delivery_address=delivery_address,
+            #     parcel=parcel,
+            #     carrier_name=best_rate['carrier_name'],
+            #     currency=best_rate['currency'],
+            #     delivery_time=best_rate['delivery_time'],
+            #     pickup_time=best_rate['pickup_time'],
+            #     total=best_rate['amount']
+            # )
 
         # Return task result
+        
+        print(pickup_address_id, delivery_address_id, parcel_result['data']['parcel_id'])
         return {
             "status": "success",
             "message": "Shipping rates retrieved successfully",
             "data": {
-                "rates": rates,
+                "rates": rates_result['data'],
                 "pickup_address_id": pickup_address_id,
                 "delivery_address_id": delivery_address_id,
                 "parcel_id": parcel_result['data']['parcel_id']
@@ -363,7 +358,6 @@ def handle_speedy_dispatch_task(self, user_id: int, product_id: int, delivery_de
         return {"status": "error", "error": f"Speedy dispatch failed: {str(e)}"}
     except Exception as e:
         logger.critical("Unexpected error in speedy dispatch task for product %s: %s", product_id, str(e), exc_info=True)
-        self.retry(countdown=60, max_retries=3)  # Retry up to 3 times with 60s delay
         return {"status": "error", "error": "An unexpected error occurred"}
         
     
