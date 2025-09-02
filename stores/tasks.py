@@ -222,7 +222,8 @@ def process_shipping_rates(rates_data: List[Dict[str, Any]]) -> List[Dict[str, A
     for rate in rates_data:
         processed_rates.append({
             'carrier_name': rate.get('carrier_name'),
-            'amount': rate.get('amount')
+            'amount': rate.get('amount'),
+            'id': rate.get('id')
         })
     processed_rates.sort(key=lambda x: x['amount'])
     logger.debug("Processed shipping rates (amounts only): %s", processed_rates)
@@ -265,11 +266,11 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, deli
         with transaction.atomic():
             # Step 1: Calculate package details
             payload = calculate_order_package(order_items)
-            print(f"Me {payload}")
+            # print(f"Me {payload}")
             logger.info("Package payload calculated for product %s", product_id)
 
             # Step 2: Create addresses
-            print(store_id)
+            # print(store_id)
             pickup_result = dispatch.create_pickupaddress(store_id=store_id)
             
             if not pickup_result.get('status'):
@@ -322,22 +323,21 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, deli
             # Step 6: Process rates and select best option
 
             rates = process_shipping_rates(rates_result['data'])
+            print(rates)
+            print(rates_result['data'])
             best_rate = get_best_rate(rates)
-            logger.info(rates)
-            #logger.info("Best rate selected for product %s: %s", product_id, best_rate)
-
-            # Step 7: Save best rate to database
-            # ShippingRate.objects.create(
-            #     terminal_rate_id=best_rate['rate_id'],
-            #     pickup_address=pickup_address,
-            #     delivery_address=delivery_address,
-            #     parcel=parcel,
-            #     carrier_name=best_rate['carrier_name'],
-            #     currency=best_rate['currency'],
-            #     delivery_time=best_rate['delivery_time'],
-            #     pickup_time=best_rate['pickup_time'],
-            #     total=best_rate['amount']
-            # )
+            print(best_rate)
+            ShippingRate.objects.create(
+                terminal_rate_id=best_rate.get('id'),
+                pickup_address=pickup_address,
+                delivery_address=delivery_address,
+                parcel=parcel,
+                carrier_name=best_rate['carrier_name'],
+                # currency=best_rate['currency'],
+                # delivery_time=best_rate['delivery_time'],
+                # pickup_time=best_rate['pickup_time'],
+                total=best_rate['amount']
+            )
 
         # Return task result
         
@@ -346,7 +346,7 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, deli
             "status": "success",
             "message": "Shipping rates retrieved successfully",
             "data": {
-                "rates": rates_result['data'],
+                "rates": best_rate,
                 "pickup_address_id": pickup_address_id,
                 "delivery_address_id": delivery_address_id,
                 "parcel_id": parcel_result['data']['parcel_id']

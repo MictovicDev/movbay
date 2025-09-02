@@ -293,7 +293,7 @@ class ProductSerializer(serializers.ModelSerializer):
         try:
             product = Product.objects.create(store=store, **validated_data)
         except Exception as e:
-            print(str(e))
+            raise serializers.ValidationError(f"Error creating product: {str(e)}")
         # if delivery_types_names:
         #     delivery_options = DeliveryOption.objects.filter(
         #         name__in=delivery_types_names

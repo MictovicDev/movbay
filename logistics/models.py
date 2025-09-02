@@ -115,27 +115,13 @@ class Parcel(models.Model):
         return f"{self.description} - {self.weight}kg"
 
 class ShippingRate(models.Model):
-    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     terminal_rate_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
     #order = models.ForeignKey(Order, on_delete=models.CASCADE, blank=True, null=True)
-    # Related objects
     pickup_address = models.ForeignKey(Address, on_delete=models.CASCADE, related_name='pickup_rates')
     delivery_address = models.ForeignKey(Address, on_delete=models.CASCADE, related_name='delivery_rates')
     parcel = models.ForeignKey(Parcel, on_delete=models.CASCADE, related_name='rates')
-    
-    # Rate details
     carrier_name = models.CharField(max_length=100)
-    #carrier_code = models.CharField(max_length=50)
-    #service_type = models.CharField(max_length=100)
     total = models.DecimalField(max_digits=15, decimal_places=2)
-    currency = models.CharField(max_length=3, default='NGN')
-    delivery_time = models.CharField(max_length=100)
-    
-    # Additional rate information
-    pickup_time = models.CharField(max_length=250, blank=True, null=True)
-    #transit_time = models.IntegerField(help_text="Transit time in days", null=True, blank=True)
-    
-    # Metadata
     is_active = models.BooleanField(default=True)
     expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

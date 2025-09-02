@@ -304,7 +304,7 @@ class CustomProductPagination(PageNumberPagination):
 
 class ProductListCreateView(generics.ListCreateAPIView):
     serializer_class = ProductSerializer
-    pagination_class = CustomProductPagination
+    #pagination_class = CustomProductPagination
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
@@ -943,8 +943,6 @@ class GetShippingRate(APIView):
 
                 if store_state != delivery_state:
                     print("Store is in another state")
-                    # Store is in another state → handle with Celery
-                    # print(store.id, user.id, delivery_details, outside_stores)
                     outside_stores.append(item)
                     result = handle_speedy_dispatch_task(
                         store_id=store.id, user_id=user.id,
@@ -970,16 +968,11 @@ class GetShippingRate(APIView):
                 summary = get_eta_distance_and_fare(origin, destination)
                 print(summary)
                 if summary and summary.get('fare_amount'):
-                    movbay_delivery_price.append(summary.get('fare_amount'))
-
-            if movbay_delivery_price:
-                movbay_delivery_cost = sum(movbay_delivery_price) + weight_cost + 300
-            else:
-                movbay_delivery_cost = 0
-                
-            #shiip_delivery_cost = sum(terminal_delivery_price)
-                
-            return Response({"movbay_delivery_cost": movbay_delivery_cost, "shiip_delivery_cost": terminal_delivery}, status=200)
+                    movbay_delivery_price.append({"store_id": store.id,
+                                                 "fare": summary.get('fare_amount') + 300 + weight_cost,
+                                                 "delivery_type": "movbay_express"
+                                                 })
+            return Response({"movbay_delivery": movbay_delivery_price, "shiip_delivery": terminal_delivery}, status=200)
 
         except Exception as e:
             logger.error(f"An Error Occurred: {str(e)}")
