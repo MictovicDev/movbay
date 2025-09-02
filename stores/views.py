@@ -949,7 +949,7 @@ class GetShippingRate(APIView):
                         delivery_details=delivery_details,
                         order_items_data=outside_stores)
                     unique_store_ids.add(store_id)
-                    terminal_delivery.append({store.id: result})
+                    terminal_delivery.append({"store_id": store.id, "delivery_type": "shiip_terminal", "details": result})
                     continue  # skip fare calculation
                 # Same state → calculate fare
                 unique_store_ids.add(store_id)
