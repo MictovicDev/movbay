@@ -25,6 +25,7 @@ from logistics.models import ShippingRate, Address, Parcel
 from stores.models import Product
 import logging
 from django.utils import timezone
+from logistics.utils import fetch_terminal_cities
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -223,7 +224,8 @@ def process_shipping_rates(rates_data: List[Dict[str, Any]]) -> List[Dict[str, A
         processed_rates.append({
             'carrier_name': rate.get('carrier_name'),
             'amount': rate.get('amount'),
-            'id': rate.get('id')
+            'id': rate.get('id'),
+            'carrier_logo': rate.get('carrier_logo'),
         })
     processed_rates.sort(key=lambda x: x['amount'])
     logger.debug("Processed shipping rates (amounts only): %s", processed_rates)
@@ -234,6 +236,10 @@ def get_best_rate(rates: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Select the best shipping rate (recommended or cheapest)."""
     recommended_rate = next((r for r in rates if r.get("recommended")), None)
     return recommended_rate or min(rates, key=lambda r: r["amount"])
+
+
+
+
 
 # @shared_task(bind=True, ignore_result=False)
 def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, delivery_details: Dict[str, Any] = None, order_items_data: List[Dict[str, Any]] = None, store_id: str = None) -> Dict[str, Any]:
@@ -271,6 +277,7 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, deli
 
             # Step 2: Create addresses
             # print(store_id)
+            
             pickup_result = dispatch.create_pickupaddress(store_id=store_id)
             
             if not pickup_result.get('status'):

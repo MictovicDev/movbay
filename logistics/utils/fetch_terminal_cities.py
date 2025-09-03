@@ -1,8 +1,14 @@
 import requests
 from rapidfuzz import process
+import os
 
-TERMINAL_API_KEY = 'pk_test_SFhYwskcaHSgo6Fya0xPhd6TPxQTWcF4'
-TERMINAL_API_SECRET = 'sk_test_83RXQZdXmRHa3uCWvQyv8TjJGaAkmdvf'
+
+TERMINAL_API_KEY = os.getenv('TERMINAL_API_KEY')
+TERMINAL_API_SECRET = os.getenv('TERMINAL_TEST_SECRET_KEY') 
+
+
+print(TERMINAL_API_SECRET)
+
 
 # Quick mapping of state → capital (can expand this dictionary as needed)
 STATE_CAPITALS = {
@@ -92,16 +98,16 @@ def map_city_fuzzy(store_city, terminal_cities, state_code=None, threshold=70):
     return None
 
 # Example usage
-if __name__ == "__main__":
-    # Fetch all cities in Rivers state (RI)
-    state_code = "RI"
-    cities = fetch_terminal_cities("NG", state_code)
+# if __name__ == "__main__":
+#     # Fetch all cities in Rivers state (RI)
+#     state_code = "ZA"
+#     cities = fetch_terminal_cities("NG", state_code)
 
-    # Suppose the store entered a city not recognized
-    store_city = "Ikwerre"  # Example of a misspelled or unrecognized city
-    matched = map_city_fuzzy(store_city, cities, state_code)
+#     # Suppose the store entered a city not recognized
+#     store_city = "Zaria"  # Example of a misspelled or unrecognized city
+#     matched = map_city_fuzzy(store_city, cities, state_code)
 
-    if matched:
-        print("Matched City:", matched)
-    else:
-        print(f"No close match found for '{store_city}' and no fallback capital available")
+#     if matched:
+#         print("Matched City:", matched)
+#     else:
+#         print(f"No close match found for '{store_city}' and no fallback capital available")

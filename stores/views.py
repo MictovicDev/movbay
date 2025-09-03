@@ -934,7 +934,7 @@ class GetShippingRate(APIView):
                     continue
 
                 store = get_object_or_404(Store, id=store_id)
-
+                print(store)
                 # Compare states safely
                 delivery_state = delivery_details.get(
                     'state', '').strip().lower()
