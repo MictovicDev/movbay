@@ -25,6 +25,14 @@ class WalletTransactions(models.Model):
         ('Item-Purchase', 'Item-Purchase'),
         ('Account-Funded', 'Account-Funded')
     )
+    
+    Status = (
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    )
     content = models.TextField()
     type = models.CharField(
         max_length=250, choices=Transaction_type, blank=True, null=True)
@@ -34,6 +42,7 @@ class WalletTransactions(models.Model):
     amount = models.PositiveBigIntegerField(blank=True, null=True)
     transaction_code = models.CharField(max_length=250, blank=True, null=True)
     transaction_id = models.CharField(max_length=250, blank=True, null=True)
+    status = models.CharField(max_length=250, choices=Status, blank=True, null=True)
     reference_code = models.CharField(max_length=250, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
 

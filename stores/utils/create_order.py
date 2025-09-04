@@ -29,8 +29,8 @@ def create_order_with_items(user, order_data, reference, method):
     print(amount)
     delivery_data = order_data['delivery']
     print(delivery_data)
-    delivery = Delivery.objects.create(user=user, **delivery_data)
-    print(delivery)
+    #delivery = Delivery.objects.create(user=user, **delivery_data)
+    #print(delivery)
     
     if method == 'wallet':
         sender_wallet = user.wallet
@@ -41,7 +41,7 @@ def create_order_with_items(user, order_data, reference, method):
             raise ValidationError({"wallet": "Insufficient Funds"})
         sender_wallet.balance -= amount
         sender_wallet.save()
-        WalletTransactions.objects.create(content='Payment For Purchase Made Succesfully', type='Item-Purchase', wallet=sender_wallet, amount=amount)
+        WalletTransactions.objects.create(content='Payment For Purchase Made Succesfully', type='Item-Purchase', wallet=sender_wallet, amount=amount, status='completed', reference_code=reference)
         platform_wallet.balance += amount
         platform_wallet.save()
 
@@ -54,14 +54,13 @@ def create_order_with_items(user, order_data, reference, method):
         status='completed',
         payment_method='wallet'
     )
-
-    
-
     response_data = []
     created_orders = {}  # store_id -> order_instance
     cart_items = order_data.get('items')
+    print(cart_items)
     for item in cart_items:
         store_id = item.get("store")
+        print(item)
         store = get_object_or_404(Store, id=store_id)
         device = Device.objects.get(user=store.owner)
         product = get_object_or_404(Product, id=item.get("product"))
@@ -69,7 +68,27 @@ def create_order_with_items(user, order_data, reference, method):
         item_amount = item.get("amount")
         print(quantity)
         print(item_amount)
+        print(item.get('delivery_method'))
         now = timezone.now()
+        print(item.get('shiiping_amount'))
+        delivery = Delivery.objects.create(
+            user=user,
+            delivery_method = item.get('delivery_method').capitalize(),
+            fullname=delivery_data.get('full_name'),
+            phone_number=delivery_data.get('phone_number'),
+            email=delivery_data.get('email'),
+            alternative_address=delivery_data.get('alternative_address'),
+            alternative_name=delivery_data.get('alternative_name'),
+            alternative_email=delivery_data.get('email'),
+            delivery_address=delivery_data.get('delivery_address'),
+            city=delivery_data.get('city'),
+            state=delivery_data.get('state'),
+            #country=delivery_data.get('country'),
+            postal_code=delivery_data.get('postal_code'),
+            courier_name=item.get('carrier_name'),
+            tracking_number=item.get('id'),
+            shiiping_amount=item.get('shiiping_amount'),
+        )
         order_instance, created = Order.objects.get_or_create(
             store=store,
             payment=payment,
@@ -118,6 +137,7 @@ def create_order_with_items(user, order_data, reference, method):
         data = "You have a new order on movbay, click to confirm it."
         send_push_notification.delay(
             token=device.token, title='New Order Available', notification_type="New Order", data=data)
+        print('Yeah')
         # get_shipping_rates.delay(order)
     
     

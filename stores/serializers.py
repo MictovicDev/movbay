@@ -357,6 +357,7 @@ class OrderTrackingSerializer(serializers.ModelSerializer):
 
 class DeliverySerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
+    delivery_method = serializers.CharField(read_only=True)
 
     class Meta:
         model = Delivery
@@ -389,6 +390,11 @@ class ItemSerializer(serializers.Serializer):
     product = serializers.IntegerField()
     amount = serializers.IntegerField()
     quantity = serializers.IntegerField()
+    carrier_name = serializers.CharField()
+    id = serializers.CharField()
+    shiiping_amount = serializers.FloatField()
+    delivery_method = serializers.CharField()   
+    
 
 
 class ShopSerializer(serializers.Serializer):

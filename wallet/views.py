@@ -133,6 +133,7 @@ class Withdrawal(APIView):
                         WalletTransactions.objects.create(
                             wallet=user.wallet,
                             type='Withdrawal',
+                            status='pending',
                             content=f"Withdrawal of {calculated_amount} to {payload['account_number']} at {payload['bank_code']}",
                             amount=calculated_amount,
                             transaction_code=transfer_response.get(
@@ -166,6 +167,7 @@ class Withdrawal(APIView):
                         WalletTransactions.objects.create(
                             wallet=user.wallet,
                             type='Withdrawal',
+                            status='pending',
                             content=f"Withdrawal of {calculated_amount} to {payload['account_number']} at {payload['bank_code']}",
                             amount=calculated_amount,
                             transaction_code=transfer_response.get(

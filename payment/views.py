@@ -215,6 +215,7 @@ class PurchasePaymentView(APIView):
             serializer = ShopSerializer(data=order_data)
             if serializer.is_valid():
                 validated_data = serializer.validated_data
+                print(validated_data)
                 transaction_data = {
                     "email": request.user.email,
                     "amount": int(Decimal(validated_data['total_amount'])) * 100,
