@@ -32,6 +32,7 @@ urlpatterns = [
     path('order/<str:pk>/mark-for-delivery',
          views.MarkForDeliveryView.as_view(), name='mark-as-delivered'),
     path('order/user/', views.GetUserOrder.as_view(), name='order-history'),
+#     path('order/past/', views.GetUserOrder.as_view(), name='order-history'),
     path('order/<str:pk>/track-order',
          views.TrackOrder.as_view(), name='order_tracking'),
     path('stores/<int:store_id>/reviews/',

@@ -135,13 +135,22 @@ class GetUserOrder(APIView):
 
     def get(self, request):
         try:
-            print(request.user.username)
-            orders = Order.objects.filter(buyer=request.user, completed=False)
+            # Get query parameter (defaults to False if not provided)
+            complete_param = request.query_params.get("complete", "false").lower()
+            if complete_param not in ["true", "false"]:
+                return Response({"error": "Invalid value for 'complete'. Use true or false."}, 
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            complete = complete_param == "true"
+
+            # Filter based on query parameter
+            orders = Order.objects.filter(buyer=request.user, completed=complete)
             serializer = OrderSerializer(orders, many=True)
-            return Response(serializer.data, status=200)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
         except Exception as e:
             print(e)
-            return Response(str(e), status=status.HTTP_204_NO_CONTENT)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
 class GetPastUserOrder(APIView):
