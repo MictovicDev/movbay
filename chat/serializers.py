@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import  Message, Conversation
 from users.serializers import UserSerializer, UserProfileSerializer
 from stores.serializers import ClientStoreSerializer, ProductSerializer, ProductImageSerializer
-from stores.models import Store, Product
+from stores.models import Store, Product, Status
 from django.contrib.auth import get_user_model
 
 
@@ -28,16 +28,23 @@ class MessageProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ['id','product_images', 'title', 'description', 'category']
+        
+        
+class MessageStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Status
+        fields = ['id', 'store', 'image', 'image_url', 'content']
     
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = MessageUserSerializer(read_only=True)
     receiver = serializers.SerializerMethodField()
     product = MessageProductSerializer(read_only=True)
+    status = MessageStatusSerializer(read_only=True)
     
     class Meta:
         model = Message
-        fields = ['chatbox', 'content', 'sender', 'receiver', 'delivered','product', 'created_at']
+        fields = ['chatbox', 'content', 'sender', 'receiver', 'delivered','product', 'created_at', 'status']
         
     def get_receiver(self, obj):
         if isinstance(obj.receiver, Store):

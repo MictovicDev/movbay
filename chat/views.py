@@ -61,22 +61,6 @@ class ProductMessageCreateView(APIView):
         
         serializer = MessageSerializer(message)
         
-        # Alternative Option 2: Create message data dict directly
-        # message_data = {
-        #     'id': str(uuid.uuid4()),  # Generate UUID for immediate use
-        #     'content': content,
-        #     'sender': {
-        #         'id': str(user.id),
-        #         'user_profile': user.user_profile.__dict__ if hasattr(user, 'user_profile') else {}
-        #     },
-        #     'receiver': {
-        #         'id': str(product.store.id),
-        #         'name': product.store.name,
-        #         # ... other store fields
-        #     },
-        #     'created_at': timestamp.isoformat(),
-        #     'delivered': False,
-        # }
         
         try:
             # 1. Send immediately via WebSocket
@@ -112,6 +96,81 @@ class ProductMessageCreateView(APIView):
                 )
             except Exception as e:
                 print(f"WebSocket error: {str(e)}")
+                
+                
+class StatusMessageCreateView(APIView):
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        data = request.data
+
+        status_id = data.get("status_id")
+        content = data.get("content")
+        if not content:
+            return Response({"error": "Content is required"}, status=400)
+
+        store_status = get_object_or_404(Status, id=status_id)
+        room_name = f"user_{str(user.id)[:5]}_{str(store_status.store.id)}"
+        
+        conversation, _ = Conversation.objects.get_or_create(
+            sender=user,
+            receiver=store_status.store,
+            room_name=room_name
+        )
+        room_name = conversation.room_name
+        timestamp = timezone.now()
+
+        # Option 1: Save the message first, then serialize
+        message = Message.objects.create(
+            content=content,
+            sender=user,
+            receiver=store_status.store,
+            status = store_status,
+            chatbox=conversation,
+            created_at=timestamp,
+        )
+        
+        serializer = MessageSerializer(message)
+        
+        
+        try:
+            # 1. Send immediately via WebSocket
+            self._send_ws_message_immediate(
+                room_name, serializer.data
+            )
+
+            # 2. Since we already saved above, no need for async task
+            # But if you want to keep async pattern, pass the saved message ID
+            # save_message_to_db.delay(message_id=str(message.id))
+
+            # 3. Return serialized message
+            return Response(serializer.data, status=201)
+
+        except Exception as e:
+            # If WebSocket fails, delete the saved message to maintain consistency
+            message.delete()
+            return Response({"error": str(e)}, status=400)
+
+    def _send_ws_message_immediate(self, room_name, message_data):
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            try:
+                # Ensure UUIDs are converted to strings before sending
+                json_safe_data = json.loads(json.dumps(message_data, cls=UUIDEncoder))
+                
+                async_to_sync(channel_layer.group_send)(
+                    room_name,
+                    {
+                        "type": "chat_message",
+                        "message": json_safe_data,
+                    },
+                )
+            except Exception as e:
+                print(f"WebSocket error: {str(e)}")
+
+
 
 class DirectMessageCreateView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
