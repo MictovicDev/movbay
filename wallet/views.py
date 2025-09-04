@@ -8,15 +8,16 @@ from stores.models import Store
 from .serializers import WalletSerializer, WalletTransactionSerializer
 from rest_framework.response import Response
 from rest_framework import status
-from  payment.factories import PaymentProviderFactory
+from payment.factories import PaymentProviderFactory
 from payment.utils.fees import calculate_withdrawal_fee
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
+from stores.permissions import IsAdminForPostOnly
+
 
 class WalletDetailView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
-    
 
     def get(self, request):
         try:
@@ -25,23 +26,64 @@ class WalletDetailView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-       
+
+
+class ApproveWithdrawal(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, IsAdminForPostOnly]
+
+    def post(self, request, pk):
         
+        provider_name = request.data.get('provider_name')
+        try:
+            provider = PaymentProviderFactory.create_provider(
+                provider_name=provider_name)
+        except Exception as e:
+            return Response({"error": f"Invalid provider: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            withdrawal = get_object_or_404(
+                WalletTransactions, pk=pk, type='Withdrawal', completed=False)
+            transaction_code = withdrawal.transaction_code
+            finalize_payload = {
+                "transfer_code": transaction_code,
+                "otp": request.data.get('otp')
+            }
+            transfer_response = provider.finalize_transfer(finalize_payload)
+            print(transfer_response)
+            if transfer_response.get('status') is True:
+                withdrawal.wallet.balance -= withdrawal.amount
+                withdrawal.wallet.total_withdrawal += withdrawal.amount
+                withdrawal.completed = True
+                withdrawal.wallet.save()
+            return Response(transfer_response, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": f"Finalization failed: {str(e)}"}, status=status.HTTP_502_BAD_GATEWAY)
+
+
+
+class DeclineWithdrawal(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        pass
+
+
 class Withdrawal(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request):
         try:
             user = request.user
             sent_amount = request.data.get('amount')
-            
+
             if not sent_amount:
                 return Response({"error": "Amount is required"}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
-                calculated_amount_data = calculate_withdrawal_fee(float(sent_amount))
+                calculated_amount_data = calculate_withdrawal_fee(
+                    float(sent_amount))
                 calculated_amount = calculated_amount_data.get('final_payout')
             except (ValueError, TypeError):
                 return Response({"error": "Invalid amount"}, status=status.HTTP_400_BAD_REQUEST)
@@ -62,7 +104,8 @@ class Withdrawal(APIView):
                 return Response({"error": "Account number and bank code are required"}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
-                provider = PaymentProviderFactory.create_provider(provider_name=provider_name)
+                provider = PaymentProviderFactory.create_provider(
+                    provider_name=provider_name)
             except Exception as e:
                 return Response({"error": f"Invalid provider: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -72,22 +115,38 @@ class Withdrawal(APIView):
                 return Response({"error": f"Verification failed: {str(e)}"}, status=status.HTTP_502_BAD_GATEWAY)
 
             if response.get('status') is True:
-                payload['account_name'] = response.get('data', {}).get('account_name')
+                payload['account_name'] = response.get(
+                    'data', {}).get('account_name')
                 payload['type'] = "nuban"
                 payload['currency'] = "NGN"
 
                 try:
                     if user.wallet.reference_code and user.wallet.recipient_code:
                         data = {
-                            "source": "balance",                 
-                            "amount": calculated_amount,                  
+                            "source": "balance",
+                            "amount": calculated_amount * 100,
                             "recipient": user.wallet.recipient_code,
                             "reason": "Wallet withdrawal"
                         }
                         transfer_response = provider.transfer(data)
+                        print(transfer_response)
+                        WalletTransactions.objects.create(
+                            wallet=user.wallet,
+                            type='Withdrawal',
+                            content=f"Withdrawal of {calculated_amount} to {payload['account_number']} at {payload['bank_code']}",
+                            amount=calculated_amount,
+                            transaction_code=transfer_response.get(
+                                'data', {}).get('transfer_code'),
+                            transaction_id=transfer_response.get(
+                                'data', {}).get('id'),
+                            reference_code=transfer_response.get(
+                                'data', {}).get('reference')
+                        )
                     else:
-                        recipient_response = provider.create_transfer_recipient(payload)
-                        recipient_code = recipient_response.get('data', {}).get('recipient_code')
+                        recipient_response = provider.create_transfer_recipient(
+                            payload)
+                        recipient_code = recipient_response.get(
+                            'data', {}).get('recipient_code')
                         if not recipient_code:
                             return Response({"error": "Failed to create transfer recipient"}, status=status.HTTP_502_BAD_GATEWAY)
 
@@ -97,31 +156,26 @@ class Withdrawal(APIView):
                         user.wallet.save()
 
                         data = {
-                            "source": "balance",                 
-                            "amount": calculated_amount,                  
+                            "source": "balance",
+                            "amount": calculated_amount * 100,
                             "recipient": recipient_code,
                             "reason": "Wallet withdrawal"
                         }
                         transfer_response = provider.transfer(data)
-
-                    # ✅ Handle Paystack OTP in test mode
-                    if isinstance(transfer_response, dict) and transfer_response.get("data", {}).get("status") == "otp":
-                        transfer_code = transfer_response.get("data", {}).get("transfer_code")
-                        # In test mode, Paystack accepts dummy OTP "123456"
-                        finalize_payload = {
-                            "transfer_code": transfer_code,
-                            "otp": "123456"
-                        }
-                        transfer_response = provider.finalize_transfer(finalize_payload)
-
-                    # ✅ Check for final success
-                    if hasattr(transfer_response, "status_code") and transfer_response.status_code == 200:
-                        return Response(transfer_response.json(), status=status.HTTP_200_OK)
-                    elif isinstance(transfer_response, dict) and transfer_response.get("status") is True:
-                        return Response(transfer_response, status=status.HTTP_200_OK)
-                    else:
-                        return Response({"error": "Transfer failed"}, status=status.HTTP_502_BAD_GATEWAY)
-
+                        print(transfer_response)
+                        WalletTransactions.objects.create(
+                            wallet=user.wallet,
+                            type='Withdrawal',
+                            content=f"Withdrawal of {calculated_amount} to {payload['account_number']} at {payload['bank_code']}",
+                            amount=calculated_amount,
+                            transaction_code=transfer_response.get(
+                                'data', {}).get('transfer_code'),
+                            transaction_id=transfer_response.get(
+                                'data', {}).get('id'),
+                            reference_code=transfer_response.get(
+                                'data', {}).get('reference')
+                        )
+                    return Response({"Message": "Withdrawal has been placed"}, status=status.HTTP_200_OK)
                 except Exception as e:
                     return Response({"error": f"Transfer error: {str(e)}"}, status=status.HTTP_502_BAD_GATEWAY)
 
@@ -131,25 +185,22 @@ class Withdrawal(APIView):
         except Exception as e:
             return Response({"error": f"An unexpected error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    
-    
+
 class TransactionHistory(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
-    
-    
+
     def get(self, request):
         user = request.user
         wallet = get_object_or_404(Wallet, owner=user)
-        wallet_transactions = WalletTransactions.objects.filter(wallet=wallet).order_by('-created_at')
+        wallet_transactions = WalletTransactions.objects.filter(
+            wallet=wallet).order_by('-created_at')
         paginator = PageNumberPagination()
         paginator.page_size = 5  # items per page
         result_page = paginator.paginate_queryset(wallet_transactions, request)
-        
+
         # Serialize the paginated data
         serializer = WalletTransactionSerializer(result_page, many=True)
-        
+
         # Return paginated response
         return paginator.get_paginated_response(serializer.data)
-        
-    

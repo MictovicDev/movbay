@@ -19,3 +19,16 @@ class IsStoreOwner(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         # obj here is expected to be an instance of Order
         return obj.store.owner == request.user
+    
+    
+class IsAdminForPostOnly(permissions.BasePermission):
+    """
+    Custom permission: Only admin users can make POST requests.
+    Other methods (GET, PUT, DELETE, etc.) are unrestricted.
+    """
+
+    def has_permission(self, request, view):
+        # Restrict POST to admin users
+        if request.method == "POST":
+            return request.user and request.user.is_authenticated and request.user.is_staff
+        return True

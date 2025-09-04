@@ -14,6 +14,7 @@ urlpatterns = [
     path('delivery-preference', views.DeliveryPreferenceAPIView.as_view(), name='delivery_view'),
     path('rider/', views.BaseRiderProfileView.as_view(), name='rider-view'),
     path('myrides/<str:pk>/', views.UserRides.as_view(), name='myrides'),
+    path('completed-rides/', views.CompletedRides.as_view(), name='completed-rides'),
     path('mark-as-picked/<str:pk>/', views.PickedView.as_view(), name='mark-as-picked')
     # shipping/urls.py
 ]

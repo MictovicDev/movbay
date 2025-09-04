@@ -289,7 +289,22 @@ class BankDetailAPIView(BaseRiderProfileView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+   
+   
+class CompletedRides(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
     
+    
+    def get(self, request):
+        try:
+            rides = Ride.objects.filter(user=request.user, completed=True).count()
+            return Response({"message": rides}, status=200)
+        except Ride.DoesNotExist:
+            return Response({"message": "No Completed Rides"}, status=204)
+        except Exception as e:
+            return Response({"message": str(e)}, status=500)
+        
     
 
 
