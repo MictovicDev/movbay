@@ -83,6 +83,14 @@ class PaystackProvider(PaymentProvider):
         except requests.RequestException as e:
             logger.error(f"Paystack verification error: {e}")
             return {'status': False, 'message': str(e)}
+        
+    def finalize_transfer(self, payload):
+        """
+        Finalize a transfer that requires OTP (test mode allows dummy OTP like 123456).
+        """
+        url = f"{self.base_url}/transfer/finalize_transfer"
+        response = requests.post(url, json=payload, headers=self._get_headers())
+        return response.json()
             
         
       

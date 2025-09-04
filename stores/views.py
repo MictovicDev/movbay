@@ -142,6 +142,22 @@ class GetUserOrder(APIView):
         except Exception as e:
             print(e)
             return Response(str(e), status=status.HTTP_204_NO_CONTENT)
+        
+
+class GetPastUserOrder(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated, IsStoreOwner]
+
+    def get(self, request):
+        try:
+            print(request.user.username)
+            orders = Order.objects.filter(buyer=request.user, completed=True)
+            serializer = OrderSerializer(orders, many=True)
+            return Response(serializer.data, status=200)
+        except Exception as e:
+            print(e)
+            return Response(str(e), status=status.HTTP_204_NO_CONTENT)
+    
 
 
 class MarkAsDelivered(APIView):

@@ -33,44 +33,104 @@ class Withdrawal(APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
-        user = request.user
-        sent_amount = response.get('data').get('amount')
-        calculated_amount = calculate_withdrawal_fee(sent_amount)
-        if request.user.wallet.balance < calculated_amount:
-            return Response({"error": "Insufficient balance"}, status=400)
-        provider_name = request.data.get('provider_name')
-        payload = {
-            'account_number' : request.data.get('account_no'),
-            'bank_code' : request.data.get('bank_code'),
-        }
-        provider = PaymentProviderFactory.create_provider(provider_name=provider_name)
-        response = provider.verify_account(payload)
-        if response.get('status') == True:
-            payload['account_name'] = response.get('data').get('account_name')
-            payload['type'] = "nuban"
-            payload['currency'] = "NGN"
-            if request.user.wallet.reference_code:
-                data = {
-                    "source": "balance",                 
-                    "amount": calculated_amount,                  
-                    "recipient": request.user.wallet.recipient_code,
-                    "reason": "Wallet withdrawal"
-                    }
-                provider.transfer(data)
+        try:
+            user = request.user
+            sent_amount = request.data.get('amount')
+            
+            if not sent_amount:
+                return Response({"error": "Amount is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                calculated_amount_data = calculate_withdrawal_fee(float(sent_amount))
+                calculated_amount = calculated_amount_data.get('final_payout')
+            except (ValueError, TypeError):
+                return Response({"error": "Invalid amount"}, status=status.HTTP_400_BAD_REQUEST)
+
+            if user.wallet.balance < calculated_amount:
+                return Response({"error": "Insufficient balance"}, status=status.HTTP_400_BAD_REQUEST)
+
+            provider_name = request.data.get('provider_name')
+            if not provider_name:
+                return Response({"error": "Provider name is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+            payload = {
+                'account_number': request.data.get('account_number'),
+                'bank_code': request.data.get('bank_code'),
+            }
+
+            if not payload['account_number'] or not payload['bank_code']:
+                return Response({"error": "Account number and bank code are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                provider = PaymentProviderFactory.create_provider(provider_name=provider_name)
+            except Exception as e:
+                return Response({"error": f"Invalid provider: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                response = provider.verify_account(payload)
+            except Exception as e:
+                return Response({"error": f"Verification failed: {str(e)}"}, status=status.HTTP_502_BAD_GATEWAY)
+
+            if response.get('status') is True:
+                payload['account_name'] = response.get('data', {}).get('account_name')
+                payload['type'] = "nuban"
+                payload['currency'] = "NGN"
+
+                try:
+                    if user.wallet.reference_code and user.wallet.recipient_code:
+                        data = {
+                            "source": "balance",                 
+                            "amount": calculated_amount,                  
+                            "recipient": user.wallet.recipient_code,
+                            "reason": "Wallet withdrawal"
+                        }
+                        transfer_response = provider.transfer(data)
+                    else:
+                        recipient_response = provider.create_transfer_recipient(payload)
+                        recipient_code = recipient_response.get('data', {}).get('recipient_code')
+                        if not recipient_code:
+                            return Response({"error": "Failed to create transfer recipient"}, status=status.HTTP_502_BAD_GATEWAY)
+
+                        # Save recipient_code to wallet for next time
+                        user.wallet.recipient_code = recipient_code
+                        user.wallet.reference_code = recipient_code
+                        user.wallet.save()
+
+                        data = {
+                            "source": "balance",                 
+                            "amount": calculated_amount,                  
+                            "recipient": recipient_code,
+                            "reason": "Wallet withdrawal"
+                        }
+                        transfer_response = provider.transfer(data)
+
+                    # ✅ Handle Paystack OTP in test mode
+                    if isinstance(transfer_response, dict) and transfer_response.get("data", {}).get("status") == "otp":
+                        transfer_code = transfer_response.get("data", {}).get("transfer_code")
+                        # In test mode, Paystack accepts dummy OTP "123456"
+                        finalize_payload = {
+                            "transfer_code": transfer_code,
+                            "otp": "123456"
+                        }
+                        transfer_response = provider.finalize_transfer(finalize_payload)
+
+                    # ✅ Check for final success
+                    if hasattr(transfer_response, "status_code") and transfer_response.status_code == 200:
+                        return Response(transfer_response.json(), status=status.HTTP_200_OK)
+                    elif isinstance(transfer_response, dict) and transfer_response.get("status") is True:
+                        return Response(transfer_response, status=status.HTTP_200_OK)
+                    else:
+                        return Response({"error": "Transfer failed"}, status=status.HTTP_502_BAD_GATEWAY)
+
+                except Exception as e:
+                    return Response({"error": f"Transfer error: {str(e)}"}, status=status.HTTP_502_BAD_GATEWAY)
+
             else:
-                response = provider.create_transfer_recipient(payload)
-                data = {
-                    "source": "balance",                 
-                    "amount": calculated_amount,                  
-                    "recipient": response.get('data').get('recipient_code'),
-                    "reason": "Wallet withdrawal"
-                    }
-                provider.transfer(data)
-            if response.status_code == '200':
-                 pass
-        else:
-            return Response({"message" "Invalid_Account Number"}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(response, status=status.HTTP_200_OK)
+                return Response({"error": "Invalid account number"}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({"error": f"An unexpected error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     
     
 class TransactionHistory(APIView):

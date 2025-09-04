@@ -11,6 +11,7 @@ class Wallet(models.Model):
         User, on_delete=models.CASCADE, related_name='wallet')
     total_deposit = models.PositiveBigIntegerField(default=0)
     total_withdrawal = models.PositiveBigIntegerField(default=0)
+    reference_code = models.CharField(max_length=250, blank=True, null=True)
     recipient_code = models.CharField(max_length=250, blank=True, null=True)
 
     def __str__(self):

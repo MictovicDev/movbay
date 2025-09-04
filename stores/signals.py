@@ -4,6 +4,7 @@ from .models import User, UserProfile, RiderProfile
 from django.contrib.auth import get_user_model
 from .models import Order, OrderTracking
 from .tasks import update_to_enroute
+from notification.models import Notification
 
 import logging
 
@@ -15,6 +16,25 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+
+
+@receiver(post_save, sender=Order)
+def notification(sender, instance, created, **kwargs):
+    """
+    This model helps to send notification to user when order is created.
+    """
+    if created:
+        try:
+            user = instance.user
+            print(f"Order created for user: {user.username}")
+            if created:
+                Notification.objects.create(user=instance.crea )
+            # Here you can add code to send notification to the user
+        except Exception as e:
+            # Log error in production (e.g., using logging module)
+            print(f"Error sending notification for {instance}: {str(e)}")
+
+
 @receiver(post_save, sender=Order)
 def update_order_tracking_model(sender, instance, created, **kwargs):
     """
@@ -22,8 +42,8 @@ def update_order_tracking_model(sender, instance, created, **kwargs):
     """
     if not created:
         try:
-            print(instance)
-            print(dir(instance))
+            # print(instance)
+            # print(dir(instance))
             status = instance.status
             print(status)
             order_tracking, _ = OrderTracking.objects.get_or_create(
