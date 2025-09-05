@@ -68,13 +68,15 @@ def create_order_with_items(user, order_data, reference, method):
         item_amount = item.get("amount")
         print(quantity)
         print(item_amount)
-        print(item.get('delivery_method'))
+        print(delivery_data.get('fullname'))
+        
         now = timezone.now()
         print(item.get('shiiping_amount'))
+
         delivery = Delivery.objects.create(
             user=user,
-            delivery_method = item.get('delivery_method').capitalize(),
-            fullname=delivery_data.get('full_name'),
+            delivery_method = item.get('delivery_method'),
+            fullname=delivery_data.get('fullname'),
             phone_number=delivery_data.get('phone_number'),
             email=delivery_data.get('email'),
             alternative_address=delivery_data.get('alternative_address'),
@@ -83,11 +85,13 @@ def create_order_with_items(user, order_data, reference, method):
             delivery_address=delivery_data.get('delivery_address'),
             city=delivery_data.get('city'),
             state=delivery_data.get('state'),
-            #country=delivery_data.get('country'),
             postal_code=delivery_data.get('postal_code'),
             courier_name=item.get('carrier_name'),
             tracking_number=item.get('id'),
             shiiping_amount=item.get('shiiping_amount'),
+            pickup_address_id = item.get("pickup_address_id"),
+            delivery_address_id = item.get("delivery_address_id"),
+            parcel_id = item.get('parcel_id'),
         )
         order_instance, created = Order.objects.get_or_create(
             store=store,

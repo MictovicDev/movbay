@@ -186,23 +186,23 @@ class SpeedyDispatch(LogisticsService):
 
         return self._make_request('GET', 'rates/shipment', params=params)
 
-    def create_shipment(self, rate_id: str, pickup_date: str,
-                        pickup_time: str = 'morning', delivery_note: str = '',
+    def create_shipment(self, address_from: str, address_to: str,
+                        parcel: str,
                         metadata: Dict = None) -> Dict:
         """Create shipment on Terminal Africa"""
         payload = {
-            'rate_id': rate_id,
-            'pickup_date': pickup_date,
-            'pickup_time': pickup_time,
-            'delivery_note': delivery_note,
+            'address_from': address_from,
+            'address_to': address_to,
+            'parcel': parcel,
+            'shipment_purpose': 'commercial',
             'metadata': metadata or {}
         }
 
-        return self._make_request('POST', '/shipments', payload)
+        return self._make_request('POST', 'shipments', payload)
 
     def track_shipment(self, shipment_id: str) -> Dict:
         """Track shipment on Terminal Africa"""
-        return self._make_request('GET', f'/shipments/{shipment_id}/track')
+        return self._make_request('GET', f'shipments/{shipment_id}/track')
 
     def cancel_shipment(self, shipment_id: str) -> Dict:
         """Cancel shipment on Terminal Africa"""

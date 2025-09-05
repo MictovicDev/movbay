@@ -277,10 +277,10 @@ class MarkForDeliveryView(APIView):
             order_tracking, _ = OrderTracking.objects.get_or_create(
                 order=order)
             delivery_method = order.delivery.delivery_method
+            print(delivery_method)
             if order.status != "processing":
                 return Response({"error": "Order has not been accepted yet."}, status=400)
-
-            if delivery_method == 'MovBay_Dispatch':
+            if delivery_method == 'movbay_dispatch':
                 try:
                     delivery_cordinates = get_coordinates_from_address(
                         order.delivery.delivery_address)
@@ -308,17 +308,21 @@ class MarkForDeliveryView(APIView):
                 except Exception as e:
                     return Response({"error": str(e)}, status=200)
 
-            elif delivery_method == 'Speedy_Dispatch':
-                print()
-                result = handle_speedy_dispatch(order)
-                return result
-                # payload = calculate_order_package(order_items)
-                # result = dispatch.create_pickupaddress(order=order)
-                # result6 = dispatch.create_deliveryaddress(order=order)
-                # result2 = dispatch.create_package(payload)
-                # result3 = dispatch.create_parcel(order, payload.get(
-                #     'weight'), result2.get('data')['packaging_id'])
-                # result4 = dispatch.get_shipping_rates(result.get('data')['address_id'], result6.get('data')['address_id'], result3.get('data')['parcel_id'])
+            elif delivery_method == 'speedy_dispatch':
+                print(True)
+                try:
+                    parcel_id = order.delivery.parcel_id
+                    pickup_address_id = order.delivery.pickup_address_id
+                    delivery_address_id = order.delivery.delivery_address_id
+                    dispatch = SpeedyDispatch()
+                    result = dispatch.create_shipment(address_from=pickup_address_id, 
+                                             address_to=delivery_address_id,
+                                             parcel=parcel_id)
+                    print(result)
+                    return Response({"message": "Shipment Created"}, status=200)
+                except Exception as e:
+                    return Response(str(e), status=400)
+                
 
 
 class CustomProductPagination(PageNumberPagination):

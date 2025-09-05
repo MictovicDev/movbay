@@ -70,16 +70,6 @@ def handle_speedy_dispatch(order: Order) -> Response:
         Response: REST framework response with shipping rates or error message.
     """
     try:
-        # Validate inputs
-        # if not product_id or not delivery_details or not order_items:
-        #     logger.error("Invalid input: product_id=%s, delivery_details=%s, order_items=%s",
-        #                  product_id, delivery_details, order_items)
-        #     return Response(
-        #         {"status": "error", "error": "Invalid input data"},
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
-
-        # product = get_object_or_404(Product, id=product_id)
         dispatch = SpeedyDispatch()
         order_items = order.order_items.all()
         # Step 1: Calculate package details
@@ -95,9 +85,6 @@ def handle_speedy_dispatch(order: Order) -> Response:
                 status=status.HTTP_400_BAD_REQUEST
             )
         pickup_address_id = pickup_result['data']['address_id']
-        # pickup_address = Address.objects.create(
-        #     user=user, terminal_address_id=pickup_address_id, store=product.store
-        # )
 
         delivery_result = dispatch.create_deliveryaddress(order)
         if not delivery_result.get('status'):
@@ -107,11 +94,6 @@ def handle_speedy_dispatch(order: Order) -> Response:
                 status=status.HTTP_400_BAD_REQUEST
             )
         delivery_address_id = delivery_result['data']['address_id']
-        # delivery_address = Address.objects.create(
-        #     user=user, terminal_address_id=delivery_address_id
-        # )
-
-        # Step 3: Create package
         package_result = dispatch.create_package(payload)
         if not package_result.get('status'):
             logger.error("Failed to create package for product %s", order.order_id)
@@ -120,7 +102,6 @@ def handle_speedy_dispatch(order: Order) -> Response:
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Step 4: Create parcel
         parcel_result = dispatch.create_parcel(
             order_items,
             payload.get('weight'),
@@ -132,10 +113,6 @@ def handle_speedy_dispatch(order: Order) -> Response:
                 {"status": "error", "error": "Failed to create parcel"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        # parcel = Parcel.objects.create(
-        #     user=user, terminal_parcel_id=parcel_result['data']['parcel_id']
-        # )
-        # logger.info("Parcel created: %s", parcel.terminal_parcel_id)
 
         # Step 5: Get shipping rates
         rates_result = dispatch.get_shipping_rates(

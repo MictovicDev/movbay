@@ -249,10 +249,11 @@ def generate_order_id(size=8, prefix="MOV"):
 
 class Delivery(models.Model):
     DELIVERY_CHOICES = [
-        ('MovBay_Dispatch', 'MovBay_Dispatch'),
-        ('Speedy_Dispatch', 'Speedy_Dispatch'),
-        ('Pickup_Hub', 'Pickup_Hub')
+    ('movbay_dispatch', 'MovBay_Dispatch'),
+    ('speedy_dispatch', 'Speedy_Dispatch'),
+    ('pickup_hub', 'Pickup_Hub'),
     ]
+
     
     #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     delivery_method = models.CharField(max_length=250, choices=DELIVERY_CHOICES)
@@ -278,7 +279,10 @@ class Delivery(models.Model):
     tracking_number = models.CharField(max_length=250, blank=True, null=True)
     shiiping_amount = models.PositiveBigIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    
+    delivery_address_id = models.CharField(max_length=250, blank=True, null=True)
+    pickup_address_id = models.CharField(max_length=250, blank=True, null=True)
+    parcel_id = models.CharField(max_length=250, blank=True, null=True)
+
     # def __str__(self):
     #     return f"{self.user} Delivery" 
 
