@@ -1136,7 +1136,7 @@ class GetShippingRate(APIView):
                 if summary and summary.get('fare_amount'):
                     movbay_delivery_price.append({"store_id": store.id,
                                                  "fare": summary.get('fare_amount') + 300 + weight_cost,
-                                                  "delivery_type": "movbay_express"
+                                                  "delivery_type": "movbay_dispatch"
                                                   })
             return Response({"movbay_delivery": movbay_delivery_price, "shiip_delivery": terminal_delivery}, status=200)
 
