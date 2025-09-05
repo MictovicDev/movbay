@@ -118,12 +118,13 @@ class PaystackWebhookView(View):
                 wallet.balance += int(amount)
                 wallet.total_deposit += int(amount)
                 wallet.save()
-                WalletTransactions.objects.create(content='Account Funded Succesfully', type='Account-Funded', wallet=wallet, amount=amount)
+                WalletTransactions.objects.create(
+                    content='Account Funded Succesfully', type='Account-Funded', wallet=wallet, amount=amount)
         elif payment_type == 'purchase-item':
             print(True)
             try:
                 response = create_order_with_items(user=user,
-                                                order_data=cart_items, reference=reference, method='paystack')
+                                                   order_data=cart_items, reference=reference, method='paystack')
                 print(response)
                 return Response({"Message Order Placed Successfully"}, status=status.HTTP_200_OK)
             except Exception as e:
@@ -195,16 +196,16 @@ class FundWallet(APIView):
             }
             provider = PaymentProviderFactory.create_provider(
                 provider_name=provider_name)
-            method = PaymentMethodFactory.create_method(method_name=payment_method)
+            method = PaymentMethodFactory.create_method(
+                method_name=payment_method)
             transaction_data = method.prepare_payment_data(transaction_data)
             result = provider.initialize_payment(transaction_data)
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"Messsage": f"Error Funding Wallet {e}"}, status=400)
-            
-        
 
 
+# Also update your view to add more debugging:
 class PurchasePaymentView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -212,10 +213,20 @@ class PurchasePaymentView(APIView):
     def post(self, request):
         try:
             order_data = request.data
+            print("=== VIEW ENTERED ===")
+            print(f"Request data: {request.data}")
+            print(f"Request method: {request.method}")
+            print(f"Original request data: {order_data}")
+
             serializer = ShopSerializer(data=order_data)
+            print(f"Serializer created")
+
             if serializer.is_valid():
+                print("Serializer is valid!")
                 validated_data = serializer.validated_data
                 print(validated_data)
+
+                # Rest of your existing code...
                 transaction_data = {
                     "email": request.user.email,
                     "amount": int(Decimal(validated_data['total_amount'])) * 100,
@@ -229,22 +240,19 @@ class PurchasePaymentView(APIView):
                 print(transaction_data.get('amount'))
                 payment_method = validated_data.get('payment_method')
                 delivery_method = validated_data.get('delivery_method')
-                
+
                 print(payment_method)
                 if payment_method == 'wallet':
                     try:
                         response = create_order_with_items(user=request.user,
-                                                        order_data=validated_data, reference=transaction_data.get('reference'), method='wallet')
-                        # print(response.data)
+                                                           order_data=validated_data, reference=transaction_data.get('reference'), method='wallet')
                         if response.status_code == 201:
                             return Response(response.data, status=status.HTTP_200_OK)
-                        # else:
-                        #     return Response({"Message": "Order not Created"}, status=status.HTTP_400_BAD_REQUEST)
                     except Exception as e:
                         print(str(e))
                         return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
-
                 else:
+                    # Your existing paystack code...
                     print(validated_data)
                     provider_name = validated_data['provider_name']
                     payment_method = validated_data['payment_method']
@@ -259,15 +267,15 @@ class PurchasePaymentView(APIView):
                     response = provider.initialize_payment(transaction_data)
                     print(response)
                     return Response(response, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=400)
+            else:
+                print("Serializer validation failed!")
+                print(f"Serializer errors: {serializer.errors}")
+                return Response(serializer.errors, status=400)
         except Exception as e:
-            logger.info('Error Purchasing Items')
-            return Response({"Messsage": f"Error Processing Purchase{e}"}, status=400)
-            
-          
-            
-     
-
+            print(f"Exception in view: {e}")
+            import traceback
+            traceback.print_exc()
+            return Response({"Message": f"Error Processing Purchase: {e}"}, status=400)
 
 
 class VerifyTransaction(APIView):

@@ -6,10 +6,11 @@ def get_nearby_drivers(store_lat, store_lng, radius_km=5):
     Returns a list of available drivers within `radius_km` from store.
     """
     try:
+        print(store_lat, store_lng)
         candidates = RiderProfile.objects.filter(online=True)
+        print(candidates)
         nearby = []
         for driver in candidates:
-            
             distance = haversine(store_lat, store_lng, driver.latitude, driver.longitude)
             if distance <= radius_km:
                 nearby.append({

@@ -5,7 +5,10 @@ from cloudinary.uploader import upload
 import cloudinary
 from .models import Store, Status
 from django.shortcuts import get_object_or_404
-import base64, io, logging, requests
+import base64
+import io
+import logging
+import requests
 from notification.utils.fcm_utils import send_expo_push_notification
 from .models import OrderTracking
 import cloudinary.uploader
@@ -14,7 +17,6 @@ from django.core.files.base import ContentFile
 import logging
 from users.utils.email import EmailManager
 from logistics.service import SpeedyDispatch
-# from .utils.create_speedy_dispatch import handle_speedy_dispatch
 from typing import List, Dict, Any
 from celery import shared_task
 from django.db import transaction
@@ -27,14 +29,13 @@ import logging
 from django.utils import timezone
 from logistics.utils import fetch_terminal_cities
 
+from users.utils.email import EmailManager
+
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-
-
 
 
 @shared_task
@@ -53,7 +54,6 @@ def upload_image(serialized_images, product_id):
             product_id=product_id,
             image_url=upload_result['secure_url'],
         )
-
 
 
 @shared_task
@@ -149,13 +149,43 @@ def send_order_complete_email_async(from_email, to_emails, subject, html_content
     sender = EmailManager(from_email, to_emails, subject, html_content)
     sender.send_email()
 
-
+@shared_task
+def send_receipt_email(pdf_content_base64, order_id, from_email, to_emails, subject, html_content):
+    """
+    Send email with PDF attachment using EmailManager
+    pdf_content_base64: base64 encoded PDF content
+    """
+    try:
+        # Decode the base64 PDF content
+        pdf_content = base64.b64decode(pdf_content_base64)
+        
+        # Create EmailManager instance with PDF attachment
+        email_manager = EmailManager(
+            from_email=from_email,
+            to_emails=to_emails,
+            subject=subject,
+            html_content=html_content,
+            pdf_attachment=pdf_content,  # Pass decoded bytes
+            pdf_filename=f'receipt_order_{order_id}.pdf'
+        )
+        
+        # Send the email
+        success = email_manager.send_email()
+        
+        if success:
+            return f"Receipt email sent successfully for order {order_id}"
+        else:
+            raise Exception("Email sending failed")
+        
+    except Exception as e:
+        print(f"Error sending receipt email for order {order_id}: {str(e)}")
+        raise
 
 
 @shared_task
 def upload_status_files(status_id, image):
     """
-    This
+    This 
     """
     try:
         try:
@@ -188,18 +218,16 @@ def send_push_notification(token, title, notification_type, data):
         send_expo_push_notification(token, title, notification_type, data)
     except Exception as e:
         print(f"Error {str(e)}")
-        
-        
+
 
 @shared_task
 def update_to_enroute(order_tracking_id):
-   try:
+    try:
         order_tracking = get_object_or_404(OrderTracking, id=order_tracking_id)
         order_tracking.rider_en_route = True
         order_tracking.save()
-   except OrderTracking.DoesNotExist:
+    except OrderTracking.DoesNotExist:
         logger.info("Error Tracking Order")
-
 
 
 @shared_task
@@ -209,13 +237,15 @@ def update_to_arriving(order_tracking):
         order_tracking.save()
     except OrderTracking.DoesNotExist:
         logger.info("Error Tracking Order")
-        
-        
+
+
 @shared_task
 def delete_expired_statuses():
-    Status.objects.filter(expires_at__lte=timezone.now()).delete()     
+    Status.objects.filter(expires_at__lte=timezone.now()).delete()
+
 
 logger = logging.getLogger(__name__)
+
 
 def process_shipping_rates(rates_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Process and return only carrier name + amount for shipping rates."""
@@ -228,7 +258,8 @@ def process_shipping_rates(rates_data: List[Dict[str, Any]]) -> List[Dict[str, A
             'carrier_logo': rate.get('carrier_logo'),
         })
     processed_rates.sort(key=lambda x: x['amount'])
-    logger.debug("Processed shipping rates (amounts only): %s", processed_rates)
+    logger.debug("Processed shipping rates (amounts only): %s",
+                 processed_rates)
     return processed_rates
 
 
@@ -238,11 +269,8 @@ def get_best_rate(rates: List[Dict[str, Any]]) -> Dict[str, Any]:
     return recommended_rate or min(rates, key=lambda r: r["amount"])
 
 
-
-
-
 # @shared_task(bind=True, ignore_result=False)
-def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, delivery_details: Dict[str, Any] = None, order_items_data: List[Dict[str, Any]] = None, store_id: str = None) -> Dict[str, Any]:
+def handle_speedy_dispatch_task(user_id: int = None, product_id: int = None, delivery_details: Dict[str, Any] = None, order_items_data: List[Dict[str, Any]] = None, store_id: str = None) -> Dict[str, Any]:
     """Handle Speedy dispatch logic as a background task.
 
     Args:
@@ -262,7 +290,7 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, deli
         user = get_object_or_404(User, id=user_id)
         store = get_object_or_404(Store, id=store_id)
         print(store)
-        #product = get_object_or_404(Product, id=product_id)
+        # product = get_object_or_404(Product, id=product_id)
         dispatch = SpeedyDispatch()
         logger.info(order_items_data)
         # Deserialize order_items if needed (depends on how order_items is passed)
@@ -273,15 +301,17 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, deli
             # Step 1: Calculate package details
             payload = calculate_order_package(order_items)
             # print(f"Me {payload}")
-            logger.info("Package payload calculated for product %s", product_id)
+            logger.info(
+                "Package payload calculated for product %s", product_id)
 
             # Step 2: Create addresses
             # print(store_id)
-            
+
             pickup_result = dispatch.create_pickupaddress(store_id=store_id)
-            
+
             if not pickup_result.get('status'):
-                logger.error("Failed to create pickup address for product %s", product_id)
+                logger.error(
+                    "Failed to create pickup address for product %s", product_id)
                 return {"status": "error", "error": "Failed to create pickup address"}
             pickup_address_id = pickup_result['data']['address_id']
             pickup_address = Address.objects.create(
@@ -290,7 +320,8 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, deli
 
             delivery_result = dispatch.create_deliveryaddress(delivery_details)
             if not delivery_result.get('status'):
-                logger.error("Failed to create delivery address for product %s", product_id)
+                logger.error(
+                    "Failed to create delivery address for product %s", product_id)
                 return {"status": "error", "error": "Failed to create delivery address"}
             delivery_address_id = delivery_result['data']['address_id']
             delivery_address = Address.objects.create(
@@ -300,7 +331,8 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, deli
             # Step 3: Create package
             package_result = dispatch.create_package(payload)
             if not package_result.get('status'):
-                logger.error("Failed to create package for product %s", product_id)
+                logger.error(
+                    "Failed to create package for product %s", product_id)
                 return {"status": "error", "error": "Failed to create package"}
 
             # Step 4: Create parcel
@@ -310,7 +342,8 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, deli
                 package_result['data']['packaging_id']
             )
             if not parcel_result.get('status'):
-                logger.error("Failed to create parcel for product %s", product_id)
+                logger.error(
+                    "Failed to create parcel for product %s", product_id)
                 return {"status": "error", "error": "Failed to create parcel"}
             parcel = Parcel.objects.create(
                 user=user, terminal_parcel_id=parcel_result['data']['parcel_id']
@@ -324,7 +357,8 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, deli
                 parcel_result['data']['parcel_id']
             )
             if not rates_result.get('status') or not rates_result.get('data'):
-                logger.error("No shipping rates available for product %s", product_id)
+                logger.error(
+                    "No shipping rates available for product %s", product_id)
                 return {"status": "error", "error": "No shipping rates available"}
 
             # Step 6: Process rates and select best option
@@ -347,8 +381,9 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, deli
             )
 
         # Return task result
-        
-        print(pickup_address_id, delivery_address_id, parcel_result['data']['parcel_id'])
+
+        print(pickup_address_id, delivery_address_id,
+              parcel_result['data']['parcel_id'])
         return {
             "status": "success",
             "message": "Shipping rates retrieved successfully",
@@ -361,10 +396,37 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int =None, deli
         }
 
     except (ValueError, KeyError, Product.DoesNotExist, User.DoesNotExist) as e:
-        logger.error("Speedy dispatch task error for product %s: %s", product_id, str(e), exc_info=True)
+        logger.error("Speedy dispatch task error for product %s: %s",
+                     product_id, str(e), exc_info=True)
         return {"status": "error", "error": f"Speedy dispatch failed: {str(e)}"}
     except Exception as e:
-        logger.critical("Unexpected error in speedy dispatch task for product %s: %s", product_id, str(e), exc_info=True)
+        logger.critical("Unexpected error in speedy dispatch task for product %s: %s",
+                        product_id, str(e), exc_info=True)
         return {"status": "error", "error": "An unexpected error occurred"}
-        
-    
+
+
+# @shared_task
+# def send_receipt_email(order_data, recipient_email):
+#     # Generate PDF
+#     pdf_content = generate_receipt_pdf(order_data)
+
+#     # Create email
+#     subject = f"Delivery Receipt - Order #{order_data['order_number']}"
+#     email = EmailManager(
+#         subject=subject,
+#         html_content=html_content,
+#         from_email='movbay.services@gmail.com',
+#         to=[recipient_email],
+#     )
+
+#     # Attach PDF
+#     email.attach(
+#         f"receipt_{order_data['order_number']}.pdf",
+#         pdf_content,
+#         'application/pdf'
+#     )
+
+#     # Send email
+#     email.send()
+
+#     return True

@@ -40,7 +40,7 @@ from .models import Review
 from users.models import RiderProfile
 from logistics.models import Ride
 from users.utils.otp import OTPManager
-from .tasks import send_order_complete_email_async, handle_speedy_dispatch_task
+from .tasks import send_order_complete_email_async, handle_speedy_dispatch_task, send_receipt_email
 from django.template.loader import render_to_string
 from .serializers import VerifyOrderSerializer, ClientStoreSerializer
 from django.shortcuts import get_object_or_404, get_list_or_404
@@ -56,6 +56,8 @@ from celery.result import AsyncResult
 import logging
 from wallet.models import Wallet
 from stores.utils.create_speedy_dispatch import handle_speedy_dispatch
+from stores.utils.render_to_string import render_to_new_string
+from stores.utils.generate_pdf import generate_receipt_pdf
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -136,22 +138,24 @@ class GetUserOrder(APIView):
     def get(self, request):
         try:
             # Get query parameter (defaults to False if not provided)
-            complete_param = request.query_params.get("complete", "false").lower()
+            complete_param = request.query_params.get(
+                "complete", "false").lower()
             if complete_param not in ["true", "false"]:
-                return Response({"error": "Invalid value for 'complete'. Use true or false."}, 
+                return Response({"error": "Invalid value for 'complete'. Use true or false."},
                                 status=status.HTTP_400_BAD_REQUEST)
 
             complete = complete_param == "true"
 
             # Filter based on query parameter
-            orders = Order.objects.filter(buyer=request.user, completed=complete)
+            orders = Order.objects.filter(
+                buyer=request.user, completed=complete)
             serializer = OrderSerializer(orders, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
             print(e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
 
 class GetPastUserOrder(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -166,7 +170,6 @@ class GetPastUserOrder(APIView):
         except Exception as e:
             print(e)
             return Response(str(e), status=status.HTTP_204_NO_CONTENT)
-    
 
 
 class MarkAsDelivered(APIView):
@@ -250,79 +253,212 @@ class TrackOrder(APIView):
             logger.info("Error Occured During Product Tracking")
             return Response({"Message": "Error Tracking Order"}, status=400)
 
-
-class MarkForDeliveryView(APIView):
-    def post(self, request, pk):
-
-        def notify_drivers(drivers, summary):
+def notify_drivers(drivers, summary):
+            """Send push notifications to available drivers"""
+            errors = []
             try:
                 for driver in drivers:
-                    device_token = driver.get('driver').device.all()[0].token
-                    logger.info(device_token)
-                    if device_token:
-                        try:
+                    try:
+                        devices = driver.get('driver').device.all()
+                        if devices:
+                            device_token = devices[0].token
+                            logger.info(
+                                f"Sending notification to: {device_token}")
                             send_push_notification.delay(
                                 token=device_token,
                                 title='New Ride Alert on movbay',
                                 notification_type="Ride Alert",
-                                data='You have a new ride suggestion on Movbay, check it out and start earning')
-                        except Exception as e:
-                            print(str(e))
-                            return Response(str(e), status=400)
-            except Exception as e:
-                return Response({"message": f"Error occured -- {str(e)}"}, status=400)
+                                data='You have a new ride suggestion on Movbay, check it out and start earning'
+                            )
+                    except Exception as e:
+                        errors.append(
+                            f"Failed to notify driver {driver.get('driver', {}).get('id', 'unknown')}: {str(e)}")
+                        logger.error(f"Notification error: {str(e)}")
 
-        with transaction.atomic():
+                if errors:
+                    logger.warning(f"Some notifications failed: {errors}")
+            except Exception as e:
+                logger.error(f"Critical error in notify_drivers: {str(e)}")
+                raise
+
+class MarkForDeliveryView(APIView):
+    def post(self, request, pk):
+        try:
             order = get_object_or_404(Order, order_id=pk)
-            order_tracking, _ = OrderTracking.objects.get_or_create(
-                order=order)
-            delivery_method = order.delivery.delivery_method
-            print(delivery_method)
+
             if order.status != "processing":
                 return Response({"error": "Order has not been accepted yet."}, status=400)
-            if delivery_method == 'movbay_dispatch':
-                try:
-                    delivery_cordinates = get_coordinates_from_address(
-                        order.delivery.delivery_address)
-                    if delivery_cordinates:
-                        destination = (delivery_cordinates.get('latitude'),
-                                       delivery_cordinates.get('longitude'))
-                    # print(destination)
-                    store_cordinates = get_coordinates_from_address(
-                        order.store.address1)
-                    origin = (store_cordinates.get('latitude'),
-                              store_cordinates.get('longitude'))
-                    # print(origin)
-                    summary = get_eta_distance_and_fare(origin, destination)
-                    # print(summary)
-                    riders = get_nearby_drivers(store_cordinates.get(
-                        'latitude'), store_cordinates.get('longitude'), radius_km=5)
-                    # print(riders)
-                    order.assigned = True
-                    order.save()
-                    transaction.on_commit(
-                        lambda: notify_drivers(riders, summary))
-                    ride = Ride.objects.create(
-                        latitude=origin[0], longitude=origin[1], order=order, **summary)
-                    return Response({"message": "Request Sent Waiting for Riders to accept"}, status=200)
-                except Exception as e:
-                    return Response({"error": str(e)}, status=200)
 
-            elif delivery_method == 'speedy_dispatch':
-                print(True)
-                try:
-                    parcel_id = order.delivery.parcel_id
-                    pickup_address_id = order.delivery.pickup_address_id
-                    delivery_address_id = order.delivery.delivery_address_id
-                    dispatch = SpeedyDispatch()
-                    result = dispatch.create_shipment(address_from=pickup_address_id, 
-                                             address_to=delivery_address_id,
-                                             parcel=parcel_id)
-                    print(result)
-                    return Response({"message": "Shipment Created"}, status=200)
-                except Exception as e:
-                    return Response(str(e), status=400)
-                
+            deliveries = order.delivery.all()
+            if not deliveries:
+                return Response({"error": "No deliveries found for this order."}, status=400)
+
+            processing_results = []
+            with transaction.atomic():
+                order_tracking, _ = OrderTracking.objects.get_or_create(
+                    order=order)
+                for delivery in deliveries:
+                    try:
+                        if delivery.delivery_method == 'movbay_dispatch':
+                            result = self._process_movbay_dispatch(
+                                delivery, order)
+                            #processing_results.append(result)
+                            if result.get('success'):
+                                pdf_content = generate_receipt_pdf(order_data=order, delivery=delivery)
+                                html_content = render_to_new_string(order, delivery)
+                                send_receipt_email.delay(
+                                    pdf_content_base64=pdf_content,
+                                    order_id = order.order_id,
+                                    from_email='noreply@movbay.com',
+                                    to_emails=[order.store.owner.email, order.buyer.email],
+                                    subject='Product Receipt',
+                                    html_content=html_content
+                                )
+                                processing_results.append({
+                                'success': True,
+                                'delivery_id': delivery.id,
+                                })
+                            else:
+                                processing_results.append({
+                                    'success': False,
+                                    'delivery_id': delivery.id,})
+                                
+                        elif delivery.delivery_method == 'speedy_dispatch':
+                            #print(True)
+                            result = self._process_speedy_dispatch(delivery)
+                            html_content = render_to_new_string(order, delivery)
+                            if result.get('success'):
+                                pdf_content = generate_receipt_pdf(order_data=order, delivery=delivery)
+                                html_content = render_to_new_string(order, delivery)
+                                send_receipt_email.delay(
+                                    pdf_content_base64=pdf_content,
+                                    order_id = order.order_id,
+                                    from_email='noreply@movbay.com',
+                                    to_emails=[order.store.owner.email, order.buyer.email],
+                                    subject='Product Receipt',
+                                    html_content=html_content
+                                )
+                                processing_results.append({
+                                'success': True,
+                                'delivery_id': delivery.id,
+                                # 'error': f'Unknown delivery method: {delivery.delivery_method}'
+                                })
+                                #movbay_processed = True
+                            else:
+                                processing_results.append({
+                                    'success': False,
+                                    'delivery_id': delivery.id,})
+                        else:
+                            processing_results.append({
+                                'success': False,
+                                'delivery_id': delivery.id,
+                                'error': f'Unknown delivery method: {delivery.delivery_method}'
+                            })
+
+                    except Exception as e:
+                        return Response({"error": str(e)}, status=500)
+            return Response(processing_results, status=200)
+
+        except Exception as e:
+            logger.error(f"Critical error in MarkForDeliveryView: {str(e)}")
+            return Response({"error": "An unexpected error occurred"}, status=500)
+
+    def _process_movbay_dispatch(self, delivery, order):
+        """Process movbay dispatch delivery"""
+        try:
+            # Get coordinates
+            delivery_coords = get_coordinates_from_address(
+                delivery.delivery_address)
+            if not delivery_coords:
+                raise ValueError("Could not get delivery coordinates")
+
+            store_coords = get_coordinates_from_address(order.store.address1)
+            if not store_coords:
+                raise ValueError("Could not get store coordinates")
+
+            destination = (delivery_coords.get('latitude'),
+                           delivery_coords.get('longitude'))
+            origin = (store_coords.get('latitude'),
+                      store_coords.get('longitude'))
+
+            # Get route summary
+            summary = get_eta_distance_and_fare(origin, destination)
+
+            # Find nearby drivers
+            riders = get_nearby_drivers(
+                store_coords.get('latitude'),
+                store_coords.get('longitude'),
+                radius_km=5
+            )
+
+            if not riders:
+                raise ValueError("No drivers available in the area")
+
+            # Update order status
+            order.assigned = True
+            order.save()
+
+            # Create ride
+            ride = Ride.objects.create(
+                latitude=origin[0],
+                longitude=origin[1],
+                order=order,
+                **summary
+            )
+
+            # Notify drivers (using transaction.on_commit to ensure it runs after transaction)
+            transaction.on_commit(lambda: notify_drivers(riders, summary))
+
+            return {
+                'success': True,
+                'delivery_id': delivery.id,
+                'ride_id': ride.id,
+                'drivers_notified': len(riders)
+            }
+
+        except Exception as e:
+            logger.error(f"Movbay dispatch processing failed: {str(e)}")
+            return {
+                'success': False,
+                'delivery_id': delivery.id,
+                'error': str(e)
+            }
+
+    def _process_speedy_dispatch(self, delivery):
+        """Process speedy dispatch delivery"""
+        try:
+            # Validate required fields
+            required_fields = ['parcel_id',
+                               'pickup_address_id', 'delivery_address_id']
+            missing_fields = [
+                field for field in required_fields if not getattr(delivery, field, None)]
+
+            if missing_fields:
+                raise ValueError(
+                    f"Missing required fields: {', '.join(missing_fields)}")
+
+            # Create shipment
+            dispatch = SpeedyDispatch()
+            result = dispatch.create_shipment(
+                address_from=delivery.pickup_address_id,
+                address_to=delivery.delivery_address_id,
+                parcel=delivery.parcel_id
+            )
+            print(result)
+
+            return {
+                'success': True,
+                'delivery_id': delivery.id,
+                'shipment_result': result
+            }
+
+        except Exception as e:
+            logger.error(f"Speedy dispatch processing failed: {str(e)}")
+            return {
+                'success': False,
+                'delivery_id': delivery.id,
+                'error': str(e)
+            }
 
 
 class CustomProductPagination(PageNumberPagination):
@@ -333,7 +469,7 @@ class CustomProductPagination(PageNumberPagination):
 
 class ProductListCreateView(generics.ListCreateAPIView):
     serializer_class = ProductSerializer
-    #pagination_class = CustomProductPagination
+    # pagination_class = CustomProductPagination
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
@@ -978,7 +1114,8 @@ class GetShippingRate(APIView):
                         delivery_details=delivery_details,
                         order_items_data=outside_stores)
                     unique_store_ids.add(store_id)
-                    terminal_delivery.append({"store_id": store.id, "delivery_type": "shiip_terminal", "details": result})
+                    terminal_delivery.append(
+                        {"store_id": store.id, "delivery_type": "shiip_terminal", "details": result})
                     continue  # skip fare calculation
                 # Same state → calculate fare
                 unique_store_ids.add(store_id)
@@ -999,8 +1136,8 @@ class GetShippingRate(APIView):
                 if summary and summary.get('fare_amount'):
                     movbay_delivery_price.append({"store_id": store.id,
                                                  "fare": summary.get('fare_amount') + 300 + weight_cost,
-                                                 "delivery_type": "movbay_express"
-                                                 })
+                                                  "delivery_type": "movbay_express"
+                                                  })
             return Response({"movbay_delivery": movbay_delivery_price, "shiip_delivery": terminal_delivery}, status=200)
 
         except Exception as e:

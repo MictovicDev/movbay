@@ -392,14 +392,45 @@ class ItemSerializer(serializers.Serializer):
     product = serializers.IntegerField()
     amount = serializers.IntegerField()
     quantity = serializers.IntegerField()
-    carrier_name = serializers.CharField()
-    id = serializers.CharField()
-    shiiping_amount = serializers.FloatField()
-    delivery_method = serializers.CharField() 
-    pickup_address_id = serializers.CharField()
-    delivery_address_id = serializers.CharField()
-    parcel_id = serializers.CharField()
-    
+    carrier_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    pickup_address_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    delivery_address_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    parcel_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    shiiping_amount = serializers.FloatField(required=False, allow_null=True)
+    delivery_method = serializers.CharField()
+
+    def to_internal_value(self, data):
+        print(f"Raw item data: {data}")
+        try:
+            result = super().to_internal_value(data)
+            print(f"Processed item data: {result}")
+            return result
+        except Exception as e:
+            print(f"Error in to_internal_value: {e}")
+            raise
+
+    def validate(self, data):
+        print(f"Validating item with delivery_method: {data.get('delivery_method')}")
+        delivery_method = data.get('delivery_method')
+        
+        # Only require these fields for methods that are NOT movbay_delivery OR movbay_dispatch
+        if delivery_method and delivery_method not in ['movbay_delivery', 'movbay_dispatch']:
+            required_fields = ['carrier_name', 'id', 'pickup_address_id', 'delivery_address_id', 'parcel_id']
+            errors = {}
+            
+            for field in required_fields:
+                field_value = data.get(field)
+                print(f"Checking field {field}: {field_value}")
+                if not field_value or field_value == '':
+                    errors[field] = [f"This field is required for delivery method '{delivery_method}'."]
+            
+            if errors:
+                print(f"Validation errors: {errors}")
+                raise serializers.ValidationError(errors)
+        
+        print("Item validation passed")
+        return data
 
 
 class ShopSerializer(serializers.Serializer):
@@ -409,7 +440,16 @@ class ShopSerializer(serializers.Serializer):
     provider_name = serializers.CharField()
     total_amount = serializers.IntegerField()
 
-
+    def to_internal_value(self, data):
+        print(f"Raw shop data: {data}")
+        try:
+            result = super().to_internal_value(data)
+            print(f"Processed shop data: {result}")
+            return result
+        except Exception as e:
+            print(f"Error in ShopSerializer.to_internal_value: {e}")
+            raise
+  
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)
     store = serializers.PrimaryKeyRelatedField(read_only=True)
