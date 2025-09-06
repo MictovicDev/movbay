@@ -93,6 +93,12 @@ class ShippingRateSerializer(serializers.ModelSerializer):
         model = ShippingRate
         fields = '__all__'
         read_only_fields = ['id', 'terminal_rate_id', 'created_at']
+        
+        
+
+class TotalFareSerializer(serializers.Serializer):
+    total_fare = serializers.DecimalField(max_digits=10, decimal_places=2)
+
 
 class ShipmentTrackingSerializer(serializers.ModelSerializer):
     class Meta:

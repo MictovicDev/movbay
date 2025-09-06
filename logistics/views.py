@@ -23,8 +23,10 @@ from .models import RiderProfile, DeliveryPreference, BankDetail, KYC
 from .serializers import (
     DeliveryPreferenceSerializer,
     BankDetailSerializer,
-    KYCSerializer
+    KYCSerializer,
+    TotalFareSerializer
 )
+from django.db import models
 from .tasks import upload_rider_files
 import logging
 
@@ -305,8 +307,33 @@ class CompletedRides(APIView):
         except Exception as e:
             return Response({"message": str(e)}, status=500)
         
-    
 
+
+class TotalEarningsView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            total_earnings = Ride.objects.filter(rider=request.user, completed=True).aggregate(total=models.Sum('fare_amount'))['total'] or 0
+            serializer = TotalFareSerializer({'total_fare': total_earnings})
+            return Response(serializer.data, status=200)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
+
+class VerifiedRiderView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        try:
+            rider = RiderProfile.objects.get(user=request.user)
+            return Response({"verified": rider.verified}, status=200)
+        except RiderProfile.DoesNotExist:
+            return Response({"message": "No Rider Matching Profile"}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
 
 
 class KYCDetailAPIView(BaseRiderProfileView):

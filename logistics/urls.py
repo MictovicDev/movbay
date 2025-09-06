@@ -15,6 +15,8 @@ urlpatterns = [
     path('rider/', views.BaseRiderProfileView.as_view(), name='rider-view'),
     path('myrides/<str:pk>/', views.UserRides.as_view(), name='myrides'),
     path('completed-rides/', views.CompletedRides.as_view(), name='completed-rides'),
-    path('mark-as-picked/<str:pk>/', views.PickedView.as_view(), name='mark-as-picked')
+    path('mark-as-picked/<str:pk>/', views.PickedView.as_view(), name='mark-as-picked'),
+    path('total-earnings/', views.TotalEarningsView.as_view(), name='total-earnings'),
+    path('check-rider-verified/', views.VerifiedRiderView.as_view(), name='check-rider-verified'),
     # shipping/urls.py
 ]

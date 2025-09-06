@@ -64,3 +64,4 @@ whitenoise==6.9.0
 drf-yasg
 geopy
 rapidfuzz
+fpdf
