@@ -316,6 +316,7 @@ class TotalEarningsView(APIView):
     def get(self, request):
         try:
             total_earnings = Ride.objects.filter(rider=request.user, completed=True).aggregate(total=models.Sum('fare_amount'))['total'] or 0
+            print(total_earnings)
             serializer = TotalFareSerializer({'total_fare': total_earnings})
             return Response(serializer.data, status=200)
         except Exception as e:

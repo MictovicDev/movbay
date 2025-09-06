@@ -374,7 +374,7 @@ class RideSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     order_items = OrderItemSerializer(read_only=True, many=True)
     status = serializers.CharField(read_only=True)
-    delivery = DeliverySerializer()
+    delivery = DeliverySerializer(many=True, read_only=True)
     buyer = UserSerializer(read_only=True)
     store = StoreSerializer(read_only=True)
     ride = RideSerializer(read_only=True, many=True)

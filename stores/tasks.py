@@ -149,37 +149,94 @@ def send_order_complete_email_async(from_email, to_emails, subject, html_content
     sender = EmailManager(from_email, to_emails, subject, html_content)
     sender.send_email()
 
-@shared_task
-def send_receipt_email(pdf_content_base64, order_id, from_email, to_emails, subject, html_content):
+# @shared_task
+# def send_receipt_email(pdf_content_base64, order_id, from_email, to_emails, subject, html_content):
+#     """
+#     Send email with PDF attachment using EmailManager
+#     pdf_content_base64: base64 encoded PDF content
+#     """
+#     try:
+#         # Decode the base64 PDF content
+#         pdf_content = base64.b64decode(pdf_content_base64)
+
+#         # Create EmailManager instance with PDF attachment
+#         email_manager = EmailManager(
+#             from_email=from_email,
+#             to_emails=to_emails,
+#             subject=subject,
+#             html_content=html_content,
+#             pdf_attachment=pdf_content,  # Pass decoded bytes
+#             pdf_filename=f'receipt_order_{order_id}.pdf'
+#         )
+
+#         # Send the email
+#         success = email_manager.send_email()
+
+#         if success:
+#             return f"Receipt email sent successfully for order {order_id}"
+#         else:
+#             raise Exception("Email sending failed")
+
+#     except Exception as e:
+#         print(f"Error sending receipt email for order {order_id}: {str(e)}")
+#         raise
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 3, 'countdown': 60})
+def send_receipt_email(self, pdf_content_base64, order_id, from_email, to_emails, subject, html_content):
     """
-    Send email with PDF attachment using EmailManager
-    pdf_content_base64: base64 encoded PDF content
+    Enhanced Celery task with retry logic and detailed logging
     """
     try:
-        # Decode the base64 PDF content
-        pdf_content = base64.b64decode(pdf_content_base64)
-        
-        # Create EmailManager instance with PDF attachment
+        logger.info(f"Starting email task for order {order_id}")
+
+        # Validate inputs
+        if not pdf_content_base64:
+            raise ValueError("No PDF content provided")
+
+        if not to_emails:
+            raise ValueError("No recipient emails provided")
+
+        # Check PDF content size (Celery message size limits)
+        pdf_size = len(pdf_content_base64)
+        logger.info(f"PDF content size: {pdf_size} characters")
+
+        if pdf_size > 10_000_000:  # ~10MB limit
+            raise ValueError("PDF content too large for Celery message")
+
+        # Decode PDF
+        try:
+            pdf_content = base64.b64decode(pdf_content_base64)
+            logger.info(
+                f"PDF decoded successfully, size: {len(pdf_content)} bytes")
+        except Exception as e:
+            logger.error(f"PDF decoding failed: {e}")
+            raise
+
+        # Import and use your EmailManager
+        from users.utils.email import EmailManager  # Update import path
+
         email_manager = EmailManager(
             from_email=from_email,
             to_emails=to_emails,
             subject=subject,
             html_content=html_content,
-            pdf_attachment=pdf_content,  # Pass decoded bytes
+            pdf_attachment=pdf_content,
             pdf_filename=f'receipt_order_{order_id}.pdf'
         )
-        
-        # Send the email
+
         success = email_manager.send_email()
-        
+
         if success:
-            return f"Receipt email sent successfully for order {order_id}"
+            logger.info(f"Email sent successfully for order {order_id}")
+            return f"Email sent successfully for order {order_id}"
         else:
-            raise Exception("Email sending failed")
-        
+            raise Exception("EmailManager returned False")
+
     except Exception as e:
-        print(f"Error sending receipt email for order {order_id}: {str(e)}")
-        raise
+        logger.error(f"Email task failed for order {order_id}: {str(e)}")
+        # Re-raise to trigger Celery retry
+        raise self.retry(exc=e)
 
 
 @shared_task

@@ -358,7 +358,7 @@ class MarkForDeliveryView(APIView):
                     except Exception as e:
                         return Response({"error": str(e)}, status=500)
             return Response(processing_results, status=200)
-
+        
         except Exception as e:
             logger.error(f"Critical error in MarkForDeliveryView: {str(e)}")
             return Response({"error": "An unexpected error occurred"}, status=500)
