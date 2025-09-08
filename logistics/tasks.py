@@ -42,7 +42,7 @@ def upload_rider_files(self, kyc_id, file_data):
             field_map = {
                 'nin': 'nin_url',
                 'proof_of_address': 'poa_url',
-                'drivers_license': 'drivers_licence_url'
+                'drivers_licence': 'drivers_licence_url'
             }
 
             if file_type not in field_map:
