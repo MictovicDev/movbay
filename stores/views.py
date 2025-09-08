@@ -175,6 +175,7 @@ class GetPastUserOrder(APIView):
 class MarkAsDelivered(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+    
 
     def post(self, request, pk):
         # if request.user.user_type=='Rider':
@@ -391,9 +392,7 @@ class MarkForDeliveryView(APIView):
                 radius_km=5
             )
 
-            if not riders:
-                raise ValueError("No drivers available in the area")
-
+            
             # Update order status
             order.assigned = True
             order.save()
@@ -912,6 +911,7 @@ class VerifyOrderView(APIView):
     def post(self, request, pk):
         serializer = VerifyOrderSerializer(data={'otp': request.data['otp']})
         if serializer.is_valid():
+            print("Serializer is Valid" )
             try:
                 order = get_object_or_404(Order, order_id=pk)
                 if order.completed == True:
@@ -920,10 +920,11 @@ class VerifyOrderView(APIView):
                 ride = order.ride.all()
                 order_secret = order.otp_secret
                 if request.user.user_type == 'User' and request.user == order.store.owner:
+                    print("Store Owner is trying to complete the order")
                     if ride:
                         if not ride[0].completed:
                             return Response({"message": "Ride is Ongoing"})
-                    if OTPManager(order_secret).verify_otp(otp):
+                    # if OTPManager(order_secret).verify_otp(otp):
                         order.completed = True
                         order_tracking = get_object_or_404(
                             OrderTracking, order=order)
@@ -944,6 +945,7 @@ class VerifyOrderView(APIView):
                     else:
                         return Response({'message': 'Invalid or expired OTP'}, status=400)
                 elif request.user.user_type == 'Rider' and request.user == ride[0].rider:
+                    logger.info("Rider is trying to complete the ride")
                     if OTPManager(order_secret).verify_otp(otp):
                         try:
                             ride = get_object_or_404(Ride, order=order)

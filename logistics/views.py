@@ -300,7 +300,7 @@ class CompletedRides(APIView):
     
     def get(self, request):
         try:
-            rides = Ride.objects.filter(user=request.user, completed=True).count()
+            rides = Ride.objects.filter(rider=request.user, completed=True).count()
             return Response({"message": rides}, status=200)
         except Ride.DoesNotExist:
             return Response({"message": "No Completed Rides"}, status=204)
@@ -334,6 +334,7 @@ class VerifiedRiderView(APIView):
         except RiderProfile.DoesNotExist:
             return Response({"message": "No Rider Matching Profile"}, status=404)
         except Exception as e:
+            print(e)
             return Response({"error": str(e)}, status=500)
 
 
@@ -375,7 +376,7 @@ class KYCDetailAPIView(BaseRiderProfileView):
 
         # Process file uploads
         file_data = {}
-        for field in ['nin', 'proof_of_address', 'drivers_license']:
+        for field in ['nin', 'proof_of_address', 'drivers_licence']:
             if field in request.FILES:
                 try:
                     file_data[field] = request.FILES[field].read()

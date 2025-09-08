@@ -146,6 +146,7 @@ class RiderProfile(models.Model):
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
     online = models.BooleanField(default=False)
+    verified= models.BooleanField(default=False)
     
     
 

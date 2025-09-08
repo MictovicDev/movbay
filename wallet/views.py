@@ -54,7 +54,8 @@ class ApproveWithdrawal(APIView):
                 withdrawal.wallet.balance -= withdrawal.amount
                 withdrawal.wallet.total_withdrawal += withdrawal.amount
                 withdrawal.completed = True
-                withdrawal.wallet.save()
+                withdrawal.status = 'completed'
+                withdrawal.save()
             return Response(transfer_response, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": f"Finalization failed: {str(e)}"}, status=status.HTTP_502_BAD_GATEWAY)

@@ -49,7 +49,7 @@ class BankDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ('rider',)
 
 class KYCSerializer(serializers.ModelSerializer):
-    class Meta:
+    class Meta: 
         model = KYC
         fields = '__all__'
         read_only_fields = ('rider', 'nin', 'proof_of_address', 'drivers_licence')
