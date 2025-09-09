@@ -6,6 +6,7 @@ from .models import Order, OrderTracking
 from .tasks import update_to_enroute
 from notification.models import Notification
 
+
 import logging
 
 # Configure logger if not already done
@@ -14,25 +15,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-
-
-
-# @receiver(post_save, sender=Order)
-# def notification(sender, instance, created, **kwargs):
-#     """
-#     This model helps to send notification to user when order is created.
-#     """
-#     if created:
-#         try:
-#             user = instance.user
-#             print(f"Order created for user: {user.username}")
-#             if created:
-#                 Notification.objects.create(user=instance.crea )
-#             # Here you can add code to send notification to the user
-#         except Exception as e:
-#             # Log error in production (e.g., using logging module)
-#             print(f"Error sending notification for {instance}: {str(e)}")
 
 
 @receiver(post_save, sender=Order)

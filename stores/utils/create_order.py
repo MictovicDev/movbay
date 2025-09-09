@@ -165,7 +165,7 @@ def create_order_with_items(user, order_data, reference, method):
             raise ValidationError({"wallet": "Insufficient Funds"})
         sender_wallet.balance -= amount
         sender_wallet.save()
-        WalletTransactions.objects.create(content='Payment For Purchase Made Succesfully', type='Item-Purchase', wallet=sender_wallet, amount=amount, status='completed', reference_code=reference)
+        #WalletTransactions.objects.create(content='Payment For Purchase Made Succesfully', type='Item-Purchase', wallet=sender_wallet, amount=amount, status='completed', reference_code=reference)
         platform_wallet.balance += amount
         platform_wallet.save()
 
