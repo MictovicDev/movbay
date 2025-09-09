@@ -170,7 +170,7 @@ class ProductRating(models.Model):
     def __str__(self):
         return f"{self.product} Rating"
    
- 
+
 class Review(models.Model):
     store = models.ForeignKey(Store, related_name='reviews', on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)

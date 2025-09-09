@@ -16,6 +16,7 @@ def snapshot_wallet(sender, instance, **kwargs):
     """
     Store old values on the instance before saving.
     """
+    print('Called Snapshot')
     if instance.pk:  # Only if the wallet already exists
         print(True)
         try:
@@ -38,13 +39,14 @@ def create_wallet_transactions(sender, instance, created, **kwargs):
     """
     if created:
         return  # Skip for brand new wallets
-
+    print('Called Post Save')
     try:
         prev_balance = getattr(instance, "_previous_balance", instance.balance)
         prev_deposit = getattr(instance, "_previous_deposit", instance.total_deposit)
         prev_withdrawal = getattr(instance, "_previous_withdrawal", instance.total_withdrawal)
-
+        print(instance.total_deposit, prev_deposit)
         if instance.total_deposit > prev_deposit:
+            print('Total Deposit Increased')
             WalletTransactions.objects.create(
                 wallet=instance,
                 type='Account-Funded',
@@ -55,6 +57,7 @@ def create_wallet_transactions(sender, instance, created, **kwargs):
             logger.info(f"Wallet funded for user {instance.owner.username}")
 
         elif instance.total_withdrawal > prev_withdrawal:
+            print('Total Withdrawal Increased')
             WalletTransactions.objects.create(
                 wallet=instance,
                 type='Withdrawal',

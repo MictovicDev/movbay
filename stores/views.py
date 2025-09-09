@@ -175,7 +175,6 @@ class GetPastUserOrder(APIView):
 class MarkAsDelivered(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
 
     def post(self, request, pk):
         # if request.user.user_type=='Rider':
@@ -196,7 +195,7 @@ class MarkAsDelivered(APIView):
                                               subject='Order Verification',
                                               html_content=html_content)
         order.status = 'completed'
-        order.completed = True
+        # order.completed = True
         order.order_tracking.all()[0].completed = True
         order.save()
         return Response({"message": "Order has been Completed"}, status=200)
@@ -254,33 +253,35 @@ class TrackOrder(APIView):
             logger.info("Error Occured During Product Tracking")
             return Response({"Message": "Error Tracking Order"}, status=400)
 
-def notify_drivers(drivers, summary):
-            """Send push notifications to available drivers"""
-            errors = []
-            try:
-                for driver in drivers:
-                    try:
-                        devices = driver.get('driver').device.all()
-                        if devices:
-                            device_token = devices[0].token
-                            logger.info(
-                                f"Sending notification to: {device_token}")
-                            send_push_notification.delay(
-                                token=device_token,
-                                title='New Ride Alert on movbay',
-                                notification_type="Ride Alert",
-                                data='You have a new ride suggestion on Movbay, check it out and start earning'
-                            )
-                    except Exception as e:
-                        errors.append(
-                            f"Failed to notify driver {driver.get('driver', {}).get('id', 'unknown')}: {str(e)}")
-                        logger.error(f"Notification error: {str(e)}")
 
-                if errors:
-                    logger.warning(f"Some notifications failed: {errors}")
+def notify_drivers(drivers, summary):
+    """Send push notifications to available drivers"""
+    errors = []
+    try:
+        for driver in drivers:
+            try:
+                devices = driver.get('driver').device.all()
+                if devices:
+                    device_token = devices[0].token
+                    logger.info(
+                        f"Sending notification to: {device_token}")
+                    send_push_notification.delay(
+                        token=device_token,
+                        title='New Ride Alert on movbay',
+                        notification_type="Ride Alert",
+                        data='You have a new ride suggestion on Movbay, check it out and start earning'
+                    )
             except Exception as e:
-                logger.error(f"Critical error in notify_drivers: {str(e)}")
-                raise
+                errors.append(
+                    f"Failed to notify driver {driver.get('driver', {}).get('id', 'unknown')}: {str(e)}")
+                logger.error(f"Notification error: {str(e)}")
+
+        if errors:
+            logger.warning(f"Some notifications failed: {errors}")
+    except Exception as e:
+        logger.error(f"Critical error in notify_drivers: {str(e)}")
+        raise
+
 
 class MarkForDeliveryView(APIView):
     def post(self, request, pk):
@@ -303,52 +304,59 @@ class MarkForDeliveryView(APIView):
                         if delivery.delivery_method == 'movbay_dispatch':
                             result = self._process_movbay_dispatch(
                                 delivery, order)
-                            #processing_results.append(result)
+                            # processing_results.append(result)
                             if result.get('success'):
-                                pdf_content = generate_receipt_pdf(order_data=order, delivery=delivery)
-                                html_content = render_to_new_string(order, delivery)
+                                pdf_content = generate_receipt_pdf(
+                                    order_data=order, delivery=delivery)
+                                html_content = render_to_new_string(
+                                    order, delivery)
                                 send_receipt_email.delay(
                                     pdf_content_base64=pdf_content,
-                                    order_id = order.order_id,
+                                    order_id=order.order_id,
                                     from_email='noreply@movbay.com',
-                                    to_emails=[order.store.owner.email, order.buyer.email],
+                                    to_emails=[
+                                        order.store.owner.email, order.buyer.email],
                                     subject='Product Receipt',
                                     html_content=html_content
                                 )
                                 processing_results.append({
-                                'success': True,
-                                'delivery_id': delivery.id,
+                                    'success': True,
+                                    'delivery_id': delivery.id,
                                 })
                             else:
                                 processing_results.append({
                                     'success': False,
-                                    'delivery_id': delivery.id,})
-                                
+                                    'delivery_id': delivery.id, })
+
                         elif delivery.delivery_method == 'speedy_dispatch':
-                            #print(True)
+                            # print(True)
                             result = self._process_speedy_dispatch(delivery)
-                            html_content = render_to_new_string(order, delivery)
+                            html_content = render_to_new_string(
+                                order, delivery)
                             if result.get('success'):
-                                pdf_content = generate_receipt_pdf(order_data=order, delivery=delivery)
-                                html_content = render_to_new_string(order, delivery)
+                                pdf_content = generate_receipt_pdf(
+                                    order_data=order, delivery=delivery)
+                                html_content = render_to_new_string(
+                                    order, delivery)
                                 send_receipt_email.delay(
                                     pdf_content_base64=pdf_content,
-                                    order_id = order.order_id,
+                                    order_id=order.order_id,
                                     from_email='noreply@movbay.com',
-                                    to_emails=[order.store.owner.email, order.buyer.email],
+                                    to_emails=[
+                                        order.store.owner.email, order.buyer.email],
                                     subject='Product Receipt',
                                     html_content=html_content
                                 )
                                 processing_results.append({
-                                'success': True,
-                                'delivery_id': delivery.id,
-                                # 'error': f'Unknown delivery method: {delivery.delivery_method}'
+                                    'success': True,
+                                    'delivery_id': delivery.id,
+                                    # 'error': f'Unknown delivery method: {delivery.delivery_method}'
                                 })
-                                #movbay_processed = True
+                                # movbay_processed = True
                             else:
                                 processing_results.append({
                                     'success': False,
-                                    'delivery_id': delivery.id,})
+                                    'delivery_id': delivery.id, })
                         else:
                             processing_results.append({
                                 'success': False,
@@ -359,7 +367,7 @@ class MarkForDeliveryView(APIView):
                     except Exception as e:
                         return Response({"error": str(e)}, status=500)
             return Response(processing_results, status=200)
-        
+
         except Exception as e:
             logger.error(f"Critical error in MarkForDeliveryView: {str(e)}")
             return Response({"error": "An unexpected error occurred"}, status=500)
@@ -392,7 +400,6 @@ class MarkForDeliveryView(APIView):
                 radius_km=5
             )
 
-            
             # Update order status
             order.assigned = True
             order.save()
@@ -911,7 +918,7 @@ class VerifyOrderView(APIView):
     def post(self, request, pk):
         serializer = VerifyOrderSerializer(data={'otp': request.data['otp']})
         if serializer.is_valid():
-            print("Serializer is Valid" )
+            print("Serializer is Valid")
             try:
                 order = get_object_or_404(Order, order_id=pk)
                 if order.completed == True:
@@ -930,27 +937,31 @@ class VerifyOrderView(APIView):
                             return Response({"message": "Ride is Ongoing"})
                     # if OTPManager(order_secret).verify_otp(otp):
                     try:
-                        order_tracking = get_object_or_404(OrderTracking, order=order)
+                        order_tracking = get_object_or_404(
+                            OrderTracking, order=order)
                         order_tracking.completed = True
                         order_tracking.save()
 
-                        owner_wallet = get_object_or_404(Wallet, owner=order.store.owner)
-                        admin_wallet = get_object_or_404(Wallet, owner__email='admin@mail.com')
+                        owner_wallet = get_object_or_404(
+                            Wallet, owner=order.store.owner)
+                        admin_wallet = get_object_or_404(
+                            Wallet, owner__email='admin@mail.com')
 
                         # Ensure order.amount is a valid number
                         amount = order.amount or 0
 
                         admin_wallet.balance -= amount
+                        admin_wallet.total_withdrawal += amount
                         admin_wallet.save()
 
                         owner_wallet.balance += amount
+                        owner_wallet.total_deposit += amount
                         owner_wallet.save()
 
                         print("Owner balance:", owner_wallet.balance)
                         print("Admin balance:", admin_wallet.balance)
-                        order.completed=True
+                        order.completed = True
                         order.save()
-
                         return Response({"message": "Order Completed Succesfully"}, status=200)
                     except Exception as e:
                         logger.info(str(e))
@@ -960,38 +971,48 @@ class VerifyOrderView(APIView):
                 elif request.user.user_type == 'Rider' and request.user == ride[0].rider:
                     logger.info("Rider is trying to complete the ride")
                     # if OTPManager(order_secret).verify_otp(otp):
+                    #     print('Yeah Verified OTP')
                     try:
                         ride = get_object_or_404(Ride, order=order)
                         order_tracking = get_object_or_404(
                             OrderTracking, order=order)
+                        if ride.completed:
+                            return Response({"message": "Ride Already Completed Succesfully"}, status=200)
                         ride.completed = True
                         order_tracking.completed = True
                         order_tracking.save()
-                        rider_wallet = get_object_or_404(Wallet, owner=ride.rider)
-                        admin_wallet = get_object_or_404(Wallet, owner__email='admin@mail.com')
-                        owner_wallet = get_object_or_404(Wallet, owner=order.store.owner)
-                        
+                        rider_wallet = get_object_or_404(
+                            Wallet, owner=ride.rider)
+                        admin_wallet = get_object_or_404(
+                            Wallet, owner__email='admin@mail.com')
+                        owner_wallet = get_object_or_404(
+                            Wallet, owner=order.store.owner)
 
                         # Ensure order.amount is a valid number
                         amount = ride.fare_amount or 0
 
                         admin_wallet.balance -= amount
+                        admin_wallet.total_withdrawal += amount
                         admin_wallet.save()
-                        
+
                         rider_wallet.balance += amount
+                        rider_wallet.total_deposit += amount
                         rider_wallet.save()
-                        
+
                         owner_wallet.balance += amount
+                        owner_wallet.total_deposit += amount
                         owner_wallet.save()
-                        
+                        print(admin_wallet, rider_wallet, owner_wallet)
 
                         print("Owner balance:", owner_wallet.balance)
                         print("Admin balance:", admin_wallet.balance)
-                        ride.completed=True
+                        ride.completed = True
                         ride.save()
+                        return Response({"message": "Ride Completed Succesfully"}, status=200)
                     except Exception as e:
                         print(str(e))
-                    return Response({"message": "Ride Completed Succesfully"}, status=200)
+                        return Response({"message": str(e)}, status=400)
+
                     # else:
                     #     return Response({'message': 'Invalid or expired OTP'}, status=400)
                 else:
