@@ -472,7 +472,8 @@ class GetPriceEstimate(APIView):
 
     def post(self, request):
         try:
-            serializer = GetPriceEstimateSerializer(request.data)
+            serializer = GetPriceEstimateSerializer(data=request.data)
+            print(request.data)
             if serializer.is_valid():
                 pickup_address = serializer.validated_data['pickup_address']
                 delivery_address = serializer.validated_data['delivery_address']
