@@ -3,7 +3,7 @@ from users.models import RiderProfile
 from .models import Ride, DeliveryPreference, BankDetail, KYC
 from users.models import RiderProfile
 from stores.serializers import OrderSerializer
-from .models import Address, Parcel, ShippingRate, Shipment, ShipmentTracking, PackageDelivery
+from .models import Address, Parcel, ShippingRate, Shipment, ShipmentTracking, PackageDelivery, DeliveryImages
 
 
 
@@ -154,16 +154,6 @@ class GetNearbyRidersSerializer(serializers.Serializer):
     delivery_address = serializers.CharField(max_length=500)
 
 
-#  user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='rider_profile')
-#     address = models.CharField(max_length=250, null=True)
-#     profile_picture = CloudinaryField('profile_picture', blank=True, null=True)
-#     is_available = models.BooleanField(default=True)
-#     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-#     latitude = models.FloatField(blank=True, null=True)
-#     longitude = models.FloatField(blank=True, null=True)
-#     online = models.BooleanField(default=False)
-#     verified= models.BooleanField(default=False)
-
 class NewRiderSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', required=False)
     fullname = serializers.CharField(source='user.fullname', required=False) 
@@ -186,7 +176,17 @@ class GetPriceEstimateSerializer(serializers.Serializer):
     delivery_address = serializers.CharField(max_length=500)
 
 
+
+class PackageImages(serializers.ModelSerializer):
+    image_url = serializers.URLField(required=False)
+    
+    class Meta:
+        model = DeliveryImages
+        fields = ['delivery', 'image', 'image_url', 'uploaded_at']
+
 class PackageDeliveryCreateSerializer(serializers.ModelSerializer):
+    images = PackageImages(many=True)
+    
     class Meta:
         model = PackageDelivery
         exclude = ["id", "created_at", "updated_at", "delivered_at", "rider"]

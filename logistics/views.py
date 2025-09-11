@@ -539,8 +539,7 @@ class GetNearbyRiders(APIView):
                      "latitude": rider.get("lat"), "longitude": rider.get("lng"),
                      "eta": get_eta_distance_and_fare(destination, (rider.get("lat"), rider.get("lng")))}
                     for rider in riders]
-                
-                
+
                 return Response(data, status=200)
             except Exception as e:
                 logger.error(f"Error fetching nearby drivers: {str(e)}")
@@ -557,11 +556,73 @@ class GetNearbyRiders(APIView):
             )
 
 
-class PackageDeliveryListCreateAPIView(APIView):
+# rider
+# recipient_name
+# pick_address
+# drop_address
+# alternative_drop_address
+# alternative_receipient_name
+# alternative_number
+# package_type
+# package_description
+# additional_notes
+
+# item_images = []
+
+
+class PackageDeliveryView(APIView):
     """
     Handles listing all deliveries and creating new ones.
     """
+    authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        
+        serializer = PackageDeliveryCreateSerializer(
+            data=request.data, context={"request": request}
+        )
+        if serializer.is_valid():
+            try:
+                rider_id = validated_data.get('rider_id')
+                rider = get_object_or_404(RiderProfile, id=rider_id)
+                validated_data = serializer.validated_data
+                destination_address = validated_data.pop(
+                    'drop_address', None)
+                rider_coords = get_coordinates_from_address(rider.address)
+                destination_coords = get_coordinates_from_address(destination_address)
+                origin = (rider_coords.get('latitude'),
+                      rider_coords.get('longitude'))
+                summary = get_eta_distance_and_fare(origin, destination_coords)
+                package_images = validated_data.pop(
+                    'packageimages', None)
+    
+                delivery = serializer.save(owner=request.user)
+
+                for image in package_images:
+                    if image:
+                        serialized_image = {
+                            "file_content": b64encode(image.read()).decode("utf-8"),
+                            "filename": image.name,
+                        }
+                        # ✅ pass in correct format: delivery_id first, then file_data
+                        upload_delivery_images.delay(
+                            delivery.id, serialized_image)
+
+                # self._process_movbay_dispatch(delivery)
+                transaction.on_commit(lambda: notify_drivers(rider, summary))
+                return Response(
+                    PackageDeliverySerializer(delivery).data,
+                    status=status.HTTP_201_CREATED,
+                )
+            except Exception as e:
+                logger.error(f"Error creating delivery: {str(e)}")
+                return Response(
+                    {"detail": "Error creating delivery"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def _process_movbay_dispatch(self, delivery):
         """Process movbay dispatch delivery"""
@@ -600,7 +661,7 @@ class PackageDeliveryListCreateAPIView(APIView):
             )
 
             # Notify drivers (using transaction.on_commit to ensure it runs after transaction)
-            transaction.on_commit(lambda: notify_drivers(riders, summary))
+           
 
             return {
                 'success': True,
@@ -616,45 +677,6 @@ class PackageDeliveryListCreateAPIView(APIView):
                 'delivery_id': delivery.id,
                 'error': str(e)
             }
-
-    def post(self, request):
-        serializer = PackageDeliveryCreateSerializer(
-            data=request.data, context={"request": request}
-        )
-        if serializer.is_valid():
-            try:
-                validated_data = serializer.validated_data
-                pickup_photo1 = validated_data.pop("pickup_photo1", None)
-                pickup_photo2 = validated_data.pop("pickup_photo2", None)
-
-                # save delivery object
-                delivery = serializer.save(owner=request.user)
-
-                images = [pickup_photo1, pickup_photo2]
-                for image in images:
-                    if image:
-                        serialized_image = {
-                            "file_content": b64encode(image.read()).decode("utf-8"),
-                            "filename": image.name,
-                        }
-                        # ✅ pass in correct format: delivery_id first, then file_data
-                        upload_delivery_images.delay(
-                            delivery.id, serialized_image)
-
-                self._process_movbay_dispatch(delivery)
-                return Response(
-                    PackageDeliverySerializer(delivery).data,
-                    status=status.HTTP_201_CREATED,
-                )
-
-            except Exception as e:
-                logger.error(f"Error creating delivery: {str(e)}")
-                return Response(
-                    {"detail": "Error creating delivery"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PackageDeliveryDetailAPIView(APIView):
