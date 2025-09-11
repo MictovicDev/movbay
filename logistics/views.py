@@ -460,6 +460,34 @@ def notify_drivers(drivers, summary):
     except Exception as e:
         logger.error(f"Critical error in notify_drivers: {str(e)}")
         raise
+    
+    
+    
+class GetNearbyRides(APIView): 
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        try:
+            pickup_address = request.data.get('pickup_address')
+            delivery_address = request.data.get('delivery_address')
+            pickup_coords = get_coordinates_from_address(pickup_address)
+            delivery_coords = get_coordinates_from_address(delivery_address)
+            if not pickup_coords:
+                    raise ValueError("Could not get store coordinates")
+
+            destination = (delivery_coords.get('latitude'),
+                            delivery_coords.get('longitude'))
+            origin = (pickup_coords.get('latitude'),
+                        pickup_coords.get('longitude'))
+
+            # Get route summary
+            summary = get_eta_distance_and_fare(origin, destination)
+            return Response(summary, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error getting coordinates or summary: {str(e)}")
+            return Response({"error": "Invalid addresses provided"}, status=status.HTTP_400_BAD_REQUEST)
+        
 
 class PackageDeliveryListCreateAPIView(APIView):
     """
@@ -495,13 +523,13 @@ class PackageDeliveryListCreateAPIView(APIView):
                 radius_km=5
             )
 
-            # Create ride
-            ride = Ride.objects.create(
-                latitude=origin[0],
-                longitude=origin[1],
-                # order=order,
-                **summary
-            )
+            # # Create ride
+            # ride = Ride.objects.create(
+            #     latitude=origin[0],
+            #     longitude=origin[1],
+            #     # order=order,
+            #     **summary
+            # )
 
             # Notify drivers (using transaction.on_commit to ensure it runs after transaction)
             transaction.on_commit(lambda: notify_drivers(riders, summary))
@@ -546,6 +574,10 @@ class PackageDeliveryListCreateAPIView(APIView):
                         upload_delivery_images.delay(delivery.id, serialized_image)
                         
                 self._process_movbay_dispatch(delivery)
+                return Response(
+                    PackageDeliverySerializer(delivery).data,
+                    status=status.HTTP_201_CREATED,
+                )
                 
             except Exception as e:
                 logger.error(f"Error creating delivery: {str(e)}")
@@ -554,10 +586,7 @@ class PackageDeliveryListCreateAPIView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
-            return Response(
-                PackageDeliverySerializer(delivery).data,
-                status=status.HTTP_201_CREATED,
-            )
+            
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
