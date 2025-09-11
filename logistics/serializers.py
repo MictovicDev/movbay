@@ -3,7 +3,7 @@ from users.models import RiderProfile
 from .models import Ride, DeliveryPreference, BankDetail, KYC
 from users.models import RiderProfile
 from stores.serializers import OrderSerializer
-from .models import Address, Parcel, ShippingRate, Shipment, ShipmentTracking
+from .models import Address, Parcel, ShippingRate, Shipment, ShipmentTracking, PackageDelivery
 
 
 
@@ -134,3 +134,22 @@ class CreateShipmentSerializer(serializers.Serializer):
     )
     delivery_note = serializers.CharField(max_length=1000, required=False, allow_blank=True)
     metadata = serializers.JSONField(required=False, default=dict)
+    
+    
+    
+
+
+
+
+class PackageDeliverySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PackageDelivery
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at", "delivered_at"]
+
+
+class PackageDeliveryCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PackageDelivery
+        exclude = ["id", "created_at", "updated_at", "delivered_at", "rider"]
+        # read_only_fields = ["rider", "status"]

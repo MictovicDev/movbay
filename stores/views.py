@@ -935,86 +935,85 @@ class VerifyOrderView(APIView):
                     if ride:
                         if not ride[0].completed:
                             return Response({"message": "Ride is Ongoing"})
-                    # if OTPManager(order_secret).verify_otp(otp):
-                    try:
-                        order_tracking = get_object_or_404(
-                            OrderTracking, order=order)
-                        order_tracking.completed = True
-                        order_tracking.save()
+                    if OTPManager(order_secret).verify_otp(otp):
+                        try:
+                            order_tracking = get_object_or_404(
+                                OrderTracking, order=order)
+                            order_tracking.completed = True
+                            order_tracking.save()
 
-                        owner_wallet = get_object_or_404(
-                            Wallet, owner=order.store.owner)
-                        admin_wallet = get_object_or_404(
-                            Wallet, owner__email='admin@mail.com')
+                            owner_wallet = get_object_or_404(
+                                Wallet, owner=order.store.owner)
+                            admin_wallet = get_object_or_404(
+                                Wallet, owner__email='admin@mail.com')
 
-                        # Ensure order.amount is a valid number
-                        amount = order.amount or 0
+                            # Ensure order.amount is a valid number
+                            amount = order.amount or 0
 
-                        admin_wallet.balance -= amount
-                        admin_wallet.total_withdrawal += amount
-                        admin_wallet.save()
+                            admin_wallet.balance -= amount
+                            admin_wallet.total_withdrawal += amount
+                            admin_wallet.save()
 
-                        owner_wallet.balance += amount
-                        owner_wallet.total_deposit += amount
-                        owner_wallet.save()
+                            owner_wallet.balance += amount
+                            owner_wallet.total_deposit += amount
+                            owner_wallet.save()
 
-                        print("Owner balance:", owner_wallet.balance)
-                        print("Admin balance:", admin_wallet.balance)
-                        order.completed = True
-                        order.save()
-                        return Response({"message": "Order Completed Succesfully"}, status=200)
-                    except Exception as e:
-                        logger.info(str(e))
-                        return Response({"message": "Error Completing Order"}, status=400)
-                    # else:
-                    #      return Response({'message': 'Invalid or expired OTP'}, status=400)
+                            print("Owner balance:", owner_wallet.balance)
+                            print("Admin balance:", admin_wallet.balance)
+                            order.completed = True
+                            order.save()
+                            return Response({"message": "Order Completed Succesfully"}, status=200)
+                        except Exception as e:
+                            logger.info(str(e))
+                            return Response({"message": "Error Completing Order"}, status=400)
+                    else:
+                         return Response({'message': 'Invalid or expired OTP'}, status=400)
                 elif request.user.user_type == 'Rider' and request.user == ride[0].rider:
                     logger.info("Rider is trying to complete the ride")
-                    # if OTPManager(order_secret).verify_otp(otp):
-                    #     print('Yeah Verified OTP')
-                    try:
-                        ride = get_object_or_404(Ride, order=order)
-                        order_tracking = get_object_or_404(
-                            OrderTracking, order=order)
-                        if ride.completed:
-                            return Response({"message": "Ride Already Completed Succesfully"}, status=200)
-                        ride.completed = True
-                        order_tracking.completed = True
-                        order_tracking.save()
-                        rider_wallet = get_object_or_404(
-                            Wallet, owner=ride.rider)
-                        admin_wallet = get_object_or_404(
-                            Wallet, owner__email='admin@mail.com')
-                        owner_wallet = get_object_or_404(
-                            Wallet, owner=order.store.owner)
+                    if OTPManager(order_secret).verify_otp(otp):
+                        print('Yeah Verified OTP')
+                        try:
+                            ride = get_object_or_404(Ride, order=order)
+                            order_tracking = get_object_or_404(
+                                OrderTracking, order=order)
+                            if ride.completed:
+                                return Response({"message": "Ride Already Completed Succesfully"}, status=200)
+                            ride.completed = True
+                            order_tracking.completed = True
+                            order_tracking.save()
+                            rider_wallet = get_object_or_404(
+                                Wallet, owner=ride.rider)
+                            admin_wallet = get_object_or_404(
+                                Wallet, owner__email='admin@mail.com')
+                            owner_wallet = get_object_or_404(
+                                Wallet, owner=order.store.owner)
 
-                        # Ensure order.amount is a valid number
-                        amount = ride.fare_amount or 0
+                            # Ensure order.amount is a valid number
+                            amount = ride.fare_amount or 0
 
-                        admin_wallet.balance -= amount
-                        admin_wallet.total_withdrawal += amount
-                        admin_wallet.save()
+                            admin_wallet.balance -= amount
+                            admin_wallet.total_withdrawal += amount
+                            admin_wallet.save()
 
-                        rider_wallet.balance += amount
-                        rider_wallet.total_deposit += amount
-                        rider_wallet.save()
+                            rider_wallet.balance += amount
+                            rider_wallet.total_deposit += amount
+                            rider_wallet.save()
 
-                        owner_wallet.balance += amount
-                        owner_wallet.total_deposit += amount
-                        owner_wallet.save()
-                        print(admin_wallet, rider_wallet, owner_wallet)
+                            owner_wallet.balance += amount
+                            owner_wallet.total_deposit += order.amount
+                            owner_wallet.save()
+                            print(admin_wallet, rider_wallet, owner_wallet)
 
-                        print("Owner balance:", owner_wallet.balance)
-                        print("Admin balance:", admin_wallet.balance)
-                        ride.completed = True
-                        ride.save()
-                        return Response({"message": "Ride Completed Succesfully"}, status=200)
-                    except Exception as e:
-                        print(str(e))
-                        return Response({"message": str(e)}, status=400)
-
-                    # else:
-                    #     return Response({'message': 'Invalid or expired OTP'}, status=400)
+                            print("Owner balance:", owner_wallet.balance)
+                            print("Admin balance:", admin_wallet.balance)
+                            ride.completed = True
+                            ride.save()
+                            return Response({"message": "Ride Completed Succesfully"}, status=200)
+                        except Exception as e:
+                            print(str(e))
+                            return Response({"message": str(e)}, status=400)
+                    else:
+                        return Response({'message': 'Invalid or expired OTP'}, status=400)
                 else:
                     return Response({'message': 'Permission Denied'}, status=403)
             except Order.DoesNotExist:

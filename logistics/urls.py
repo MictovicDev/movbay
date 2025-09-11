@@ -18,5 +18,7 @@ urlpatterns = [
     path('mark-as-picked/<str:pk>/', views.PickedView.as_view(), name='mark-as-picked'),
     path('total-earnings/', views.TotalEarningsView.as_view(), name='total-earnings'),
     path('check-rider-verified/', views.VerifiedRiderView.as_view(), name='check-rider-verified'),
+    path('package-delivery/', views.PackageDeliveryListCreateAPIView.as_view(), name='package-delivery'),
+    path('package-delivery/<str:pk>/', views.PackageDeliveryDetailAPIView.as_view(), name='package-delivery-detail'),
     # shipping/urls.py
 ]

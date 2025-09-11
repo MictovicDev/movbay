@@ -19,7 +19,7 @@ from .models import Ride
 from .serializers import RideSerializer
 from geopy.distance import geodesic
 from django.shortcuts import get_object_or_404
-from .models import RiderProfile, DeliveryPreference, BankDetail, KYC
+from .models import RiderProfile, DeliveryPreference, BankDetail, KYC, PackageDelivery
 from .serializers import (
     DeliveryPreferenceSerializer,
     BankDetailSerializer,
@@ -27,14 +27,21 @@ from .serializers import (
     TotalFareSerializer
 )
 from django.db import models
-from .tasks import upload_rider_files
+from .tasks import upload_rider_files, upload_delivery_images
 import logging
+from base64 import b64encode
+from .serializers import PackageDeliverySerializer, PackageDeliveryCreateSerializer
+from logistics.utils.get_riders import get_nearby_drivers
+from logistics.utils.eta import get_eta_distance_and_fare
+from stores.utils.get_store_cordinate import get_coordinates_from_address
+
 
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
 
 class GoOnlineView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -65,8 +72,6 @@ class GoOnlineView(APIView):
             return Response({'error': str(e)}, status=400)
 
 
-
-
 class UpdateLatLongView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
@@ -83,9 +88,6 @@ class UpdateLatLongView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=400)
 
-
-
-
 class AcceptRide(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -96,14 +98,15 @@ class AcceptRide(APIView):
                 order = Order.objects.select_for_update().get(order_id=pk)
                 riderprofile = RiderProfile.objects.get(user=request.user)
                 ride = order.ride.all()[0]
-                
-                rides = Ride.objects.filter(rider=request.user, completed=False)
+
+                rides = Ride.objects.filter(
+                    rider=request.user, completed=False)
                 if rides:
                     return Response({"message": "You still have an uncompleted Ride."}, status=status.HTTP_400_BAD_REQUEST)
-                
+
                 if request.user.user_type != 'Rider':
                     return Response({"message": "Only Riders can accept rides."}, status=status.HTTP_400_BAD_REQUEST)
-                
+
                 if order.ride_accepted == True:
                     return Response({"message": "Ride already accepted."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -195,9 +198,10 @@ class RideDetailView(APIView):
         serializer = RideSerializer(ride)
         return Response(serializer.data, status=200)
 
+
 class CreateTerminalPackage(APIView):
     pass
-    
+
 
 class BaseRiderProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -253,7 +257,7 @@ class DeliveryPreferenceAPIView(BaseRiderProfileView):
 
 
 class BankDetailAPIView(BaseRiderProfileView):
-    
+
     def get(self, request):
         rider = self.get_rider_profile(request.user)
         if not rider:
@@ -290,23 +294,21 @@ class BankDetailAPIView(BaseRiderProfileView):
             serializer.save(rider=rider)
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-   
-   
+
+
 class CompletedRides(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
-    
+
     def get(self, request):
         try:
-            rides = Ride.objects.filter(rider=request.user, completed=True).count()
+            rides = Ride.objects.filter(
+                rider=request.user, completed=True).count()
             return Response({"message": rides}, status=200)
         except Ride.DoesNotExist:
             return Response({"message": "No Completed Rides"}, status=204)
         except Exception as e:
             return Response({"message": str(e)}, status=500)
-        
 
 
 class TotalEarningsView(APIView):
@@ -315,7 +317,8 @@ class TotalEarningsView(APIView):
 
     def get(self, request):
         try:
-            total_earnings = Ride.objects.filter(rider=request.user, completed=True).aggregate(total=models.Sum('fare_amount'))['total'] or 0
+            total_earnings = Ride.objects.filter(rider=request.user, completed=True).aggregate(
+                total=models.Sum('fare_amount'))['total'] or 0
             print(total_earnings)
             serializer = TotalFareSerializer({'total_fare': total_earnings})
             return Response(serializer.data, status=200)
@@ -326,7 +329,7 @@ class TotalEarningsView(APIView):
 class VerifiedRiderView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get(self, request):
         try:
             rider = RiderProfile.objects.get(user=request.user)
@@ -400,23 +403,21 @@ class KYCDetailAPIView(BaseRiderProfileView):
         )
 
 
-
 class UserRides(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request, pk):
         ride = get_object_or_404(Ride, rider=request.user, id=pk)
         serializer = RideSerializer(ride)
         print(ride)
         return Response(serializer.data, status=200)
-    
+
 
 class PickedView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
-    
-    
+
     def post(self, request, pk):
         order = get_object_or_404(Order, order_id=pk)
         ride = Ride.objects.get(order=order)
@@ -429,5 +430,148 @@ class PickedView(APIView):
         order.save()
         ride.save()
         return Response({"message": "Order marked for Delivery"}, status=200)
-    
 
+
+
+def notify_drivers(drivers, summary):
+    """Send push notifications to available drivers"""
+    errors = []
+    try:
+        for driver in drivers:
+            try:
+                devices = driver.get('driver').device.all()
+                if devices:
+                    device_token = devices[0].token
+                    logger.info(
+                        f"Sending notification to: {device_token}")
+                    send_push_notification.delay(
+                        token=device_token,
+                        title='New Ride Alert on movbay',
+                        notification_type="Ride Alert",
+                        data='You have a new ride suggestion on Movbay, check it out and start earning'
+                    )
+            except Exception as e:
+                errors.append(
+                    f"Failed to notify driver {driver.get('driver', {}).get('id', 'unknown')}: {str(e)}")
+                logger.error(f"Notification error: {str(e)}")
+
+        if errors:
+            logger.warning(f"Some notifications failed: {errors}")
+    except Exception as e:
+        logger.error(f"Critical error in notify_drivers: {str(e)}")
+        raise
+
+class PackageDeliveryListCreateAPIView(APIView):
+    """
+    Handles listing all deliveries and creating new ones.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _process_movbay_dispatch(self, delivery):
+        """Process movbay dispatch delivery"""
+        try:
+            # Get coordinates
+            delivery_coords = get_coordinates_from_address(
+                delivery.pick_address)
+            if not delivery_coords:
+                raise ValueError("Could not get delivery coordinates")
+
+            pickup_coords = get_coordinates_from_address(delivery.drop_address)
+            if not pickup_coords:
+                raise ValueError("Could not get store coordinates")
+
+            destination = (delivery_coords.get('latitude'),
+                           delivery_coords.get('longitude'))
+            origin = (pickup_coords.get('latitude'),
+                      pickup_coords.get('longitude'))
+
+            # Get route summary
+            summary = get_eta_distance_and_fare(origin, destination)
+
+            # Find nearby drivers
+            riders = get_nearby_drivers(
+                pickup_coords.get('latitude'),
+                pickup_coords.get('longitude'),
+                radius_km=5
+            )
+
+            # Create ride
+            ride = Ride.objects.create(
+                latitude=origin[0],
+                longitude=origin[1],
+                # order=order,
+                **summary
+            )
+
+            # Notify drivers (using transaction.on_commit to ensure it runs after transaction)
+            transaction.on_commit(lambda: notify_drivers(riders, summary))
+
+            return {
+                'success': True,
+                'delivery_id': delivery.id,
+                'ride_id': ride.id,
+                'drivers_notified': len(riders)
+            }
+
+        except Exception as e:
+            logger.error(f"Movbay dispatch processing failed: {str(e)}")
+            return {
+                'success': False,
+                'delivery_id': delivery.id,
+                'error': str(e)
+            }
+
+    
+    def post(self, request):
+        serializer = PackageDeliveryCreateSerializer(
+            data=request.data, context={"request": request}
+        )
+        if serializer.is_valid():
+            try:
+                validated_data = serializer.validated_data
+                pickup_photo1 = validated_data.pop("pickup_photo1", None)
+                pickup_photo2 = validated_data.pop("pickup_photo2", None)
+
+                # save delivery object
+                delivery = serializer.save(owner=request.user)
+
+                images = [pickup_photo1, pickup_photo2]
+                for image in images:
+                    if image:
+                        serialized_image = {
+                            "file_content": b64encode(image.read()).decode("utf-8"),
+                            "filename": image.name,
+                        }
+                        # ✅ pass in correct format: delivery_id first, then file_data
+                        upload_delivery_images.delay(delivery.id, serialized_image)
+                        
+                self._process_movbay_dispatch(delivery)
+                
+            except Exception as e:
+                logger.error(f"Error creating delivery: {str(e)}")
+                return Response(
+                    {"detail": "Error creating delivery"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            return Response(
+                PackageDeliverySerializer(delivery).data,
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PackageDeliveryDetailAPIView(APIView):
+    """
+    Handles retrieving, updating, and deleting a single delivery.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self, pk, user):
+        return get_object_or_404(PackageDelivery, pk=pk, rider__user=user)
+
+    def get(self, request, pk):
+        delivery = self.get_object(pk, request.user)
+        serializer = PackageDeliverySerializer(delivery)
+        return Response(serializer.data, status=status.HTTP_200_OK)

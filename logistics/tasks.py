@@ -3,7 +3,7 @@ from io import BytesIO
 from cloudinary.uploader import upload
 from users.models import RiderProfile
 from base64 import b64decode
-from logistics.models import KYC
+from logistics.models import KYC, PackageDelivery
 import logging
 import time
 
@@ -66,3 +66,43 @@ def upload_rider_files(self, kyc_id, file_data):
         except Exception as e:
             logger.error(f"Failed to update KYC record: {str(e)}")
             self.retry(exc=e, countdown=60 * self.request.retries)
+            
+            
+            
+            
+@shared_task(bind=True, max_retries=3)
+def upload_delivery_images(self, delivery_id, file_data):
+    from .models import PackageDelivery  # avoid circular imports
+
+    try:
+        delivery = PackageDelivery.objects.get(id=delivery_id)
+    except PackageDelivery.DoesNotExist:
+        logger.error(f"PackageDelivery with id {delivery_id} not found")
+        return
+
+    try:
+        file_bytes = b64decode(file_data["file_content"])
+        filename = file_data["filename"]
+
+        public_id = f"delivery/{delivery_id}_{int(time.time())}"
+
+        upload_result = upload(
+            BytesIO(file_bytes),
+            public_id=public_id,
+            resource_type="auto"  # Auto-detect file type
+        )
+
+        if not upload_result.get("secure_url"):
+            raise ValueError("No secure URL returned from Cloudinary")
+
+        # Save URL back to delivery model
+        delivery.pickup_photo_url = upload_result["secure_url"]
+        delivery.save(update_fields=["pickup_photo_url"])
+
+        logger.info(
+            f"Successfully uploaded Delivery Image for delivery {delivery_id}"
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to upload Image for delivery {delivery_id}: {str(e)}")
+        self.retry(exc=e, countdown=60 * (self.request.retries + 1))

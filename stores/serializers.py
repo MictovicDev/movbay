@@ -284,8 +284,6 @@ class ProductSerializer(serializers.ModelSerializer):
             images = validated_data.pop('images', [])
             post_to_story = validated_data.pop('auto_post_to_story', False)
             product_video = validated_data.pop('product_video', None)
-            # delivery_types_names = validated_data.pop('delivery_types', None)
-            # print(delivery_types_names)
             store = user.store
             print(images)
         except Exception as e:
@@ -294,12 +292,6 @@ class ProductSerializer(serializers.ModelSerializer):
             product = Product.objects.create(store=store, **validated_data)
         except Exception as e:
             raise serializers.ValidationError(f"Error creating product: {str(e)}")
-        # if delivery_types_names:
-        #     delivery_options = DeliveryOption.objects.filter(
-        #         name__in=delivery_types_names
-        #     )
-        #     print(delivery_options)
-        #     product.delivery_types.set(delivery_options)
         serialized_images = [
             {
                 "file_content": b64encode(image.read()).decode("utf-8"),

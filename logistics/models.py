@@ -192,7 +192,57 @@ class ShipmentTracking(models.Model):
     def __str__(self):
         return f"{self.shipment.terminal_shipment_id} - {self.status}"
     
+
+
+
+class DeliveryImages(models.Model):
+    delivery = models.ForeignKey('PackageDelivery', on_delete=models.CASCADE, related_name='images')
+    image = CloudinaryField('delivery_images/', blank=True, null=True)
+    image_url = models.URLField(null=True, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
     
+    def __str__(self):
+        return f"Image for Delivery {self.delivery.id}"    
+
+
+class PackageDelivery(models.Model):
     
+    TYPE = (
+        ('Document', 'Document'),
+        ('Parcel', 'Parcel'),
+        ('Envelope', 'Envelope'),
+        ('Food', 'Food'),
+        ('Fragile', 'Fragile'),
+        ('Electronics', 'Electronics'),
+        ('Box', 'Box'),
+        ('Crate', 'Crate'),
+        ('Pallet', 'Pallet'),
+        ('Other', 'Other')
+        )
+    
+    RIDE_CHOICES = (
+        ('Bike', 'Bike'),
+        ('Vehicle', 'Vehicle'),
+        )
+    
+    rider = models.ForeignKey(RiderProfile, on_delete=models.CASCADE, related_name='rider', blank=True, null=True)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='package_delivery', blank=True, null=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    recipient_name = models.CharField(max_length=255)
+    pick_address = models.CharField(max_length=500, blank=True, null=True)
+    drop_address = models.CharField(max_length=500, blank=True, null=True)
+    alternative_drop_address = models.CharField(max_length=500, blank=True, null=True)
+    alternative_receipient_name = models.CharField(max_length=255, blank=True, null=True)
+    alternative_number = models.CharField(max_length=20, blank=True, null=True)
+    #recipient_signature = CloudinaryField('signatures/', blank=True, null=True)
+    package_type = models.CharField(max_length=250,  choices=TYPE, blank=True, null=True)
+    package_description = models.CharField(max_length=500, blank=True, null=True)
+    additional_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    rider_preference = models.CharField(max_length=250, choices=RIDE_CHOICES, blank=True, null=True)
+    
+    def __str__(self):
+        return f"Delivery for {self.owner.username} to {self.recipient_name}"
     
     
