@@ -19,7 +19,7 @@ def get_nearby_drivers(store_lat, store_lng, radius_km=5):
                     "lat": driver.latitude,
                     "lng": driver.longitude
                 })
-        
+        print(nearby)
         return sorted(nearby, key=lambda x: x["distance_km"])
     except Exception as e:
         print(str(e))

@@ -24,13 +24,17 @@ from .serializers import (
     DeliveryPreferenceSerializer,
     BankDetailSerializer,
     KYCSerializer,
-    TotalFareSerializer
+    TotalFareSerializer,
+    PackageDeliverySerializer,
+    PackageDeliveryCreateSerializer,
+    GetNearbyRidersSerializer,
+    GetPriceEstimateSerializer,
+    GetNearbyRidesResponseSerializer
 )
 from django.db import models
 from .tasks import upload_rider_files, upload_delivery_images
 import logging
 from base64 import b64encode
-from .serializers import PackageDeliverySerializer, PackageDeliveryCreateSerializer
 from logistics.utils.get_riders import get_nearby_drivers
 from logistics.utils.eta import get_eta_distance_and_fare
 from stores.utils.get_store_cordinate import get_coordinates_from_address
@@ -87,6 +91,7 @@ class UpdateLatLongView(APIView):
             return Response({"error": "Rider profile not found"}, status=404)
         except Exception as e:
             return Response({"error": str(e)}, status=400)
+
 
 class AcceptRide(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -432,7 +437,6 @@ class PickedView(APIView):
         return Response({"message": "Order marked for Delivery"}, status=200)
 
 
-
 def notify_drivers(drivers, summary):
     """Send push notifications to available drivers"""
     errors = []
@@ -460,26 +464,27 @@ def notify_drivers(drivers, summary):
     except Exception as e:
         logger.error(f"Critical error in notify_drivers: {str(e)}")
         raise
-    
-    
-    
-class GetNearbyRides(APIView): 
+
+
+class GetPriceEstimate(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request):
         try:
-            pickup_address = request.data.get('pickup_address')
-            delivery_address = request.data.get('delivery_address')
+            serializer = GetPriceEstimateSerializer(request.data)
+            if serializer.is_valid():
+                pickup_address = serializer.validated_data['pickup_address']
+                delivery_address = serializer.validated_data['delivery_address']
             pickup_coords = get_coordinates_from_address(pickup_address)
             delivery_coords = get_coordinates_from_address(delivery_address)
             if not pickup_coords:
-                    raise ValueError("Could not get store coordinates")
+                raise ValueError("Could not get store coordinates")
 
             destination = (delivery_coords.get('latitude'),
-                            delivery_coords.get('longitude'))
+                           delivery_coords.get('longitude'))
             origin = (pickup_coords.get('latitude'),
-                        pickup_coords.get('longitude'))
+                      pickup_coords.get('longitude'))
 
             # Get route summary
             summary = get_eta_distance_and_fare(origin, destination)
@@ -487,7 +492,69 @@ class GetNearbyRides(APIView):
         except Exception as e:
             logger.error(f"Error getting coordinates or summary: {str(e)}")
             return Response({"error": "Invalid addresses provided"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
+
+class GetNearbyRiders(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            serializer = GetNearbyRidersSerializer(data=request.query_params)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            pickup_address = serializer.validated_data['pickup_address']
+            delivery_address = serializer.validated_data['delivery_address']
+            print(pickup_address)
+
+            pickup_coords = get_coordinates_from_address(pickup_address)
+            delivery_coords = get_coordinates_from_address(delivery_address)
+            if not pickup_coords:
+                return Response(
+                    {"error": "Could not get pickup coordinates"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            destination = (delivery_coords.get('latitude'),
+                           delivery_coords.get('longitude'))
+            origin = (pickup_coords.get('latitude'),
+                      pickup_coords.get('longitude'))
+
+            try:
+
+                riders = get_nearby_drivers(
+                    pickup_coords.get('latitude'),
+                    pickup_coords.get('longitude'),
+                    radius_km=5
+
+                )
+                data = [
+                    {"riders_name": rider.get("driver").username,
+                     "riders_picture": rider.get("driver").rider_profile.profile_picture,
+                     "verified": rider.get("driver").rider_profile.verified,
+                     "license": rider.get("driver").rider_profile.kyc_verification.all()[0].plate_number,
+                     "vehicle_type": rider.get("driver").rider_profile.kyc_verification.all()[0].vehicle_type,
+                     "latitude": rider.get("lat"), "longitude": rider.get("lng"),
+                     "eta": get_eta_distance_and_fare(destination, (rider.get("lat"), rider.get("lng")))}
+                    for rider in riders]
+                
+                
+                return Response(data, status=200)
+            except Exception as e:
+                logger.error(f"Error fetching nearby drivers: {str(e)}")
+                return Response(
+                    {"error": "Could not fetch nearby riders"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        except Exception as e:
+            logger.error(f"Error getting nearby riders: {str(e)}")
+            return Response(
+                {"error": "Unexpected error fetching nearby riders"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class PackageDeliveryListCreateAPIView(APIView):
     """
@@ -523,13 +590,13 @@ class PackageDeliveryListCreateAPIView(APIView):
                 radius_km=5
             )
 
-            # # Create ride
-            # ride = Ride.objects.create(
-            #     latitude=origin[0],
-            #     longitude=origin[1],
-            #     # order=order,
-            #     **summary
-            # )
+            # Create ride
+            ride = Ride.objects.create(
+                latitude=origin[0],
+                longitude=origin[1],
+                # order=order,
+                **summary
+            )
 
             # Notify drivers (using transaction.on_commit to ensure it runs after transaction)
             transaction.on_commit(lambda: notify_drivers(riders, summary))
@@ -549,7 +616,6 @@ class PackageDeliveryListCreateAPIView(APIView):
                 'error': str(e)
             }
 
-    
     def post(self, request):
         serializer = PackageDeliveryCreateSerializer(
             data=request.data, context={"request": request}
@@ -571,22 +637,21 @@ class PackageDeliveryListCreateAPIView(APIView):
                             "filename": image.name,
                         }
                         # ✅ pass in correct format: delivery_id first, then file_data
-                        upload_delivery_images.delay(delivery.id, serialized_image)
-                        
+                        upload_delivery_images.delay(
+                            delivery.id, serialized_image)
+
                 self._process_movbay_dispatch(delivery)
                 return Response(
                     PackageDeliverySerializer(delivery).data,
                     status=status.HTTP_201_CREATED,
                 )
-                
+
             except Exception as e:
                 logger.error(f"Error creating delivery: {str(e)}")
                 return Response(
                     {"detail": "Error creating delivery"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
-
-            
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

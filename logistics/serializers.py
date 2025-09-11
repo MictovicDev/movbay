@@ -8,6 +8,7 @@ from .models import Address, Parcel, ShippingRate, Shipment, ShipmentTracking, P
 
 
 
+
 class GoOnline_OfflineSerializer(serializers.ModelSerializer):
     online = serializers.BooleanField(required=True)
     class Meta:
@@ -146,6 +147,43 @@ class PackageDeliverySerializer(serializers.ModelSerializer):
         model = PackageDelivery
         fields = "__all__"
         read_only_fields = ["id", "created_at", "updated_at", "delivered_at"]
+
+
+class GetNearbyRidersSerializer(serializers.Serializer):
+    pickup_address = serializers.CharField(max_length=500)
+    delivery_address = serializers.CharField(max_length=500)
+
+
+#  user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='rider_profile')
+#     address = models.CharField(max_length=250, null=True)
+#     profile_picture = CloudinaryField('profile_picture', blank=True, null=True)
+#     is_available = models.BooleanField(default=True)
+#     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+#     latitude = models.FloatField(blank=True, null=True)
+#     longitude = models.FloatField(blank=True, null=True)
+#     online = models.BooleanField(default=False)
+#     verified= models.BooleanField(default=False)
+
+class NewRiderSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', required=False)
+    fullname = serializers.CharField(source='user.fullname', required=False) 
+    phone_number = serializers.CharField(source='user.phone_number', required=False)  
+    #profile_ 
+    
+    class Meta:
+        model = RiderProfile
+        fields = ['username', 'fullname', 'phone_number','address', 'latitude', 'longitude', 'online', 'verified']
+        
+class GetNearbyRidesResponseSerializer(serializers.Serializer):
+    riders = NewRiderSerializer(many=True)
+    distance_km = serializers.FloatField()
+    lat = serializers.FloatField()
+    lng = serializers.FloatField()
+    
+
+class GetPriceEstimateSerializer(serializers.Serializer):
+    pickup_address = serializers.CharField(max_length=500)
+    delivery_address = serializers.CharField(max_length=500)
 
 
 class PackageDeliveryCreateSerializer(serializers.ModelSerializer):
