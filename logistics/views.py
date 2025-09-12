@@ -500,61 +500,59 @@ class GetNearbyRiders(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        try:
-            serializer = GetNearbyRidersSerializer(data=request.query_params)
-            if not serializer.is_valid():
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer = GetNearbyRidersSerializer(data=request.query_params)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            pickup_address = serializer.validated_data['pickup_address']
-            delivery_address = serializer.validated_data['delivery_address']
-            print(pickup_address)
+        pickup_address = serializer.validated_data['pickup_address']
+        delivery_address = serializer.validated_data['delivery_address']
 
-            pickup_coords = get_coordinates_from_address(pickup_address)
-            delivery_coords = get_coordinates_from_address(delivery_address)
-            if not pickup_coords:
-                return Response(
-                    {"error": "Could not get pickup coordinates"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        pickup_coords = get_coordinates_from_address(pickup_address)
+        delivery_coords = get_coordinates_from_address(delivery_address)
 
-            destination = (delivery_coords.get('latitude'),
-                           delivery_coords.get('longitude'))
-            origin = (pickup_coords.get('latitude'),
-                      pickup_coords.get('longitude'))
-
-            try:
-
-                riders = get_nearby_drivers(
-                    pickup_coords.get('latitude'),
-                    pickup_coords.get('longitude'),
-                    radius_km=5
-
-                )
-                data = [
-                    {"riders_name": rider.get("driver").username,
-                     "riders_picture": rider.get("driver").rider_profile.profile_picture,
-                     "verified": rider.get("driver").rider_profile.verified,
-                     "license": rider.get("driver").rider_profile.kyc_verification.all()[0].plate_number,
-                     "vehicle_type": rider.get("driver").rider_profile.kyc_verification.all()[0].vehicle_type,
-                     "latitude": rider.get("lat"), "longitude": rider.get("lng"),
-                     "eta": get_eta_distance_and_fare(destination, (rider.get("lat"), rider.get("lng")))}
-                    for rider in riders]
-
-                return Response(data, status=200)
-            except Exception as e:
-                logger.error(f"Error fetching nearby drivers: {str(e)}")
-                return Response(
-                    {"error": "Could not fetch nearby riders"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-        except Exception as e:
-            logger.error(f"Error getting nearby riders: {str(e)}")
+        if not pickup_coords or not delivery_coords:
             return Response(
-                {"error": "Unexpected error fetching nearby riders"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Invalid pickup or delivery coordinates"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
+        origin = (pickup_coords["latitude"], pickup_coords["longitude"])
+        destination = (delivery_coords["latitude"], delivery_coords["longitude"])
+
+        try:
+            riders = get_nearby_drivers(
+                pickup_coords["latitude"], pickup_coords["longitude"], radius_km=5
+            )
+
+            data = []
+            for rider in riders:
+                driver = rider.get("driver")
+                profile = driver.rider_profile
+                rides_count = driver.user_ride.count()
+                kyc = profile.kyc_verification.first()
+
+                data.append({
+                    "riders_name": driver.fullname,
+                    "riders_name": driver.id,
+                    "riders_picture": str(profile.profile_picture.url) if profile.profile_picture else None,
+                    "verified": profile.verified,
+                    "plate_number": kyc.plate_number if kyc else None,
+                    "vehicle_color": kyc.vehicle_color if kyc else None,
+                    "vehicle_type": kyc.vehicle_type if kyc else None,
+                    "latitude": rider.get("lat"),
+                    "longitude": rider.get("lng"),
+                    "ride_count": rides_count,
+                    "eta": get_eta_distance_and_fare(destination, (rider.get("lat"), rider.get("lng"))),
+                })
+
+            return Response(data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error fetching nearby drivers: {str(e)}")
+            return Response(
+                {"error": "Could not fetch nearby riders"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 # rider
 # recipient_name
@@ -578,7 +576,7 @@ class PackageDeliveryView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        
+
         serializer = PackageDeliveryCreateSerializer(
             data=request.data, context={"request": request}
         )
@@ -596,7 +594,7 @@ class PackageDeliveryView(APIView):
                 summary = get_eta_distance_and_fare(origin, destination_coords)
                 package_images = validated_data.pop(
                     'packageimages', None)
-    
+
                 delivery = serializer.save(owner=request.user)
 
                 for image in package_images:
@@ -661,7 +659,7 @@ class PackageDeliveryView(APIView):
             )
 
             # Notify drivers (using transaction.on_commit to ensure it runs after transaction)
-           
+
 
             return {
                 'success': True,

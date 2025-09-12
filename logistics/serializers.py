@@ -179,13 +179,15 @@ class GetPriceEstimateSerializer(serializers.Serializer):
 
 class PackageImages(serializers.ModelSerializer):
     image_url = serializers.URLField(required=False)
+    image = serializers.ImageField(required=False)
+    
     
     class Meta:
         model = DeliveryImages
         fields = ['delivery', 'image', 'image_url', 'uploaded_at']
 
 class PackageDeliveryCreateSerializer(serializers.ModelSerializer):
-    images = PackageImages(many=True)
+    package_images = PackageImages(many=True, required=False)
     
     class Meta:
         model = PackageDelivery

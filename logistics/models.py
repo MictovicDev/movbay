@@ -7,14 +7,13 @@ from stores.models import Order,Store
 User = get_user_model()
 
 
-    
 class Ride(models.Model):
     
     courier_options = (
         ('Bike', 'Bike'),
         ('Vehicle', 'Vehicle')
     )
-    rider = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+    rider = models.ForeignKey(User, on_delete=models.CASCADE, null=True, related_name='user_ride')
     distance_km = models.DecimalField(max_digits=8, decimal_places=2, null=True)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, null=True, related_name='ride')
     duration_minutes = models.IntegerField(null=True)
