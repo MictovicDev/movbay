@@ -17,6 +17,8 @@ from stores.models import Order  # Adjust import path accordingly
 from stores.tasks import send_push_notification  # Ensure this task exists
 from .models import Ride
 from .serializers import RideSerializer
+from wallet.models import Wallet
+from payment.models import Payment
 from geopy.distance import geodesic
 from django.shortcuts import get_object_or_404
 from .models import RiderProfile, DeliveryPreference, BankDetail, KYC, PackageDelivery
@@ -31,6 +33,7 @@ from .serializers import (
     GetPriceEstimateSerializer,
     GetNearbyRidesResponseSerializer
 )
+from payment.factories import PaymentProviderFactory, PaymentMethodFactory
 from django.db import models
 from .tasks import upload_rider_files, upload_delivery_images
 import logging
@@ -38,7 +41,11 @@ from base64 import b64encode
 from logistics.utils.get_riders import get_nearby_drivers
 from logistics.utils.eta import get_eta_distance_and_fare
 from stores.utils.get_store_cordinate import get_coordinates_from_address
-
+from rest_framework.exceptions import ValidationError, NotFound
+from decimal import Decimal
+import os
+from payment.utils.helper import generate_tx_ref
+from logistics.utils.handle_payment_package import handle_payment
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -98,71 +105,79 @@ class AcceptRide(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
+        ride = None
+        riderprofile = get_object_or_404(RiderProfile, user=request.user)
+
+        if request.user.user_type != 'Rider':
+            return Response({"message": "Only Riders can accept rides."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        ride_type = request.query_params.get("type", "order")  # default = order
+
         try:
             with transaction.atomic():
-                order = Order.objects.select_for_update().get(order_id=pk)
-                riderprofile = RiderProfile.objects.get(user=request.user)
-                ride = order.ride.all()[0]
+                if ride_type == "order":
+                    order = get_object_or_404(Order.objects.select_for_update(), order_id=pk)
+                    if order.ride_accepted:
+                        return Response({"message": "Ride already accepted."}, status=400)
+                    if order.locked:
+                        return Response({"message": "Ride locked. Another rider accepted."}, status=400)
 
-                rides = Ride.objects.filter(
-                    rider=request.user, completed=False)
-                if rides:
-                    return Response({"message": "You still have an uncompleted Ride."}, status=status.HTTP_400_BAD_REQUEST)
+                    ride = order.ride.first()
+                    if ride:
+                        ride.accepted = True
+                        ride.locked = True
+                        ride.rider = request.user
+                        ride.save()
+                    order.locked = True
+                    order.ride_accepted = True
+                    tracking = order.order_tracking.first()
+                    tracking.driver = riderprofile
+                    tracking.save()
+                    order.save()
 
-                if request.user.user_type != 'Rider':
-                    return Response({"message": "Only Riders can accept rides."}, status=status.HTTP_400_BAD_REQUEST)
+                elif ride_type == "package-delivery":
+                    ride = get_object_or_404(Ride.objects.select_for_update(), id=pk)
+                    if ride.accepted or ride.locked:
+                        return Response({"message": "Ride already accepted or locked."}, status=400)
 
-                if order.ride_accepted == True:
-                    return Response({"message": "Ride already accepted."}, status=status.HTTP_400_BAD_REQUEST)
-
-                if order.locked:
-                    return Response({"message": "Ride has been Locked, other Rider accepted."}, status=status.HTTP_400_BAD_REQUEST)
-
-                order.locked = True
-                order.ride_accepted = True
-                order_tracking = order.order_tracking.all()[0]
-                order_tracking.driver = riderprofile
-                order_tracking.save()
-                ride.accepted = True
-                ride.locked = True
-                ride.rider = request.user
-                order.save()
-                ride.save()
-
-                message = 'The ride has been accepted. Track its progress.'
-
+                else:
+                    return Response({"message": "Invalid type. Must be 'order' or 'ride'."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                    
                 def notify():
-                    try:
-                        # Notify the buyer
+                    message = "Ride has been accepted. Track its progress."
+                    if ride_type == "order":
                         if order.buyer and order.buyer.device.exists():
                             send_push_notification.delay(
                                 token=order.buyer.device.first().token,
-                                title='Ride Accepted',
-                                notification_type='Ride Update',
+                                title="Ride Accepted",
+                                notification_type="Ride Update",
                                 data=message
                             )
-
-                        # Notify the seller
                         if order.store and order.store.owner.device.exists():
                             send_push_notification.delay(
                                 token=order.store.owner.device.first().token,
-                                title='Ride Accepted',
-                                notification_type='Ride Update',
+                                title="Ride Accepted",
+                                notification_type="Ride Update",
                                 data=message
                             )
-                    except Exception as e:
-                        print(f"Notification error: {str(e)}")
+                    elif ride_type == "package-delivery":
+                        send_push_notification.delay(
+                                token=ride.package_sender.device.first().token,
+                                title="Ride Accepted",
+                                notification_type="Ride Update",
+                                data=message
+                            )
 
                 transaction.on_commit(notify)
 
-            return Response({"message": "Ride has been accepted."}, status=status.HTTP_200_OK)
-
-        except Order.DoesNotExist:
-            return Response({"message": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Ride accepted successfully."}, status=200)
 
         except Exception as e:
-            print(f"Error in AcceptRide: {e}")
-            return Response({"message": "Something went wrong."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f"Error in AcceptRide: {e}")
+            return Response({"message": "Something went wrong."}, status=500)
+
 
 
 class RideView(APIView):
@@ -192,7 +207,6 @@ class RideView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=404)
-
 
 class RideDetailView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -437,34 +451,6 @@ class PickedView(APIView):
         return Response({"message": "Order marked for Delivery"}, status=200)
 
 
-def notify_drivers(drivers, summary):
-    """Send push notifications to available drivers"""
-    errors = []
-    try:
-        for driver in drivers:
-            try:
-                devices = driver.get('driver').device.all()
-                if devices:
-                    device_token = devices[0].token
-                    logger.info(
-                        f"Sending notification to: {device_token}")
-                    send_push_notification.delay(
-                        token=device_token,
-                        title='New Ride Alert on movbay',
-                        notification_type="Ride Alert",
-                        data='You have a new ride suggestion on Movbay, check it out and start earning'
-                    )
-            except Exception as e:
-                errors.append(
-                    f"Failed to notify driver {driver.get('driver', {}).get('id', 'unknown')}: {str(e)}")
-                logger.error(f"Notification error: {str(e)}")
-
-        if errors:
-            logger.warning(f"Some notifications failed: {errors}")
-    except Exception as e:
-        logger.error(f"Critical error in notify_drivers: {str(e)}")
-        raise
-
 
 class GetPriceEstimate(APIView):
     authentication_classes = [JWTAuthentication]
@@ -517,7 +503,8 @@ class GetNearbyRiders(APIView):
             )
 
         origin = (pickup_coords["latitude"], pickup_coords["longitude"])
-        destination = (delivery_coords["latitude"], delivery_coords["longitude"])
+        destination = (delivery_coords["latitude"],
+                       delivery_coords["longitude"])
 
         try:
             riders = get_nearby_drivers(
@@ -554,19 +541,6 @@ class GetNearbyRiders(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-# rider
-# recipient_name
-# pick_address
-# drop_address
-# alternative_drop_address
-# alternative_receipient_name
-# alternative_number
-# package_type
-# package_description
-# additional_notes
-
-# item_images = []
-
 
 class PackageDeliveryView(APIView):
     """
@@ -574,107 +548,61 @@ class PackageDeliveryView(APIView):
     """
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-
+    
+    
+    
+    def post(self, request, pk):
         serializer = PackageDeliveryCreateSerializer(
             data=request.data, context={"request": request}
         )
-        if serializer.is_valid():
-            try:
-                rider_id = validated_data.get('rider_id')
-                rider = get_object_or_404(RiderProfile, id=rider_id)
-                validated_data = serializer.validated_data
-                destination_address = validated_data.pop(
-                    'drop_address', None)
-                rider_coords = get_coordinates_from_address(rider.address)
-                destination_coords = get_coordinates_from_address(destination_address)
-                origin = (rider_coords.get('latitude'),
-                      rider_coords.get('longitude'))
-                summary = get_eta_distance_and_fare(origin, destination_coords)
-                package_images = validated_data.pop(
-                    'packageimages', None)
 
-                delivery = serializer.save(owner=request.user)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-                for image in package_images:
-                    if image:
-                        serialized_image = {
-                            "file_content": b64encode(image.read()).decode("utf-8"),
-                            "filename": image.name,
-                        }
-                        # ✅ pass in correct format: delivery_id first, then file_data
-                        upload_delivery_images.delay(
-                            delivery.id, serialized_image)
-
-                # self._process_movbay_dispatch(delivery)
-                transaction.on_commit(lambda: notify_drivers(rider, summary))
-                return Response(
-                    PackageDeliverySerializer(delivery).data,
+        try:
+            validated_data = serializer.validated_data
+            payment_method = validated_data.get("payment_method")
+            amount = validated_data.get("amount")
+            user = request.user
+            if payment_method == 'wallet':
+                handle_payment(payment_method, amount, user, validated_data, serializer, pk)
+                if handle_payment.get('status') == 'Success':
+                    return Response({"message": "Created Succesfully"},
                     status=status.HTTP_201_CREATED,
                 )
-            except Exception as e:
-                logger.error(f"Error creating delivery: {str(e)}")
-                return Response(
-                    {"detail": "Error creating delivery"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
+            elif payment_method == 'package_delivery':
+                print(validated_data)
+                provider_name = validated_data['provider_name']
+                payment_method = validated_data['payment_method']
+                provider = PaymentProviderFactory.create_provider(
+                    provider_name=provider_name)
+                print(provider)
+                method = PaymentMethodFactory.create_method(
+                    method_name=payment_method)
+                print(method)
+                transaction_data = method.prepare_payment_data(
+                    transaction_data)
+                response = provider.initialize_payment(transaction_data)
+                print(response)
+                return Response(response, status=status.HTTP_200_OK)
+                
+                
+        except ValidationError as e:
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def _process_movbay_dispatch(self, delivery):
-        """Process movbay dispatch delivery"""
-        try:
-            # Get coordinates
-            delivery_coords = get_coordinates_from_address(
-                delivery.pick_address)
-            if not delivery_coords:
-                raise ValueError("Could not get delivery coordinates")
-
-            pickup_coords = get_coordinates_from_address(delivery.drop_address)
-            if not pickup_coords:
-                raise ValueError("Could not get store coordinates")
-
-            destination = (delivery_coords.get('latitude'),
-                           delivery_coords.get('longitude'))
-            origin = (pickup_coords.get('latitude'),
-                      pickup_coords.get('longitude'))
-
-            # Get route summary
-            summary = get_eta_distance_and_fare(origin, destination)
-
-            # Find nearby drivers
-            riders = get_nearby_drivers(
-                pickup_coords.get('latitude'),
-                pickup_coords.get('longitude'),
-                radius_km=5
-            )
-
-            # Create ride
-            ride = Ride.objects.create(
-                latitude=origin[0],
-                longitude=origin[1],
-                # order=order,
-                **summary
-            )
-
-            # Notify drivers (using transaction.on_commit to ensure it runs after transaction)
-
-
-            return {
-                'success': True,
-                'delivery_id': delivery.id,
-                'ride_id': ride.id,
-                'drivers_notified': len(riders)
-            }
+        except NotFound as e:
+            return Response(e.detail, status=status.HTTP_404_NOT_FOUND)
 
         except Exception as e:
-            logger.error(f"Movbay dispatch processing failed: {str(e)}")
-            return {
-                'success': False,
-                'delivery_id': delivery.id,
-                'error': str(e)
-            }
+            logger.error(
+                f"Unexpected error creating delivery: {str(e)}", exc_info=True)
+            return Response(
+                {"detail": "An unexpected error occurred while creating delivery."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )  
+                    
+                
+            
 
 
 class PackageDeliveryDetailAPIView(APIView):

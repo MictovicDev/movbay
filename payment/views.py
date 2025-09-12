@@ -36,6 +36,7 @@ from stores.utils.create_order import create_order_with_items
 from stores.models import Store
 from .utils.helper import generate_tx_ref
 from stores.serializers import ShopSerializer
+from logistics.utils.handle_payment_package import handle_payment
 
 
 User = get_user_model()
@@ -129,6 +130,14 @@ class PaystackWebhookView(View):
                 return Response({"Message Order Placed Successfully"}, status=status.HTTP_200_OK)
             except Exception as e:
                 return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+            
+        elif payment_type == 'package-delivery':
+            try:
+                handle_payment(payment_method='package_delivery', amount=amount, user=user)
+            except Exception as e:
+                return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+                #return {"status": "Failed"}
+                
         else:
             return Response({"Message Error Making Payment for Order"}, status=status.HTTP_400_BAD_REQUEST)
 

@@ -19,7 +19,8 @@ GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 
 def get_eta_distance_and_fare(origin, destination):
     url = "https://maps.googleapis.com/maps/api/distancematrix/json"
-
+    print(origin)
+    print(destination)
     params = {
         "origins": f"{origin[0]},{origin[1]}",  # (lat, lng)
         "destinations": f"{destination[0]},{destination[1]}",

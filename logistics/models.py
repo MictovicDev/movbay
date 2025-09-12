@@ -13,9 +13,15 @@ class Ride(models.Model):
         ('Bike', 'Bike'),
         ('Vehicle', 'Vehicle')
     )
+    
+    delivery_options = (
+        ('Order', 'Order'),
+        ('Package', 'Package')
+    )
     rider = models.ForeignKey(User, on_delete=models.CASCADE, null=True, related_name='user_ride')
     distance_km = models.DecimalField(max_digits=8, decimal_places=2, null=True)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, null=True, related_name='ride')
+    package_sender = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='package_sender')
     duration_minutes = models.IntegerField(null=True)
     fare_amount = models.DecimalField(max_digits=8, decimal_places=2, null=True)
     accepted = models.BooleanField(default=False)
@@ -26,6 +32,7 @@ class Ride(models.Model):
     out_for_delivery = models.BooleanField(default=False)
     courier_type = models.CharField(max_length=250, blank=True, null=True)
     completed = models.BooleanField(default=False)
+    delivery_type = models.CharField(max_length=250, choices=delivery_options, blank=True, null=True)
     
     
     def __str__(self):

@@ -20,11 +20,11 @@ urlpatterns = [
     path('total-earnings/', views.TotalEarningsView.as_view(), name='total-earnings'),
     path('check-rider-verified/', views.VerifiedRiderView.as_view(),
          name='check-rider-verified'),
-    path('package-delivery/', views.PackageDeliveryView.as_view(),
+    path('package-delivery/<str:pk>/', views.PackageDeliveryView.as_view(),
          name='package-delivery'),
     path('get-location/', views.GetPriceEstimate.as_view(), name='nearby-rides'),
-    path('get-nearby-riders/', views.GetNearbyRiders.as_view(), name='nearby-riders'),   
-    path('package-delivery/<str:pk>/',
-         views.PackageDeliveryDetailAPIView.as_view(), name='package-delivery-detail'),
+    path('get-nearby-riders/', views.GetNearbyRiders.as_view(), name='nearby-riders'),  
+#     path('package-delivery/<str:pk>/',
+#          views.PackageDeliveryDetailAPIView.as_view(), name='package-delivery-detail'),
     # shipping/urls.py
 ]
