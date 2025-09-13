@@ -245,6 +245,7 @@ class PackageDelivery(models.Model):
     package_description = models.CharField(max_length=500, blank=True, null=True)
     additional_notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    amount = models.PositiveBigIntegerField(default=0, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
     rider_preference = models.CharField(max_length=250, choices=RIDE_CHOICES, blank=True, null=True)
     

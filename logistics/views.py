@@ -565,26 +565,38 @@ class PackageDeliveryView(APIView):
             amount = validated_data.get("amount")
             user = request.user
             if payment_method == 'wallet':
-                handle_payment(payment_method, amount, user, validated_data, serializer, pk)
-                if handle_payment.get('status') == 'Success':
+                result = handle_payment(payment_method, amount, user, validated_data, serializer, pk)
+                print(result)
+                if result.get('status') == 'Completed':
                     return Response({"message": "Created Succesfully"},
                     status=status.HTTP_201_CREATED,
                 )
-            elif payment_method == 'package_delivery':
-                print(validated_data)
+                else:
+                    return Response({"Error Package Not created"}, status=400)
+                
+            elif payment_method == 'card' or payment_method == 'bank_transfer':
+                transaction_data = {
+                    "email": request.user.email,
+                    "amount": int(Decimal(validated_data['amount'])) * 100,
+                    "reference": generate_tx_ref(),
+                    "currency": "NGN",
+                    "metadata": {
+                        "user_id": str(request.user),
+                        "payment_type": 'package-delivery',
+                        # "cart_items": validated_data,
+                    }, }
                 provider_name = validated_data['provider_name']
                 payment_method = validated_data['payment_method']
                 provider = PaymentProviderFactory.create_provider(
                     provider_name=provider_name)
-                print(provider)
                 method = PaymentMethodFactory.create_method(
                     method_name=payment_method)
-                print(method)
                 transaction_data = method.prepare_payment_data(
                     transaction_data)
                 response = provider.initialize_payment(transaction_data)
-                print(response)
                 return Response(response, status=status.HTTP_200_OK)
+            else:
+                return Response({"Message": "Invalid Payment Method"}, status=400)
                 
                 
         except ValidationError as e:

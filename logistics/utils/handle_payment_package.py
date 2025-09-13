@@ -12,6 +12,7 @@ from ..tasks import upload_delivery_images
 import logging
 from logistics.models import Ride
 from stores.tasks import send_push_notification
+from rest_framework.response import Response
 
 import os
 
@@ -54,11 +55,8 @@ def notify_driver(driver, summary):
 def handle_payment(payment_method, amount, user, data, serializer, pk):
     try:
         if payment_method == 'wallet':
-            platform_wallet, _ = Wallet.objects.get_or_create(owner__email=os.getenv('ADMIN_MAIL', None))
+            platform_wallet, _ = Wallet.objects.get_or_create(owner__email=os.getenv('ADMIN_EMAIL', None))
             sender_wallet = user.wallet
-            print(platform_wallet, sender_wallet)
-            print("BALANCE:", sender_wallet.balance, "AMOUNT:", amount, type(amount))
-            print(user.wallet)
             if Decimal(sender_wallet.balance) < Decimal(amount):
                 print(True)
                 raise ValidationError({"wallet": "Insufficient Funds"})
@@ -75,6 +73,8 @@ def handle_payment(payment_method, amount, user, data, serializer, pk):
             # --- Address validation ---
             print(data)
             destination_address = data.get("drop_address", None)
+            payment_method = data.pop('payment_method')
+            provider_name = data.pop('provider_name')
             if not destination_address:
                 raise ValidationError(
                     {"drop_address": "Destination address is required."})
@@ -86,6 +86,7 @@ def handle_payment(payment_method, amount, user, data, serializer, pk):
             destination = (destination_coords.get('latitude'),
                         destination_coords.get('longitude'))
             origin = (rider_latitude, rider_longitude)
+            
 
             if not rider_latitude or not rider_longitude or not destination:
                 raise ValidationError(
@@ -94,7 +95,8 @@ def handle_payment(payment_method, amount, user, data, serializer, pk):
             summary = get_eta_distance_and_fare(origin, destination)
 
             # --- Save delivery ---
-            delivery = serializer.save(owner=user)
+            delivery = serializer.save(owner=user, rider=rider)
+            #delivery = PackageDelivery.objects.create(rider=rider, owner=user, recipient_name=)
 
             # --- Handle package images ---
             package_images = data.pop("packageimages", None) or []
