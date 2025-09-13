@@ -91,15 +91,17 @@ def handle_payment(payment_method, amount, user, data, serializer, pk):
             if not rider_latitude or not rider_longitude or not destination:
                 raise ValidationError(
                     {"coordinates": "Unable to resolve one or more addresses."})
-
+ 
             summary = get_eta_distance_and_fare(origin, destination)
-
+            package_images = data.pop("package_images_list", None) or []
             # --- Save delivery ---
             delivery = serializer.save(owner=user, rider=rider)
             #delivery = PackageDelivery.objects.create(rider=rider, owner=user, recipient_name=)
 
             # --- Handle package images ---
-            package_images = data.pop("packageimages", None) or []
+            print(data)
+            
+            print(package_images)
             for image in package_images:
                 if image:
                     try:

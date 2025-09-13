@@ -561,6 +561,7 @@ class PackageDeliveryView(APIView):
 
         try:
             validated_data = serializer.validated_data
+            print(validated_data)
             payment_method = validated_data.get("payment_method")
             amount = validated_data.get("amount")
             user = request.user

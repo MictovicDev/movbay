@@ -187,7 +187,8 @@ class PackageImages(serializers.ModelSerializer):
         fields = ['delivery', 'image', 'image_url', 'uploaded_at']
 
 class PackageDeliveryCreateSerializer(serializers.ModelSerializer):
-    package_images = PackageImages(many=True, required=False)
+    package_images = PackageImages(many=True, required=False, read_only=True)
+    package_images_list = serializers.ListField(required=False)
     rider_id = serializers.IntegerField(required=False, read_only=True)
     payment_method = serializers.CharField(required=False, default="wallet")
     provider_name = serializers.CharField(required=False, default="paystack")

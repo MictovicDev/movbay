@@ -72,7 +72,7 @@ def upload_rider_files(self, kyc_id, file_data):
             
 @shared_task(bind=True, max_retries=3)
 def upload_delivery_images(self, delivery_id, file_data):
-    from .models import PackageDelivery  # avoid circular imports
+    from .models import PackageDelivery, DeliveryImages  # avoid circular imports
 
     try:
         delivery = PackageDelivery.objects.get(id=delivery_id)
@@ -89,18 +89,21 @@ def upload_delivery_images(self, delivery_id, file_data):
         upload_result = upload(
             BytesIO(file_bytes),
             public_id=public_id,
-            resource_type="auto"  # Auto-detect file type
+            resource_type="auto"  # Auto-detect file type (image/pdf/etc.)
         )
 
         if not upload_result.get("secure_url"):
             raise ValueError("No secure URL returned from Cloudinary")
 
-        # Save URL back to delivery model
-        delivery.pickup_photo_url = upload_result["secure_url"]
-        delivery.save(update_fields=["pickup_photo_url"])
+        # ✅ Create DeliveryImages record linked to PackageDelivery
+        DeliveryImages.objects.create(
+            delivery=delivery,
+            image=upload_result.get("public_id"),  # stored in Cloudinary
+            image_url=upload_result["secure_url"]
+        )
 
         logger.info(
-            f"Successfully uploaded Delivery Image for delivery {delivery_id}"
+            f"Successfully uploaded and linked image to delivery {delivery_id}"
         )
 
     except Exception as e:
