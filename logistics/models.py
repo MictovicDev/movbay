@@ -18,10 +18,12 @@ class Ride(models.Model):
         ('Order', 'Order'),
         ('Package', 'Package')
     )
+    
     rider = models.ForeignKey(User, on_delete=models.CASCADE, null=True, related_name='user_ride')
     distance_km = models.DecimalField(max_digits=8, decimal_places=2, null=True)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, null=True, related_name='ride')
     package_sender = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='package_sender')
+    package_delivery = models.ForeignKey('PackageDelivery', on_delete=models.CASCADE, blank=True, null=True)
     duration_minutes = models.IntegerField(null=True)
     fare_amount = models.DecimalField(max_digits=8, decimal_places=2, null=True)
     accepted = models.BooleanField(default=False)

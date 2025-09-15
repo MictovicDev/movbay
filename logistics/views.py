@@ -520,7 +520,7 @@ class GetNearbyRiders(APIView):
 
                 data.append({
                     "riders_name": driver.fullname,
-                    "riders_name": driver.id,
+                    "riders_id": driver.id,
                     "riders_picture": str(profile.profile_picture.url) if profile.profile_picture else None,
                     "verified": profile.verified,
                     "plate_number": kyc.plate_number if kyc else None,
@@ -541,6 +541,95 @@ class GetNearbyRiders(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+
+
+def notify_driver(driver, summary):
+    """Send push notifications to available drivers"""
+    errors = []
+    try:
+        try:
+            devices = driver.user.device.all()
+            if devices:
+                device_token = devices[0].token
+                logger.info(
+                    f"Sending notification to: {device_token}")
+                send_push_notification.delay(
+                    token=device_token,
+                    title='New Ride Alert on movbay',
+                    notification_type="Ride Alert",
+                    data='You have a new ride suggestion on Movbay, check it out and start earning'
+                )
+        except Exception as e:
+            errors.append(
+                f"Failed to notify driver {driver} {str(e)}")
+            logger.error(f"Notification error: {str(e)}")
+
+        if errors:
+            logger.warning(f"Some notifications failed: {errors}")
+    except Exception as e:
+        logger.error(f"Critical error in notify_drivers: {str(e)}")
+        raise
+    
+    
+
+class SelectRideView(APIView):
+    
+    """_summary_:- View For Selcting Rides for Package Delivery
+
+    Returns:
+        _type_: _description_
+    """
+    
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    def post(self, request, pk):
+        serializer = PackageDeliveryCreateSerializer(
+            data=request.data, context={"request": request}
+        )
+        if serializer.is_valid():
+            try:
+                validated_data = serializer.validated_data
+                rider = RiderProfile.objects.get(id=pk)
+                packagedelivery = serializer.save(rider=rider, owner=request.user)
+                rider_latitude = rider.latitude
+                rider_longitude = rider.longitude
+                destination_address = validated_data.get("drop_address", None)
+                destination_coords = get_coordinates_from_address(
+                    destination_address)
+                destination = (destination_coords.get('latitude'),
+                            destination_coords.get('longitude'))
+                origin = (rider_latitude, rider_longitude)
+                if not rider_latitude or not rider_longitude or not destination:
+                    raise ValidationError(
+                        {"coordinates": "Unable to resolve one or more addresses."})
+    
+                summary = get_eta_distance_and_fare(origin, destination)
+            except Exception as e:
+                logger.info(str(e))
+                return Response(str(e), status=400)
+            #Ride.objects.create(id=pk, rider=rider, package_delivery=packagedelivery)
+            package_images = validated_data.pop("package_images_list", None) or []
+            for image in package_images:
+                if image:
+                    try:
+                        serialized_image = {
+                            "file_content": b64encode(image.read()).decode("utf-8"),
+                            "filename": image.name,
+                        }
+                        upload_delivery_images.delay(
+                            packagedelivery.id, serialized_image)
+                    except Exception as e:
+                        logger.warning(
+                            f"Image upload failed for delivery {packagedelivery.id}: {str(e)}")
+            Ride.objects.create(rider=rider.user, distance_km=summary.get('distance_km'), duration_minutes=summary.get(
+                'duration_minutes'), fare_amount=summary.get('fare_amount'), delivery_type='Package', package_delivery=packagedelivery)
+
+            # --- Notify drivers only after DB commit ---
+            transaction.on_commit(lambda: notify_driver(rider, summary))
+            return Response({"success": "True", "data": serializer.data}, status=201)
+        
+        
+        
 
 class PackageDeliveryView(APIView):
     """
