@@ -33,6 +33,7 @@ from .serializers import (
     GetPriceEstimateSerializer,
     GetNearbyRidesResponseSerializer
 )
+import math
 from payment.factories import PaymentProviderFactory, PaymentMethodFactory
 from django.db import models
 from .tasks import upload_rider_files, upload_delivery_images
@@ -46,6 +47,7 @@ from decimal import Decimal
 import os
 from payment.utils.helper import generate_tx_ref
 from logistics.utils.handle_payment_package import handle_payment
+from geopy.distance import geodesic
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -112,12 +114,14 @@ class AcceptRide(APIView):
             return Response({"message": "Only Riders can accept rides."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        ride_type = request.query_params.get("type", "order")  # default = order
+        ride_type = request.query_params.get(
+            "type", "order")  # default = order
 
         try:
             with transaction.atomic():
                 if ride_type == "order":
-                    order = get_object_or_404(Order.objects.select_for_update(), order_id=pk)
+                    order = get_object_or_404(
+                        Order.objects.select_for_update(), order_id=pk)
                     if order.ride_accepted:
                         return Response({"message": "Ride already accepted."}, status=400)
                     if order.locked:
@@ -137,14 +141,15 @@ class AcceptRide(APIView):
                     order.save()
 
                 elif ride_type == "package-delivery":
-                    ride = get_object_or_404(Ride.objects.select_for_update(), id=pk)
+                    ride = get_object_or_404(
+                        Ride.objects.select_for_update(), id=pk)
                     if ride.accepted or ride.locked:
                         return Response({"message": "Ride already accepted or locked."}, status=400)
 
                 else:
                     return Response({"message": "Invalid type. Must be 'order' or 'ride'."},
                                     status=status.HTTP_400_BAD_REQUEST)
-                    
+
                 def notify():
                     message = "Ride has been accepted. Track its progress."
                     if ride_type == "order":
@@ -164,11 +169,11 @@ class AcceptRide(APIView):
                             )
                     elif ride_type == "package-delivery":
                         send_push_notification.delay(
-                                token=ride.package_sender.device.first().token,
-                                title="Ride Accepted",
-                                notification_type="Ride Update",
-                                data=message
-                            )
+                            token=ride.package_sender.device.first().token,
+                            title="Ride Accepted",
+                            notification_type="Ride Update",
+                            data=message
+                        )
 
                 transaction.on_commit(notify)
 
@@ -179,7 +184,6 @@ class AcceptRide(APIView):
             return Response({"message": "Something went wrong."}, status=500)
 
 
-
 class RideView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -188,25 +192,48 @@ class RideView(APIView):
         try:
             # Get driver's location
             rider_profile = RiderProfile.objects.get(user=request.user)
-            driver_location = (rider_profile.latitude, rider_profile.longitude)
+            driver_lat = rider_profile.latitude
+            driver_lon = rider_profile.longitude
 
-            # Filter rides (e.g., not yet assigned or status = 'pending')
-            all_rides = Ride.objects.all()
+            if not driver_lat or not driver_lon:
+                return Response({"error": "Driver location not set"}, status=400)
 
-            # Filter rides within a certain radius (e.g., 10km)
+            driver_location = (driver_lat, driver_lon)
+
+            radius_km = 10  # search radius
+            lat_range = radius_km / 111  # ~111 km per degree latitude
+            lon_range = radius_km / \
+                (111 * abs(math.cos(math.radians(driver_lat))) or 1e-6)
+
+            min_lat = driver_lat - lat_range
+            max_lat = driver_lat + lat_range
+            min_lon = driver_lon - lon_range
+            max_lon = driver_lon + lon_range
+
+            # Filter candidates in bounding box
+            candidates = Ride.objects.filter(
+                latitude__range=(min_lat, max_lat),
+                longitude__range=(min_lon, max_lon),
+                status="pending"  # example filter
+            )
+
+            # Final filter with exact geodesic
             nearby_rides = []
-            for ride in all_rides:
+            for ride in candidates:
                 if ride.latitude and ride.longitude:
                     ride_location = (ride.latitude, ride.longitude)
                     distance_km = geodesic(driver_location, ride_location).km
-                    if distance_km <= 10:
+                    if distance_km <= radius_km:
                         nearby_rides.append(ride)
 
             serializer = RideSerializer(nearby_rides, many=True)
             return Response(serializer.data, status=200)
 
+        except RiderProfile.DoesNotExist:
+            return Response({"error": "Rider profile not found"}, status=404)
         except Exception as e:
-            return Response({"error": str(e)}, status=404)
+            return Response({"error": str(e)}, status=500)
+
 
 class RideDetailView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -451,7 +478,6 @@ class PickedView(APIView):
         return Response({"message": "Order marked for Delivery"}, status=200)
 
 
-
 class GetPriceEstimate(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -520,7 +546,7 @@ class GetNearbyRiders(APIView):
 
                 data.append({
                     "riders_name": driver.fullname,
-                    "riders_id": driver.id,
+                    "riders_id": driver.rider_profile.id,
                     "riders_picture": str(profile.profile_picture.url) if profile.profile_picture else None,
                     "verified": profile.verified,
                     "plate_number": kyc.plate_number if kyc else None,
@@ -540,7 +566,6 @@ class GetNearbyRiders(APIView):
                 {"error": "Could not fetch nearby riders"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
 
 
 def notify_driver(driver, summary):
@@ -569,67 +594,72 @@ def notify_driver(driver, summary):
     except Exception as e:
         logger.error(f"Critical error in notify_drivers: {str(e)}")
         raise
-    
-    
+
 
 class SelectRideView(APIView):
-    
+
     """_summary_:- View For Selcting Rides for Package Delivery
 
     Returns:
         _type_: _description_
     """
-    
+
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+
     def post(self, request, pk):
         serializer = PackageDeliveryCreateSerializer(
             data=request.data, context={"request": request}
         )
-        if serializer.is_valid():
-            try:
-                validated_data = serializer.validated_data
-                rider = RiderProfile.objects.get(id=pk)
-                packagedelivery = serializer.save(rider=rider, owner=request.user)
-                rider_latitude = rider.latitude
-                rider_longitude = rider.longitude
-                destination_address = validated_data.get("drop_address", None)
-                destination_coords = get_coordinates_from_address(
-                    destination_address)
-                destination = (destination_coords.get('latitude'),
-                            destination_coords.get('longitude'))
-                origin = (rider_latitude, rider_longitude)
-                if not rider_latitude or not rider_longitude or not destination:
-                    raise ValidationError(
-                        {"coordinates": "Unable to resolve one or more addresses."})
-    
-                summary = get_eta_distance_and_fare(origin, destination)
-            except Exception as e:
-                logger.info(str(e))
-                return Response(str(e), status=400)
-            #Ride.objects.create(id=pk, rider=rider, package_delivery=packagedelivery)
-            package_images = validated_data.pop("package_images_list", None) or []
-            for image in package_images:
-                if image:
-                    try:
-                        serialized_image = {
-                            "file_content": b64encode(image.read()).decode("utf-8"),
-                            "filename": image.name,
-                        }
-                        upload_delivery_images.delay(
-                            packagedelivery.id, serialized_image)
-                    except Exception as e:
-                        logger.warning(
-                            f"Image upload failed for delivery {packagedelivery.id}: {str(e)}")
-            Ride.objects.create(rider=rider.user, distance_km=summary.get('distance_km'), duration_minutes=summary.get(
-                'duration_minutes'), fare_amount=summary.get('fare_amount'), delivery_type='Package', package_delivery=packagedelivery)
 
-            # --- Notify drivers only after DB commit ---
-            transaction.on_commit(lambda: notify_driver(rider, summary))
-            return Response({"success": "True", "data": serializer.data}, status=201)
-        
-        
-        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validated_data = serializer.validated_data
+            print
+            rider = RiderProfile.objects.get(id=pk)
+            packagedelivery = serializer.save(rider=rider, owner=request.user)
+            rider_latitude = rider.latitude
+            rider_longitude = rider.longitude
+            destination_address = validated_data.get("drop_address", None)
+            pickup_address = validated_data.get("pick_address", None)
+            destination_coords = get_coordinates_from_address(
+                destination_address)
+            pickup_coords = get_coordinates_from_address(pickup_address)
+            pickup_origin = (pickup_coords.get('latitude'),
+                             pickup_coords.get('longitude'))
+            destination = (destination_coords.get('latitude'),
+                           destination_coords.get('longitude'))
+            origin = (rider_latitude, rider_longitude)
+            if not rider_latitude or not rider_longitude or not destination:
+                raise ValidationError(
+                    {"coordinates": "Unable to resolve one or more addresses."})
+
+            summary = get_eta_distance_and_fare(origin, destination)
+        except Exception as e:
+            logger.info(str(e))
+            return Response(str(e), status=400)
+        # Ride.objects.create(id=pk, rider=rider, package_delivery=packagedelivery)
+        package_images = validated_data.pop("package_images_list", None) or []
+        for image in package_images:
+            if image:
+                try:
+                    serialized_image = {
+                        "file_content": b64encode(image.read()).decode("utf-8"),
+                        "filename": image.name,
+                    }
+                    upload_delivery_images.delay(
+                        packagedelivery.id, serialized_image)
+                except Exception as e:
+                    logger.warning(
+                        f"Image upload failed for delivery {packagedelivery.id}: {str(e)}")
+        Ride.objects.create(rider=rider.user, distance_km=summary.get('distance_km'), duration_minutes=summary.get(
+            'duration_minutes'), fare_amount=summary.get('fare_amount'), delivery_type='Package', package_delivery=packagedelivery, latitude=pickup_origin[0], longitude=pickup_origin[1])
+
+        # --- Notify drivers only after DB commit ---
+        transaction.on_commit(lambda: notify_driver(rider, summary))
+        return Response({"success": "True", "data": serializer.data}, status=201)
+
 
 class PackageDeliveryView(APIView):
     """
@@ -637,9 +667,7 @@ class PackageDeliveryView(APIView):
     """
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
-    
-    
+
     def post(self, request, pk):
         serializer = PackageDeliveryCreateSerializer(
             data=request.data, context={"request": request}
@@ -655,15 +683,16 @@ class PackageDeliveryView(APIView):
             amount = validated_data.get("amount")
             user = request.user
             if payment_method == 'wallet':
-                result = handle_payment(payment_method, amount, user, validated_data, serializer, pk)
+                result = handle_payment(
+                    payment_method, amount, user, validated_data, serializer, pk)
                 print(result)
                 if result.get('status') == 'Completed':
                     return Response({"message": "Created Succesfully"},
-                    status=status.HTTP_201_CREATED,
-                )
+                                    status=status.HTTP_201_CREATED,
+                                    )
                 else:
                     return Response({"Error Package Not created"}, status=400)
-                
+
             elif payment_method == 'card' or payment_method == 'bank_transfer':
                 transaction_data = {
                     "email": request.user.email,
@@ -687,10 +716,9 @@ class PackageDeliveryView(APIView):
                 return Response(response, status=status.HTTP_200_OK)
             else:
                 return Response({"Message": "Invalid Payment Method"}, status=400)
-                
-                
+
         except ValidationError as e:
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
         except NotFound as e:
             return Response(e.detail, status=status.HTTP_404_NOT_FOUND)
@@ -701,10 +729,7 @@ class PackageDeliveryView(APIView):
             return Response(
                 {"detail": "An unexpected error occurred while creating delivery."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )  
-                    
-                
-            
+            )
 
 
 class PackageDeliveryDetailAPIView(APIView):
