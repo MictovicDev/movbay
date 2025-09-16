@@ -1,10 +1,9 @@
 from rest_framework import serializers
 from users.models import RiderProfile
 from .models import Ride, DeliveryPreference, BankDetail, KYC
-from users.models import RiderProfile
 from stores.serializers import OrderSerializer
 from .models import Address, Parcel, ShippingRate, Shipment, ShipmentTracking, PackageDelivery, DeliveryImages
-
+from users.serializers import UserProfileSerializer
 
 
 
@@ -25,16 +24,48 @@ class UpdateLatLongSerializer(serializers.ModelSerializer):
     class Meta:
         model = RiderProfile
         fields = ['latitude', 'longitude']
+      
+      
+      
+class PackageImages(serializers.ModelSerializer):
+    image_url = serializers.URLField(required=False)
+    image = serializers.ImageField(required=False)
+    
+    
+    class Meta:
+        model = DeliveryImages
+        fields = ['delivery', 'image', 'image_url', 'uploaded_at']
+      
+      
+class PackageDeliveryCreateSerializer(serializers.ModelSerializer):
+    owner = UserProfileSerializer(reqired=False)
+    package_images = PackageImages(many=True, required=False, read_only=True)
+    package_images_list = serializers.ListField(required=False)
+    rider_id = serializers.IntegerField(required=False, read_only=True)
+    # payment_method = serializers.CharField(required=False, default="wallet")
+    # provider_name = serializers.CharField(required=False, default="paystack")
+    # amount = serializers.IntegerField(required=False, default=0)
+    class Meta:
+        model = PackageDelivery
+        exclude = ["created_at", "updated_at", "delivered_at", "rider"]
+
+
+
+class PackageDeliverySerializer(serializers.ModelSerializer):
+    # owner = UserSerializer()
+    class Meta:
+        model = PackageDelivery
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at", "delivered_at"]
         
         
 class RideSerializer(serializers.ModelSerializer):
+    rider = PackageDeliveryCreateSerializer(required=False)
     order = OrderSerializer(required=False)
     class Meta:
         model = Ride
         fields = '__all__'
         
-        
-from rest_framework import serializers
 
 
 class DeliveryPreferenceSerializer(serializers.ModelSerializer):
@@ -48,6 +79,8 @@ class BankDetailSerializer(serializers.ModelSerializer):
         model = BankDetail
         fields = '__all__'
         read_only_fields = ('rider',)
+
+
 
 class KYCSerializer(serializers.ModelSerializer):
     class Meta: 
@@ -139,16 +172,6 @@ class CreateShipmentSerializer(serializers.Serializer):
     
     
 
-
-
-
-class PackageDeliverySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PackageDelivery
-        fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at", "delivered_at"]
-
-
 class GetNearbyRidersSerializer(serializers.Serializer):
     pickup_address = serializers.CharField(max_length=500)
     delivery_address = serializers.CharField(max_length=500)
@@ -177,25 +200,9 @@ class GetPriceEstimateSerializer(serializers.Serializer):
 
 
 
-class PackageImages(serializers.ModelSerializer):
-    image_url = serializers.URLField(required=False)
-    image = serializers.ImageField(required=False)
-    
-    
-    class Meta:
-        model = DeliveryImages
-        fields = ['delivery', 'image', 'image_url', 'uploaded_at']
 
-class PackageDeliveryCreateSerializer(serializers.ModelSerializer):
-    package_images = PackageImages(many=True, required=False, read_only=True)
-    package_images_list = serializers.ListField(required=False)
-    rider_id = serializers.IntegerField(required=False, read_only=True)
-    # payment_method = serializers.CharField(required=False, default="wallet")
-    # provider_name = serializers.CharField(required=False, default="paystack")
-    # amount = serializers.IntegerField(required=False, default=0)
-    class Meta:
-        model = PackageDelivery
-        exclude = ["created_at", "updated_at", "delivered_at", "rider"]
+
+
         # read_only_fields = ["rider", "status"]
         
     

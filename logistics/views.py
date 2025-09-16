@@ -214,7 +214,7 @@ class RideView(APIView):
             candidates = Ride.objects.filter(
                 latitude__range=(min_lat, max_lat),
                 longitude__range=(min_lon, max_lon),
-                status="pending"  # example filter
+                accepted=False
             )
 
             # Final filter with exact geodesic
@@ -635,7 +635,7 @@ class SelectRideView(APIView):
                 raise ValidationError(
                     {"coordinates": "Unable to resolve one or more addresses."})
 
-            summary = get_eta_distance_and_fare(origin, destination)
+            summary = get_eta_distance_and_fare(destination, origin)
         except Exception as e:
             logger.info(str(e))
             return Response(str(e), status=400)
