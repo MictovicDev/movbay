@@ -4,6 +4,7 @@ from users.serializers import UserSerializer, UserProfileSerializer
 from stores.serializers import ClientStoreSerializer, ProductSerializer, ProductImageSerializer
 from stores.models import Store, Product, Status
 from django.contrib.auth import get_user_model
+import redis, os
 
 
 User = get_user_model()
@@ -58,10 +59,21 @@ class ConversationSerializer(serializers.ModelSerializer):
     sender = MessageUserSerializer(read_only=True)
     receiver = ChatStoreSerializer(read_only=True)
     messages = MessageSerializer(many=True, read_only=True)
+    user_online = serializers.SerializerMethodField()  # New field to check if other user is online
     
     class Meta:
         model = Conversation
         fields = '__all__'
+        
+    def get_user_online(self, obj):
+        request_user = self.context["request"].user
+
+        if obj.sender == request_user:
+            other_user = obj.receiver.owner if hasattr(obj.receiver, "owner") else obj.receiver
+        else:
+            other_user = obj.sender
+
+        return getattr(other_user, "is_online", lambda: False)()
 
         
         

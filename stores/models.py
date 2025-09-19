@@ -104,18 +104,13 @@ class Product(models.Model):
     movbay_express = models.BooleanField(default=False)
     speed_dispatch = models.BooleanField(default=False)
     pickup = models.BooleanField(default=False)
-    # delivery_types = models.ManyToManyField(
-    #     DeliveryOption,
-    #     blank=True,
-    #     related_name="products"
-    # )
     auto_post_to_story = models.BooleanField(default=False)
     free_delivery = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return f"{self.store.name if self.id else 'No Store'} - {self.id or 'Unnamed Product'}"
+        return f"{self.store.name if self.id else 'No Store'} - {self.title or 'Unnamed Product'}"
 
     class Meta:
         indexes = [

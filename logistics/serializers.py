@@ -13,9 +13,9 @@ class GoOnline_OfflineSerializer(serializers.ModelSerializer):
     class Meta:
         model = RiderProfile
         fields = ['online']
-        
-        
-    
+
+
+
 
 class UpdateLatLongSerializer(serializers.ModelSerializer):
     latitude = serializers.FloatField(required=True)
@@ -24,21 +24,21 @@ class UpdateLatLongSerializer(serializers.ModelSerializer):
     class Meta:
         model = RiderProfile
         fields = ['latitude', 'longitude']
-      
-      
-      
+
+
+
 class PackageImages(serializers.ModelSerializer):
     image_url = serializers.URLField(required=False)
     image = serializers.ImageField(required=False)
-    
-    
+
+
     class Meta:
         model = DeliveryImages
         fields = ['delivery', 'image', 'image_url', 'uploaded_at']
-      
-      
-class PackageDeliveryCreateSerializer(serializers.ModelSerializer):
-    owner = UserProfileSerializer(reqired=False)
+
+
+class PackageDeliverySerializer(serializers.ModelSerializer):
+    sender = UserProfileSerializer(required=False, read_only=False)
     package_images = PackageImages(many=True, required=False, read_only=True)
     package_images_list = serializers.ListField(required=False)
     rider_id = serializers.IntegerField(required=False, read_only=True)
@@ -47,25 +47,24 @@ class PackageDeliveryCreateSerializer(serializers.ModelSerializer):
     # amount = serializers.IntegerField(required=False, default=0)
     class Meta:
         model = PackageDelivery
-        exclude = ["created_at", "updated_at", "delivered_at", "rider"]
+        exclude = ["created_at", "updated_at", "delivered_at"]
 
 
 
-class PackageDeliverySerializer(serializers.ModelSerializer):
-    # owner = UserSerializer()
-    class Meta:
-        model = PackageDelivery
-        fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at", "delivered_at"]
-        
-        
+
+
+class PackagePaymentDeliverySerializer(serializers.Serializer): 
+    payment_method = serializers.ChoiceField(choices=[('wallet', 'Wallet'), ('package_delivery', 'Package Delivery')], default='wallet')
+    provider_name = serializers.CharField(max_length=100, default='paystack')
+    # amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+
 class RideSerializer(serializers.ModelSerializer):
-    rider = PackageDeliveryCreateSerializer(required=False)
+    package_delivery = PackageDeliverySerializer(required=False)
     order = OrderSerializer(required=False)
     class Meta:
         model = Ride
         fields = '__all__'
-        
+
 
 
 class DeliveryPreferenceSerializer(serializers.ModelSerializer):
@@ -83,7 +82,7 @@ class BankDetailSerializer(serializers.ModelSerializer):
 
 
 class KYCSerializer(serializers.ModelSerializer):
-    class Meta: 
+    class Meta:
         model = KYC
         fields = '__all__'
         read_only_fields = ('rider', 'nin', 'proof_of_address', 'drivers_licence')
@@ -92,19 +91,19 @@ class KYCSerializer(serializers.ModelSerializer):
             'proof_of_address_file': {'write_only': True},
             'drivers_licence_file': {'write_only': True},
         }
-        
-        
+
+
 
 class RiderSerializer(serializers.ModelSerializer):
     kyc_verification = KYCSerializer()
     delivery_preference = DeliveryPreferenceSerializer()
     bank_details = BankDetailSerializer()
-    
+
     class Meta:
         model = RiderProfile
         fields = '__all__'
-        
-    
+
+
 
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
@@ -122,13 +121,13 @@ class ShippingRateSerializer(serializers.ModelSerializer):
     pickup_address = AddressSerializer(read_only=True)
     delivery_address = AddressSerializer(read_only=True)
     parcel = ParcelSerializer(read_only=True)
-    
+
     class Meta:
         model = ShippingRate
         fields = '__all__'
         read_only_fields = ['id', 'terminal_rate_id', 'created_at']
-        
-        
+
+
 
 class TotalFareSerializer(serializers.Serializer):
     total_fare = serializers.DecimalField(max_digits=10, decimal_places=2)
@@ -143,11 +142,11 @@ class ShipmentTrackingSerializer(serializers.ModelSerializer):
 class ShipmentSerializer(serializers.ModelSerializer):
     rate = ShippingRateSerializer(read_only=True)
     tracking_events = ShipmentTrackingSerializer(many=True, read_only=True)
-    
+
     class Meta:
         model = Shipment
         fields = '__all__'
-        read_only_fields = ['id', 'user', 'terminal_shipment_id', 'tracking_number', 
+        read_only_fields = ['id', 'user', 'terminal_shipment_id', 'tracking_number',
                            'current_location', 'status', 'created_at', 'updated_at']
 
 class GetRatesSerializer(serializers.Serializer):
@@ -168,9 +167,9 @@ class CreateShipmentSerializer(serializers.Serializer):
     )
     delivery_note = serializers.CharField(max_length=1000, required=False, allow_blank=True)
     metadata = serializers.JSONField(required=False, default=dict)
-    
-    
-    
+
+
+
 
 class GetNearbyRidersSerializer(serializers.Serializer):
     pickup_address = serializers.CharField(max_length=500)
@@ -179,30 +178,21 @@ class GetNearbyRidersSerializer(serializers.Serializer):
 
 class NewRiderSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', required=False)
-    fullname = serializers.CharField(source='user.fullname', required=False) 
-    phone_number = serializers.CharField(source='user.phone_number', required=False)  
-    #profile_ 
-    
+    fullname = serializers.CharField(source='user.fullname', required=False)
+    phone_number = serializers.CharField(source='user.phone_number', required=False)
+    #profile_
+
     class Meta:
         model = RiderProfile
         fields = ['username', 'fullname', 'phone_number','address', 'latitude', 'longitude', 'online', 'verified']
-        
+
 class GetNearbyRidesResponseSerializer(serializers.Serializer):
     riders = NewRiderSerializer(many=True)
     distance_km = serializers.FloatField()
     lat = serializers.FloatField()
     lng = serializers.FloatField()
-    
+
 
 class GetPriceEstimateSerializer(serializers.Serializer):
     pickup_address = serializers.CharField(max_length=500)
     delivery_address = serializers.CharField(max_length=500)
-
-
-
-
-
-
-        # read_only_fields = ["rider", "status"]
-        
-    

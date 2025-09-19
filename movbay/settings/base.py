@@ -1,3 +1,4 @@
+from datetime import time
 from pathlib import Path
 import os
 from dotenv import load_dotenv
@@ -59,7 +60,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'debug_toolbar.middleware.DebugToolbarMiddleware'
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
+    'users.middleware.UpdateLastSeenMiddleware'
 ]
 
 
@@ -157,7 +159,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
-    
+
     # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     # 'PAGE_SIZE': 6,  # You can adjust this to whatever default page size you want
 }
@@ -248,7 +250,6 @@ LOGGING = {
         },
     },
 }
-from datetime import time
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
@@ -256,4 +257,5 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('GMAIL_USER')
-EMAIL_HOST_PASSWORD = os.getenv('GMAIL_PASSWORD') # not your real Gmail password
+# not your real Gmail password
+EMAIL_HOST_PASSWORD = os.getenv('GMAIL_PASSWORD')

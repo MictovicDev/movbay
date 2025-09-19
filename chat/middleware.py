@@ -45,3 +45,6 @@ class JWTAuthMiddleware:
         
         # Call the inner application
         return await self.inner(scope, receive, send)
+    
+    
+    

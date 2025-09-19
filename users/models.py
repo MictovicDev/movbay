@@ -12,14 +12,6 @@ from cloudinary.models import CloudinaryField
 import random, string
 
 
-
-# def generate_unique_referral_code():
-#         characters = string.ascii_uppercase + string.digits
-#         while True:
-#             code = ''.join(random.choices(characters, k=8))
-#             if not User.objects.filter(referral_code=code).exists():
-#                 return code
-
 class User(AbstractBaseUser,PermissionsMixin):
     roles = (
         ("User","User"),
@@ -42,6 +34,8 @@ class User(AbstractBaseUser,PermissionsMixin):
     phone_number = PhoneNumberField(blank=True, null=True)
     user_type = models.CharField(choices=roles, max_length=5, blank=True, null=True)
     secret = models.CharField(max_length=500, blank=True, null=True)
+    last_seen = models.DateTimeField(null=True, blank=True)
+
     
     
     objects = UserManager()
@@ -55,6 +49,11 @@ class User(AbstractBaseUser,PermissionsMixin):
     
     def has_perm(self, perm, obj=None):
         return True
+    
+    def is_online(self):
+        if not self.last_seen:
+            return False
+        return timezone.now() - self.last_seen < timedelta(minutes=5)
     
     
     def save(self, *args, **kwargs):

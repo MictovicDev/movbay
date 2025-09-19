@@ -24,6 +24,7 @@ from users.utils.otp import OTPManager
 # from logistics.serializers import RiderSerializer
 from users.models import RiderProfile
 from .models import ProductRating, DeliveryOption
+from .tasks import upload_status_files
 
 
 class ClientStoresSerializer(serializers.ModelSerializer):
@@ -247,15 +248,6 @@ class ProductSerializer(serializers.ModelSerializer):
         format="%Y-%m-%d %H:%M", read_only=True)
     images = serializers.ListField(required=True, write_only=True)
     product_images = ProductImageSerializer(many=True, required=False)
-    # delivery_types = serializers.ListField(
-    #     child=serializers.CharField(),
-    #     required=False,
-    #     allow_empty=True,
-    #     write_only=True
-    # )
-    # Read-only field to show delivery types in response
-    # delivery_type_names = serializers.SerializerMethodField(read_only=True)
-
     class Meta:
         model = Product
         fields = '__all__'
@@ -306,7 +298,9 @@ class ProductSerializer(serializers.ModelSerializer):
             video = b64encode(product_video.read()).decode('utf-8')
             upload_video.delay(video, product.id)
         if post_to_story:
-            Status.objects.create(store=store, image=images[0])
+            status_obj = Status.objects.create(store=store)
+            file_bytes = b64encode(images[0].read()).decode('utf-8')
+            upload_status_files.delay(status_obj.id, file_bytes)
         return product
 
 

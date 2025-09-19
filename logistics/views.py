@@ -28,10 +28,10 @@ from .serializers import (
     KYCSerializer,
     TotalFareSerializer,
     PackageDeliverySerializer,
-    PackageDeliveryCreateSerializer,
     GetNearbyRidersSerializer,
     GetPriceEstimateSerializer,
-    GetNearbyRidesResponseSerializer
+    GetNearbyRidesResponseSerializer,
+    PackagePaymentDeliverySerializer
 )
 import math
 from payment.factories import PaymentProviderFactory, PaymentMethodFactory
@@ -123,8 +123,10 @@ class AcceptRide(APIView):
                     order = get_object_or_404(
                         Order.objects.select_for_update(), order_id=pk)
                     if order.ride_accepted:
+                        print("order alread accpeted Error")
                         return Response({"message": "Ride already accepted."}, status=400)
                     if order.locked:
+                        print("order locked Error")
                         return Response({"message": "Ride locked. Another rider accepted."}, status=400)
 
                     ride = order.ride.first()
@@ -144,9 +146,15 @@ class AcceptRide(APIView):
                     ride = get_object_or_404(
                         Ride.objects.select_for_update(), id=pk)
                     if ride.accepted or ride.locked:
+                        print('ride accepted Error')
                         return Response({"message": "Ride already accepted or locked."}, status=400)
-
+                    if ride:
+                        ride.accepted = True
+                        ride.locked = True
+                        ride.rider = request.user
+                        ride.save()
                 else:
+                    print("Invalid type Error")
                     return Response({"message": "Invalid type. Must be 'order' or 'ride'."},
                                     status=status.HTTP_400_BAD_REQUEST)
 
@@ -169,12 +177,11 @@ class AcceptRide(APIView):
                             )
                     elif ride_type == "package-delivery":
                         send_push_notification.delay(
-                            token=ride.package_sender.device.first().token,
+                            token=ride.package_delivery.sender.user.device.first().token,
                             title="Ride Accepted",
                             notification_type="Ride Update",
                             data=message
                         )
-
                 transaction.on_commit(notify)
 
             return Response({"message": "Ride accepted successfully."}, status=200)
@@ -232,6 +239,7 @@ class RideView(APIView):
         except RiderProfile.DoesNotExist:
             return Response({"error": "Rider profile not found"}, status=404)
         except Exception as e:
+            print(e)
             return Response({"error": str(e)}, status=500)
 
 
@@ -463,17 +471,26 @@ class UserRides(APIView):
 class PickedView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
-
+    
     def post(self, request, pk):
-        order = get_object_or_404(Order, order_id=pk)
-        ride = Ride.objects.get(order=order)
+        
+        ride_type = request.query_params.get(
+            "type", "order")  # default = order
+        
+        if ride_type == 'order':
+            order = get_object_or_404(Order, order_id=pk)
+            order.status = 'out_for_delivery'
+            order.save()
+            ride = Ride.objects.get(order=order)
+        elif ride_type == 'package-delivery':
+            ride = get_object_or_404(Ride, id=pk)
+            
         if not ride:
             return Response({"message": "You don't have a Ride Linked to this Order"}, status=400)
         if ride.accepted == False and order.ride_accepted == False:
             return Response({"message": "Ride hasn't been accepted yet"}, status=400)
-        order.status = 'out_for_delivery'
+        
         ride.out_for_delivery = True
-        order.save()
         ride.save()
         return Response({"message": "Order marked for Delivery"}, status=200)
 
@@ -597,125 +614,144 @@ def notify_driver(driver, summary):
 
 
 class SelectRideView(APIView):
-
-    """_summary_:- View For Selcting Rides for Package Delivery
-
-    Returns:
-        _type_: _description_
     """
-
+    View for selecting rides for Package Delivery
+    """
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, pk):
-        serializer = PackageDeliveryCreateSerializer(
+        serializer = PackageDeliverySerializer(
             data=request.data, context={"request": request}
         )
+        serializer.is_valid(raise_exception=True)
 
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        validated_data = serializer.validated_data
+        drop_address = validated_data.get("drop_address")
+        pick_address = validated_data.get("pick_address")
+        package_images = validated_data.pop("package_images_list", [])
+
+        # --- Fetch rider ---
+        rider = RiderProfile.objects.filter(id=pk).first()
+        if not rider:
+            return Response(
+                {"error": "Rider not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        if not rider.latitude or not rider.longitude:
+            raise ValidationError(
+                {"rider": "Rider location is not available."})
+
+        # --- Resolve coordinates ---
         try:
-            validated_data = serializer.validated_data
-            print
-            rider = RiderProfile.objects.get(id=pk)
-            packagedelivery = serializer.save(rider=rider, owner=request.user)
-            rider_latitude = rider.latitude
-            rider_longitude = rider.longitude
-            destination_address = validated_data.get("drop_address", None)
-            pickup_address = validated_data.get("pick_address", None)
-            destination_coords = get_coordinates_from_address(
-                destination_address)
-            pickup_coords = get_coordinates_from_address(pickup_address)
-            pickup_origin = (pickup_coords.get('latitude'),
-                             pickup_coords.get('longitude'))
-            destination = (destination_coords.get('latitude'),
-                           destination_coords.get('longitude'))
-            origin = (rider_latitude, rider_longitude)
-            if not rider_latitude or not rider_longitude or not destination:
-                raise ValidationError(
-                    {"coordinates": "Unable to resolve one or more addresses."})
+            destination_coords = get_coordinates_from_address(drop_address)
+            pickup_coords = get_coordinates_from_address(pick_address)
+        except Exception:
+            raise ValidationError(
+                {"coordinates": "Unable to resolve pickup or drop address."}
+            )
 
-            summary = get_eta_distance_and_fare(destination, origin)
-        except Exception as e:
-            logger.info(str(e))
-            return Response(str(e), status=400)
-        # Ride.objects.create(id=pk, rider=rider, package_delivery=packagedelivery)
-        package_images = validated_data.pop("package_images_list", None) or []
+        pickup_origin = (pickup_coords["latitude"], pickup_coords["longitude"])
+        destination = (
+            destination_coords["latitude"], destination_coords["longitude"])
+        origin = (rider.latitude, rider.longitude)
+
+        # --- Fare calculation ---
+        summary = get_eta_distance_and_fare(destination, origin)
+
+        # --- Save delivery and ride ---
+        packagedelivery = serializer.save(sender=request.user.user_profile)
+        Ride.objects.create(
+            rider=rider.user,
+            distance_km=summary.get("distance_km"),
+            duration_minutes=summary.get("duration_minutes"),
+            fare_amount=summary.get("fare_amount"),
+            delivery_type="Package",
+            latitude=pickup_origin[0],
+            longitude=pickup_origin[1],
+            package_delivery=packagedelivery,
+        )
+
+        # --- Async image uploads ---
         for image in package_images:
             if image:
                 try:
-                    serialized_image = {
-                        "file_content": b64encode(image.read()).decode("utf-8"),
-                        "filename": image.name,
-                    }
                     upload_delivery_images.delay(
-                        packagedelivery.id, serialized_image)
+                        packagedelivery.id,
+                        {
+                            "file_content": b64encode(image.read()).decode("utf-8"),
+                            "filename": image.name,
+                        },
+                    )
                 except Exception as e:
                     logger.warning(
-                        f"Image upload failed for delivery {packagedelivery.id}: {str(e)}")
-        Ride.objects.create(rider=rider.user, distance_km=summary.get('distance_km'), duration_minutes=summary.get(
-            'duration_minutes'), fare_amount=summary.get('fare_amount'), delivery_type='Package', package_delivery=packagedelivery, latitude=pickup_origin[0], longitude=pickup_origin[1])
+                        f"Image upload failed for delivery {packagedelivery.id}: {str(e)}"
+                    )
 
-        # --- Notify drivers only after DB commit ---
+        # --- Notify driver only after DB commit ---
         transaction.on_commit(lambda: notify_driver(rider, summary))
-        return Response({"success": "True", "data": serializer.data}, status=201)
+
+        return Response(
+            {"success": True, "data": PackageDeliverySerializer(
+                packagedelivery).data},
+            status=status.HTTP_201_CREATED,
+        )
 
 
-class PackageDeliveryView(APIView):
+class PaymentDeliveryAPIView(APIView):
     """
-    Handles listing all deliveries and creating new ones.
+    Handles Payment For Delivery.
     """
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = PackagePaymentDeliverySerializer
 
     def post(self, request, pk):
-        serializer = PackageDeliveryCreateSerializer(
-            data=request.data, context={"request": request}
-        )
-
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request})
         try:
-            validated_data = serializer.validated_data
-            print(validated_data)
-            payment_method = validated_data.get("payment_method")
-            amount = validated_data.get("amount")
-            user = request.user
-            if payment_method == 'wallet':
-                result = handle_payment(
-                    payment_method, amount, user, validated_data, serializer, pk)
-                print(result)
-                if result.get('status') == 'Completed':
-                    return Response({"message": "Created Succesfully"},
-                                    status=status.HTTP_201_CREATED,
-                                    )
-                else:
-                    return Response({"Error Package Not created"}, status=400)
+            if serializer.is_valid(raise_exception=True):
+                validated_data = serializer.validated_data
+                package = PackageDelivery.objects.get(
+                    id=pk, sender=request.user.user_profile)
+                payment_method = validated_data.get("payment_method")
+                amount = package.amount
+                provider_name = validated_data.get("provider_name")
+                user = request.user
+                if payment_method == 'wallet':
+                    result = handle_payment(
+                        payment_method, provider_name, amount, user, package)
+                    print(result)
+                    if result.get('status') == 'Completed':
+                        return Response({"message": "Created Succesfully"},
+                                        status=status.HTTP_201_CREATED,
+                                        )
+                    else:
+                        return Response({"Error Package Not created"}, status=400)
 
-            elif payment_method == 'card' or payment_method == 'bank_transfer':
-                transaction_data = {
-                    "email": request.user.email,
-                    "amount": int(Decimal(validated_data['amount'])) * 100,
-                    "reference": generate_tx_ref(),
-                    "currency": "NGN",
-                    "metadata": {
-                        "user_id": str(request.user),
-                        "payment_type": 'package-delivery',
-                        # "cart_items": validated_data,
-                    }, }
-                provider_name = validated_data['provider_name']
-                payment_method = validated_data['payment_method']
-                provider = PaymentProviderFactory.create_provider(
-                    provider_name=provider_name)
-                method = PaymentMethodFactory.create_method(
-                    method_name=payment_method)
-                transaction_data = method.prepare_payment_data(
-                    transaction_data)
-                response = provider.initialize_payment(transaction_data)
-                return Response(response, status=status.HTTP_200_OK)
-            else:
-                return Response({"Message": "Invalid Payment Method"}, status=400)
+                elif payment_method == 'card' or payment_method == 'bank_transfer':
+                    transaction_data = {
+                        "email": request.user.email,
+                        "amount": int(Decimal(validated_data['amount'])) * 100,
+                        "reference": generate_tx_ref(),
+                        "currency": "NGN",
+                        "metadata": {
+                            "user_id": str(request.user),
+                            "payment_type": 'package-delivery',
+                            # "cart_items": validated_data,
+                        }, }
+                    provider_name = validated_data['provider_name']
+                    payment_method = validated_data['payment_method']
+                    provider = PaymentProviderFactory.create_provider(
+                        provider_name=provider_name)
+                    method = PaymentMethodFactory.create_method(
+                        method_name=payment_method)
+                    transaction_data = method.prepare_payment_data(
+                        transaction_data)
+                    response = provider.initialize_payment(transaction_data)
+                    return Response(response, status=status.HTTP_200_OK)
+                else:
+                    return Response({"Message": "Invalid Payment Method"}, status=400)
 
         except ValidationError as e:
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)

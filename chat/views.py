@@ -247,8 +247,13 @@ class ConversationView(APIView):
             conversations, many=True, context={'request': request}
         )
         return Response(serializer.data, status=200)
+    
+    
 
 class ConversationDetailView(APIView):
+    """
+    Endpoint Used to get all Conversatons in a particular room
+    """
     def get(self, request, room_name):
         try:
             conversation = get_object_or_404(Conversation, room_name=room_name)

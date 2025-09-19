@@ -47,8 +47,7 @@ from django.shortcuts import get_object_or_404, get_list_or_404
 from stores.utils.calculate_order_package import calculate_order_package
 from logistics.service import SpeedyDispatch
 # from .utils.create_speedy_dispatch import handle_speedy_dispatch
-from logistics.models import Address
-
+from logistics.models import Address, PackageDelivery
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -179,25 +178,46 @@ class MarkAsDelivered(APIView):
     def post(self, request, pk):
         # if request.user.user_type=='Rider':
         #     return Response({"message":"Rider cannot mark an Order as Delivered"})
-        order = get_object_or_404(Order, order_id=pk)
-        otp_manager = OTPManager()
-        secret = otp_manager.get_secret()
-        buyer = order.buyer
-        otp = otp_manager.generate_otp()
-        print(otp)
-        order.otp_secret = secret
-        html_content = render_to_string(
-            'emails/ordercomplete.html', {'user': buyer.username, 'order_otp': otp})
-        print(html_content)
-        print(buyer.email)
-        send_order_complete_email_async.delay(from_email='noreply@movbay.com',
-                                              to_emails=buyer.email,
-                                              subject='Order Verification',
-                                              html_content=html_content)
-        order.status = 'completed'
-        # order.completed = True
-        order.order_tracking.all()[0].completed = True
-        order.save()
+        d_type = request.query_params.get(
+            "type", "order")  # default = order
+        if d_type == 'order':
+            order = get_object_or_404(Order, order_id=pk)
+            buyer = order.buyer
+            otp_manager = OTPManager()
+            secret = otp_manager.get_secret()
+            otp = otp_manager.generate_otp()
+            print(otp)
+            order.otp_secret = secret
+            html_content = render_to_string(
+                'emails/ordercomplete.html', {'user': buyer.username, 'order_otp': otp})
+            print(html_content)
+            print(buyer.email)
+            send_order_complete_email_async.delay(from_email='noreply@movbay.com',
+                                                to_emails=buyer.email,
+                                                subject='Order Verification',
+                                                html_content=html_content)
+            order.status = 'completed'
+            # order.completed = True
+            order.order_tracking.all()[0].completed = True
+            order.save()
+        elif d_type == 'package-delivery':
+            package_delivery = get_object_or_404(PackageDelivery, id=pk)
+            sender = package_delivery.sender
+            otp_manager = OTPManager()
+            secret = otp_manager.get_secret()
+            otp = otp_manager.generate_otp()
+            print(otp)
+            package_delivery.otp_secret = secret
+            html_content = render_to_string(
+                'emails/ordercomplete.html', {'user': buyer.username, 'order_otp': otp})
+            print(html_content)
+            print(sender.email)
+            send_order_complete_email_async.delay(from_email='noreply@movbay.com',
+                                                to_emails=sender.email,
+                                                subject='Order Verification',
+                                                html_content=html_content)
+            package_delivery.status = 'completed'
+            package_delivery.save()
         return Response({"message": "Order has been Completed"}, status=200)
 
 
@@ -284,6 +304,9 @@ def notify_drivers(drivers, summary):
 
 
 class MarkForDeliveryView(APIView):
+    authentication_class = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
     def post(self, request, pk):
         try:
             order = get_object_or_404(Order, order_id=pk)
@@ -329,11 +352,12 @@ class MarkForDeliveryView(APIView):
                                     'delivery_id': delivery.id, })
 
                         elif delivery.delivery_method == 'speedy_dispatch':
-                            # print(True)
+                            print(True)
                             result = self._process_speedy_dispatch(delivery)
                             html_content = render_to_new_string(
                                 order, delivery)
                             if result.get('success'):
+                                print('Success')
                                 pdf_content = generate_receipt_pdf(
                                     order_data=order, delivery=delivery)
                                 html_content = render_to_new_string(
@@ -347,6 +371,8 @@ class MarkForDeliveryView(APIView):
                                     subject='Product Receipt',
                                     html_content=html_content
                                 )
+                                order.out_for_delivery = True
+                                order.save()
                                 processing_results.append({
                                     'success': True,
                                     'delivery_id': delivery.id,
@@ -967,7 +993,7 @@ class VerifyOrderView(APIView):
                             logger.info(str(e))
                             return Response({"message": "Error Completing Order"}, status=400)
                     else:
-                         return Response({'message': 'Invalid or expired OTP'}, status=400)
+                        return Response({'message': 'Invalid or expired OTP'}, status=400)
                 elif request.user.user_type == 'Rider' and request.user == ride[0].rider:
                     logger.info("Rider is trying to complete the ride")
                     if OTPManager(order_secret).verify_otp(otp):

@@ -34,6 +34,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
         self.debounce_delay = 2
         self.user = None
         self.user_group_name = None
+        # self.is_online = False
         self.room_name = None
         self.debounce_tasks = {}  # Track running tasks
 
@@ -41,6 +42,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
         """Handle WebSocket connection."""
         try:
             self.user = self.scope.get("user")
+            s#elf.is_online = True
             self.room_name = self.scope["url_route"]["kwargs"]["room_name"]
 
             # Check authentication
@@ -101,6 +103,8 @@ class MessageConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         """Handle WebSocket disconnection."""
+        if self.redis_client and self.room_name and self.user:
+            self.redis_client.srem(f"online_users:{self.room_name}", str(self.user.id))
         if hasattr(self, 'user_group_name') and self.user_group_name:
             await self.channel_layer.group_discard(
                 self.user_group_name,
