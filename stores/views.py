@@ -176,12 +176,13 @@ class MarkAsDelivered(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        # if request.user.user_type=='Rider':
-        #     return Response({"message":"Rider cannot mark an Order as Delivered"})
         d_type = request.query_params.get(
             "type", "order")  # default = order
         if d_type == 'order':
+            print('Order Entered')
             order = get_object_or_404(Order, order_id=pk)
+            if order.status == 'completed':
+                return Response({"message": "Order is already marked as completed"}, status=400)
             buyer = order.buyer
             otp_manager = OTPManager()
             secret = otp_manager.get_secret()
@@ -197,11 +198,15 @@ class MarkAsDelivered(APIView):
                                                 subject='Order Verification',
                                                 html_content=html_content)
             order.status = 'completed'
-            # order.completed = True
             order.order_tracking.all()[0].completed = True
             order.save()
+            return Response({"message": "Order has been Completed"}, status=200)
+        
         elif d_type == 'package-delivery':
+            print('Package Delivery Entered')
             package_delivery = get_object_or_404(PackageDelivery, id=pk)
+            if package_delivery.completed:
+                return Response({"message": "Package is already marked as delivered"}, status=400)
             sender = package_delivery.sender
             otp_manager = OTPManager()
             secret = otp_manager.get_secret()
@@ -209,16 +214,18 @@ class MarkAsDelivered(APIView):
             print(otp)
             package_delivery.otp_secret = secret
             html_content = render_to_string(
-                'emails/ordercomplete.html', {'user': buyer.username, 'order_otp': otp})
+                'emails/ordercomplete.html', {'user': sender.user.username, 'order_otp': otp})
             print(html_content)
-            print(sender.email)
+            print(sender.user.email)
             send_order_complete_email_async.delay(from_email='noreply@movbay.com',
-                                                to_emails=sender.email,
+                                                to_emails=sender.user.email,
                                                 subject='Order Verification',
                                                 html_content=html_content)
-            package_delivery.status = 'completed'
+            package_delivery.completed = True
             package_delivery.save()
-        return Response({"message": "Order has been Completed"}, status=200)
+            return Response({"message": "Package Marked as Delivered"}, status=200)
+        else:
+            return Response({"message": "Invalid type parameter"}, status=400)
 
 
 class ConfirmOrder(APIView):

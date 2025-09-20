@@ -42,7 +42,7 @@ class PackageDelivery(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     amount = models.PositiveBigIntegerField(default=0, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
-    otp_secret = models.CharField(max_length=10, blank=True, null=True) 
+    otp_secret = models.CharField(max_length=100, blank=True, null=True) 
     rider_preference = models.CharField(max_length=250, choices=RIDE_CHOICES, blank=True, null=True)
     completed = models.BooleanField(default=False)
     cancelled = models.BooleanField(default=False)
