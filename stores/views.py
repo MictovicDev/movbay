@@ -68,7 +68,7 @@ class CustomAnonRateThrottle(AnonRateThrottle):
 
 class ClientViewStore(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
 
     def get(self, request, store_id):
         try:
@@ -81,7 +81,7 @@ class ClientViewStore(APIView):
 
 
 class StoreListCreateView(generics.ListCreateAPIView):
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
     try:
         queryset = store_qs = Store.objects.prefetch_related(
@@ -97,7 +97,7 @@ class StoreListCreateView(generics.ListCreateAPIView):
 
 class DeliveryDetailsCreateView(generics.CreateAPIView):
     serializer_class = DeliverySerializer
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
@@ -115,8 +115,8 @@ class DeliveryDetailsCreateView(generics.CreateAPIView):
 class OrderListCreateView(generics.ListCreateAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+   
 
     def get_queryset(self):
         store = self.request.user.store
@@ -131,7 +131,7 @@ class OrderDetailView(generics.RetrieveDestroyAPIView):
 
 
 class GetUserOrder(APIView):
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated, IsStoreOwner]
 
     def get(self, request):
@@ -157,7 +157,7 @@ class GetUserOrder(APIView):
 
 
 class GetPastUserOrder(APIView):
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated, IsStoreOwner]
 
     def get(self, request):
@@ -172,7 +172,7 @@ class GetPastUserOrder(APIView):
 
 
 class MarkAsDelivered(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -221,15 +221,14 @@ class MarkAsDelivered(APIView):
                                                 to_emails=sender.user.email,
                                                 subject='Order Verification',
                                                 html_content=html_content)
-            package_delivery.completed = True
-            package_delivery.save()
+            
             return Response({"message": "Package Marked as Delivered"}, status=200)
         else:
             return Response({"message": "Invalid type parameter"}, status=400)
 
 
 class ConfirmOrder(APIView):
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -311,7 +310,7 @@ def notify_drivers(drivers, summary):
 
 
 class MarkForDeliveryView(APIView):
-    authentication_class = [JWTAuthentication]
+    #authentication_class = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -442,6 +441,7 @@ class MarkForDeliveryView(APIView):
                 latitude=origin[0],
                 longitude=origin[1],
                 order=order,
+                delivery_type='Order',
                 **summary
             )
 
@@ -509,7 +509,7 @@ class CustomProductPagination(PageNumberPagination):
 class ProductListCreateView(generics.ListCreateAPIView):
     serializer_class = ProductSerializer
     # pagination_class = CustomProductPagination
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
@@ -560,14 +560,14 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
 
 
 class UserProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.AllowAny]
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
 
 
 class StoreFollowView(APIView):
@@ -593,7 +593,7 @@ class StoreFollowView(APIView):
 
 
 class StoreFollowers(APIView):
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -631,7 +631,7 @@ class StoreFollowers(APIView):
 
 
 class StoreUnfollowView(APIView):
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -672,7 +672,7 @@ class StoreUnfollowView(APIView):
 
 
 class StoreFollowingView(APIView):
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -707,7 +707,7 @@ class StoreFollowingView(APIView):
 
 class UserProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]  # login required
 
     def get_queryset(self):
@@ -717,7 +717,7 @@ class UserProductListView(generics.ListAPIView):
 
 class DashBoardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
 
     def get(self, request):
         try:
@@ -750,7 +750,7 @@ class DashBoardView(APIView):
 
 
 class StoreDetailView(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+   # authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
@@ -833,7 +833,7 @@ class HealthCheckView(APIView):
 
 
 class ReviewView(APIView):
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, store_id):
@@ -861,7 +861,7 @@ class ReviewView(APIView):
 
 
 class MoreFromSeller(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    2#authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -872,7 +872,7 @@ class MoreFromSeller(APIView):
 
 
 class StatusView(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
@@ -905,7 +905,7 @@ class StatusView(APIView):
 
 
 class ProductStatusView(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -942,7 +942,7 @@ class ProductStatusView(APIView):
 
 class VerifyOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    #authentication_classes = [JWTAuthentication, SessionAuthentication]
 
     """
     Endpoint Used to Verify the completion of an Order, Either By a Seller or a Rider
@@ -950,70 +950,130 @@ class VerifyOrderView(APIView):
 
     def post(self, request, pk):
         serializer = VerifyOrderSerializer(data={'otp': request.data['otp']})
+        query_param = request.query_params.get(
+            "type", "order")  # default = order
         if serializer.is_valid():
             print("Serializer is Valid")
-            try:
-                order = get_object_or_404(Order, order_id=pk)
-                if order.completed == True:
-                    return Response({"message": "Order Already Completed Succesfully"}, status=200)
-                otp = serializer.validated_data['otp']
-                print(otp)
-                ride = order.ride.all()
-                print(ride)
-                order_secret = order.otp_secret
-                print(request.user.user_type, order.store.owner)
-                print(request.user)
-                if request.user.user_type == 'User' and request.user == order.store.owner:
-                    print("Store Owner is trying to complete the order")
-                    if ride:
-                        if not ride[0].completed:
-                            return Response({"message": "Ride is Ongoing"})
-                    if OTPManager(order_secret).verify_otp(otp):
-                        try:
-                            order_tracking = get_object_or_404(
-                                OrderTracking, order=order)
-                            order_tracking.completed = True
-                            order_tracking.save()
+            if query_param == 'order':
+                print('Order Processing')
+                try:
+                    order = get_object_or_404(Order, order_id=pk)
+                    if order.completed == True:
+                        return Response({"message": "Order Already Completed Succesfully"}, status=200)
+                    otp = serializer.validated_data['otp']
+                    print(otp)
+                    ride = order.ride.all()
+                    print(ride)
+                    order_secret = order.otp_secret
+                    print(request.user.user_type, order.store.owner)
+                    print(request.user)
+                    if request.user.user_type == 'User' and request.user == order.store.owner:
+                        print("Store Owner is trying to complete the order")
+                        if ride:
+                            if not ride[0].completed:
+                                return Response({"message": "Ride is Ongoing"})
+                        if OTPManager(order_secret).verify_otp(otp):
+                            try:
+                                order_tracking = get_object_or_404(
+                                    OrderTracking, order=order)
+                                order_tracking.completed = True
+                                order_tracking.save()
 
-                            owner_wallet = get_object_or_404(
-                                Wallet, owner=order.store.owner)
-                            admin_wallet = get_object_or_404(
-                                Wallet, owner__email='admin@mail.com')
+                                owner_wallet = get_object_or_404(
+                                    Wallet, owner=order.store.owner)
+                                admin_wallet = get_object_or_404(
+                                    Wallet, owner__email='admin@mail.com')
 
-                            # Ensure order.amount is a valid number
-                            amount = order.amount or 0
+                                # Ensure order.amount is a valid number
+                                amount = order.amount or 0
 
-                            admin_wallet.balance -= amount
-                            admin_wallet.total_withdrawal += amount
-                            admin_wallet.save()
+                                admin_wallet.balance -= amount
+                                admin_wallet.total_withdrawal += amount
+                                admin_wallet.save()
 
-                            owner_wallet.balance += amount
-                            owner_wallet.total_deposit += amount
-                            owner_wallet.save()
+                                owner_wallet.balance += amount
+                                owner_wallet.total_deposit += amount
+                                owner_wallet.save()
 
-                            print("Owner balance:", owner_wallet.balance)
-                            print("Admin balance:", admin_wallet.balance)
-                            order.completed = True
-                            order.save()
-                            return Response({"message": "Order Completed Succesfully"}, status=200)
-                        except Exception as e:
-                            logger.info(str(e))
-                            return Response({"message": "Error Completing Order"}, status=400)
+                                print("Owner balance:", owner_wallet.balance)
+                                print("Admin balance:", admin_wallet.balance)
+                                order.completed = True
+                                order.save()
+                                return Response({"message": "Order Completed Succesfully"}, status=200)
+                            except Exception as e:
+                                logger.info(str(e))
+                                return Response({"message": "Error Completing Order"}, status=400)
+                        else:
+                            return Response({'message': 'Invalid or expired OTP'}, status=400)
+                    elif request.user.user_type == 'Rider' and request.user == ride[0].rider:
+                        logger.info("Rider is trying to complete the ride")
+                        if OTPManager(order_secret).verify_otp(otp):
+                            print('Yeah Verified OTP')
+                            try:
+                                ride = get_object_or_404(Ride, order=order)
+                                order_tracking = get_object_or_404(
+                                    OrderTracking, order=order)
+                                if ride.completed:
+                                    return Response({"message": "Ride Already Completed Succesfully"}, status=200)
+                                # ride.completed = True
+                                order_tracking.completed = True
+                                order_tracking.save()
+                                rider_wallet = get_object_or_404(
+                                    Wallet, owner=ride.rider)
+                                admin_wallet = get_object_or_404(
+                                    Wallet, owner__email='admin@mail.com')
+                                owner_wallet = get_object_or_404(
+                                    Wallet, owner=order.store.owner)
+
+                                # Ensure order.amount is a valid number
+                                amount = ride.fare_amount or 0
+
+                                admin_wallet.balance -= amount
+                                admin_wallet.total_withdrawal += amount
+                                admin_wallet.save()
+
+                                rider_wallet.balance += amount
+                                rider_wallet.total_deposit += amount
+                                rider_wallet.save()
+
+                                owner_wallet.balance += amount
+                                owner_wallet.total_deposit += order.amount
+                                owner_wallet.save()
+                                print(admin_wallet, rider_wallet, owner_wallet)
+
+                                print("Owner balance:", owner_wallet.balance)
+                                print("Admin balance:", admin_wallet.balance)
+                                ride.completed = True
+                                ride.save()
+                                return Response({"message": "Ride Completed Succesfully"}, status=200)
+                            except Exception as e:
+                                print(str(e))
+                                return Response({"message": str(e)}, status=400)
+                        else:
+                            return Response({'message': 'Invalid or expired OTP'}, status=400)
                     else:
-                        return Response({'message': 'Invalid or expired OTP'}, status=400)
-                elif request.user.user_type == 'Rider' and request.user == ride[0].rider:
-                    logger.info("Rider is trying to complete the ride")
-                    if OTPManager(order_secret).verify_otp(otp):
-                        print('Yeah Verified OTP')
+                        return Response({'message': 'Permission Denied'}, status=403)
+                except Order.DoesNotExist:
+                    return Response({'message': 'Order not found'}, status=404)
+            elif query_param == 'package-delivery':
+                try:
+                    delivery = get_object_or_404(
+                        PackageDelivery, id=pk)
+                    ride = delivery.package_delivery.all()[0]
+                    if delivery.completed == True:
+                        return Response({"message": "Delivery Already Completed Succesfully"}, status=200)
+                    otp = serializer.validated_data['otp']
+                    print(otp)
+                    delivery_secret = delivery.otp_secret
+                    print(request.user.user_type, delivery.order.store.owner)
+                    print(request.user)
+                    if request.user.user_type == 'Rider' and request.user == delivery.package_delivery.all()[0].rider:
+                        print("Store Owner is trying to complete the Delivery")
+                        # if OTPManager(delivery_secret).verify_otp(otp):
                         try:
-                            ride = get_object_or_404(Ride, order=order)
-                            order_tracking = get_object_or_404(
-                                OrderTracking, order=order)
-                            if ride.completed:
-                                return Response({"message": "Ride Already Completed Succesfully"}, status=200)
                             ride.completed = True
-                            order_tracking.completed = True
-                            order_tracking.save()
+                            delivery.completed = True
+                            delivery.save()
                             rider_wallet = get_object_or_404(
                                 Wallet, owner=ride.rider)
                             admin_wallet = get_object_or_404(
@@ -1041,20 +1101,23 @@ class VerifyOrderView(APIView):
                             print("Admin balance:", admin_wallet.balance)
                             ride.completed = True
                             ride.save()
-                            return Response({"message": "Ride Completed Succesfully"}, status=200)
+                            delivery.completed = True
+                            delivery.save()
+                            return Response({"message": "Delivery Completed Succesfully"}, status=200)
                         except Exception as e:
-                            print(str(e))
-                            return Response({"message": str(e)}, status=400)
+                            logger.info(str(e))
+                            return Response({"message": "Error Completing Delivery"}, status=400)
+                        # else:
+                        #     return Response({'message': 'Invalid or expired OTP'}, status=400)
                     else:
-                        return Response({'message': 'Invalid or expired OTP'}, status=400)
-                else:
-                    return Response({'message': 'Permission Denied'}, status=403)
-            except Order.DoesNotExist:
-                return Response({'message': 'Order not found'}, status=404)
+                        return Response({'message': 'Permission Denied'}, status=403)
+                except Delivery.DoesNotExist:
+                    return Response({'message': 'Delivery not found'}, status=404)
+                
 
 
 class MoreFromSeller(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
@@ -1085,7 +1148,7 @@ class MoreFromSeller(APIView):
 
 
 class ProductRatingView(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
@@ -1117,36 +1180,12 @@ class ProductRatingView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-{
-    "delivery_details": {
-        "fullname": "John Doe",
-        "phone_number": "+2348012345678",
-        "email_address": "johndoe@example.com",
-        "country": "NG",
-        "city": "Lagos",
-        "state": "Lagos",
-        "delivery_address": "12 Admiralty Way, Lekki",
-        "alternative_address": "Block B, Flat 2"
-    },
-    "items": [
-        {
-            "amount": 49000,
-            "product": 2,
-            "store": 2,
-            "quantity": 1
-        },
-        {
-            "amount": 9900,
-            "product": 2,
-            "quantity": 1,
-            "store": 2
-        }
-    ]
-}
+
+  
 
 
 class GetShippingRate(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
@@ -1240,7 +1279,7 @@ class GetShippingRate(APIView):
 
 
 class GetShipMentRate(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, product_id):
@@ -1265,7 +1304,7 @@ class GetShipMentRate(APIView):
 
 
 class TaskStatusView(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     """API endpoint to check the status of a Celery task via GET request.

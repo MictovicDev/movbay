@@ -139,7 +139,6 @@ class RegisterView(generics.ListCreateAPIView):
             
     
     
-    
 class ActivateAccountView(generics.GenericAPIView):
     permission_classes = [AllowAny]
     serializer_class = ActivateAccountSerializer

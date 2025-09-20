@@ -5,7 +5,10 @@ from stores.serializers import ClientStoreSerializer, ProductSerializer, Product
 from stores.models import Store, Product, Status
 from django.contrib.auth import get_user_model
 import redis, os
+from users.utils.check_user_online import is_user_online, get_user_last_seen
+import logging
 
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -68,12 +71,30 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_user_online(self, obj):
         request_user = self.context["request"].user
 
+        # Determine the "other" user in the conversation
         if obj.sender == request_user:
             other_user = obj.receiver.owner if hasattr(obj.receiver, "owner") else obj.receiver
         else:
             other_user = obj.sender
 
-        return getattr(other_user, "is_online", lambda: False)()
+        # Debug logging
+        logger.info(f"Checking online status for user: {other_user.username}")
+        online_status = is_user_online(other_user.id)
+        logger.info(f"User {other_user.id} online status: {online_status}")
+        
+        return online_status
+    
+    def get_last_seen(self, obj):
+        """Optional: Get the actual last_seen timestamp"""
+        request_user = self.context["request"].user
+
+        if obj.sender == request_user:
+            other_user = obj.receiver.owner if hasattr(obj.receiver, "owner") else obj.receiver
+        else:
+            other_user = obj.sender
+
+        last_seen = get_user_last_seen(other_user.id)
+        return last_seen.isoformat() if last_seen else None
 
         
         

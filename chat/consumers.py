@@ -42,7 +42,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
         """Handle WebSocket connection."""
         try:
             self.user = self.scope.get("user")
-            s#elf.is_online = True
+            #elf.is_online = True
             self.room_name = self.scope["url_route"]["kwargs"]["room_name"]
 
             # Check authentication

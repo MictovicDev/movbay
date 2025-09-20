@@ -141,6 +141,7 @@ class AcceptRide(APIView):
                     tracking.driver = riderprofile
                     tracking.save()
                     order.save()
+                    transaction.on_commit(lambda: notify(ride_type))
 
                 elif ride_type == "package-delivery":
                     ride = get_object_or_404(
@@ -153,13 +154,17 @@ class AcceptRide(APIView):
                         ride.locked = True
                         ride.rider = request.user
                         ride.save()
+                    transaction.on_commit(lambda: notify(ride_type))
                 else:
                     print("Invalid type Error")
                     return Response({"message": "Invalid type. Must be 'order' or 'ride'."},
                                     status=status.HTTP_400_BAD_REQUEST)
 
-                def notify():
-                    message = "Ride has been accepted. Track its progress."
+                def notify(ride_type):
+                    if ride_type=='order':
+                        message = "Ride has been accepted. Track its progress."
+                    elif ride_type=='package-delivery':
+                        message = "Ride has been accepted. Please proceed to payment."
                     if ride_type == "order":
                         if order.buyer and order.buyer.device.exists():
                             send_push_notification.delay(
@@ -182,8 +187,6 @@ class AcceptRide(APIView):
                             notification_type="Ride Update",
                             data=message
                         )
-                transaction.on_commit(notify)
-
             return Response({"message": "Ride accepted successfully."}, status=200)
 
         except Exception as e:
@@ -661,7 +664,7 @@ class SelectRideView(APIView):
 
         # --- Save delivery and ride ---
         packagedelivery = serializer.save(sender=request.user.user_profile)
-        Ride.objects.create(
+        Ride.objects.get_or_create(
             rider=rider.user,
             distance_km=summary.get("distance_km"),
             duration_minutes=summary.get("duration_minutes"),

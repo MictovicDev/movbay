@@ -26,7 +26,7 @@ class UUIDEncoder(json.JSONEncoder):
         return super().default(obj)
 
 class ProductMessageCreateView(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -99,7 +99,7 @@ class ProductMessageCreateView(APIView):
                 
                 
 class StatusMessageCreateView(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -173,7 +173,7 @@ class StatusMessageCreateView(APIView):
 
 
 class DirectMessageCreateView(APIView):
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request, room_name):
@@ -257,7 +257,7 @@ class ConversationDetailView(APIView):
     def get(self, request, room_name):
         try:
             conversation = get_object_or_404(Conversation, room_name=room_name)
-            serializer = ConversationSerializer(conversation)
+            serializer = ConversationSerializer(conversation, context={'request': request})
             return Response(serializer.data, status=200)
         except Exception as e:
             return Response(str(e), status=400)
