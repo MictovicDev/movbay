@@ -62,38 +62,55 @@ class ConversationSerializer(serializers.ModelSerializer):
     sender = MessageUserSerializer(read_only=True)
     receiver = ChatStoreSerializer(read_only=True)
     messages = MessageSerializer(many=True, read_only=True)
-    user_online = serializers.SerializerMethodField()  # New field to check if other user is online
-    
+    user_online = serializers.SerializerMethodField()
+    last_seen = serializers.SerializerMethodField()
+
     class Meta:
         model = Conversation
         fields = '__all__'
-        
+        # Or explicitly:
+        # fields = ['id', 'sender', 'receiver', 'messages', 'user_online', 'last_seen']
+
+    def _get_other_user(self, obj):
+        """Helper: figure out who the 'other user' is in the conversation"""
+        request_user = self.context["request"].user
+        if obj.sender == request_user:
+            return obj.receiver.owner if hasattr(obj.receiver, "owner") else obj.receiver
+        return obj.sender
+
+    def _get_online_data(self, obj):
+        """
+        Helper: fetch online status and last_seen together,
+        cache result so we don’t hit Redis twice for the same user.
+        """
+        if not hasattr(self, "_online_cache"):
+            self._online_cache = {}
+
+        other_user = self._get_other_user(obj)
+        user_id = other_user.id
+
+        if user_id not in self._online_cache:
+            last_seen = get_user_last_seen(user_id)
+            online_status = False
+
+            if last_seen:
+                # User is online if last_seen is within the last 5 min (300s)
+                from django.utils import timezone
+                delta = timezone.now() - last_seen
+                online_status = delta.total_seconds() < 200
+
+            self._online_cache[user_id] = {
+                "online": online_status,
+                "last_seen": last_seen,
+            }
+
+        return self._online_cache[user_id]
+
     def get_user_online(self, obj):
-        request_user = self.context["request"].user
+        return self._get_online_data(obj)["online"]
 
-        # Determine the "other" user in the conversation
-        if obj.sender == request_user:
-            other_user = obj.receiver.owner if hasattr(obj.receiver, "owner") else obj.receiver
-        else:
-            other_user = obj.sender
-
-        # Debug logging
-        logger.info(f"Checking online status for user: {other_user.username}")
-        online_status = is_user_online(other_user.id)
-        logger.info(f"User {other_user.id} online status: {online_status}")
-        
-        return online_status
-    
     def get_last_seen(self, obj):
-        """Optional: Get the actual last_seen timestamp"""
-        request_user = self.context["request"].user
-
-        if obj.sender == request_user:
-            other_user = obj.receiver.owner if hasattr(obj.receiver, "owner") else obj.receiver
-        else:
-            other_user = obj.sender
-
-        last_seen = get_user_last_seen(other_user.id)
+        last_seen = self._get_online_data(obj)["last_seen"]
         return last_seen.isoformat() if last_seen else None
 
         

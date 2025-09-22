@@ -70,7 +70,7 @@ def upload_rider_files(self, kyc_id, file_data):
             
             
             
-@shared_task(bind=True, max_retries=3)
+@shared_task(bind=True, max_retries=10)
 def upload_delivery_images(self, delivery_id, file_data):
     from .models import PackageDelivery, DeliveryImages  # avoid circular imports
 

@@ -161,9 +161,9 @@ class AcceptRide(APIView):
                                     status=status.HTTP_400_BAD_REQUEST)
 
                 def notify(ride_type):
-                    if ride_type=='order':
+                    if ride_type == 'order':
                         message = "Ride has been accepted. Track its progress."
-                    elif ride_type=='package-delivery':
+                    elif ride_type == 'package-delivery':
                         message = "Ride has been accepted. Please proceed to payment."
                     if ride_type == "order":
                         if order.buyer and order.buyer.device.exists():
@@ -474,12 +474,12 @@ class UserRides(APIView):
 class PickedView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request, pk):
-        
+
         ride_type = request.query_params.get(
             "type", "order")  # default = order
-        
+
         if ride_type == 'order':
             order = get_object_or_404(Order, order_id=pk)
             order.status = 'out_for_delivery'
@@ -487,12 +487,12 @@ class PickedView(APIView):
             ride = Ride.objects.get(order=order)
         elif ride_type == 'package-delivery':
             ride = get_object_or_404(Ride, id=pk)
-            
+
         if not ride:
             return Response({"message": "You don't have a Ride Linked to this Order"}, status=400)
         if ride.accepted == False and order.ride_accepted == False:
             return Response({"message": "Ride hasn't been accepted yet"}, status=400)
-        
+
         ride.out_for_delivery = True
         ride.save()
         return Response({"message": "Order marked for Delivery"}, status=200)
@@ -725,6 +725,8 @@ class PaymentDeliveryAPIView(APIView):
                     result = handle_payment(
                         payment_method, provider_name, amount, user, package)
                     print(result)
+                    package.amount = amount
+                    package.save()
                     if result.get('status') == 'Completed':
                         return Response({"message": "Created Succesfully"},
                                         status=status.HTTP_201_CREATED,
@@ -784,3 +786,27 @@ class PackageDeliveryDetailAPIView(APIView):
         delivery = self.get_object(pk, request.user)
         serializer = PackageDeliverySerializer(delivery)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CancelRideView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        ride = get_object_or_404(Ride, id=pk, rider=request.user)
+        if ride.completed:
+            return Response({"message": "Cannot cancel a completed ride."}, status=400)
+        if ride.cancelled:
+            return Response({"message": "Ride is already cancelled."}, status=400)
+
+        ride.accepted = False
+        ride.locked = False  # Unlock the ride for others
+        ride.save()
+
+        # If linked to an order, update order status
+        if ride.order:
+            order = ride.order
+            order.ride_accepted = False
+            order.assigned = False
+            order.locked = False
+            order.save()
+        return Response({"message": "Ride cancelled successfully."}, status=200)

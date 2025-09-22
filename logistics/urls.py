@@ -25,4 +25,5 @@ urlpatterns = [
     path('get-nearby-riders/', views.GetNearbyRiders.as_view(), name='nearby-riders'),
     path('payment-delivery/<str:pk>/',
          views.PaymentDeliveryAPIView.as_view(), name='package-delivery-detail'),
+    path('cancel-ride/<str:pk>/', views.CancelRideView.as_view(), name='cancel-ride'),
 ]

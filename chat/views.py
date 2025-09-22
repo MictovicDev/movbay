@@ -15,6 +15,8 @@ from stores.models import Product, Status, Store
 from django.contrib.auth import get_user_model
 import uuid
 import json
+from users.utils.check_user_online import get_user_last_seen
+from stores.tasks import send_push_notification
 
 User = get_user_model()
 
@@ -58,7 +60,7 @@ class ProductMessageCreateView(APIView):
             chatbox=conversation,
             created_at=timestamp,
         )
-        
+        other_user = product.store.owner
         serializer = MessageSerializer(message)
         
         
@@ -67,6 +69,20 @@ class ProductMessageCreateView(APIView):
             self._send_ws_message_immediate(
                 room_name, serializer.data
             )
+            
+            # 2. Check if recipient is online
+            last_seen = get_user_last_seen(other_user.id)
+            user_online = False
+            if last_seen:
+                delta = timezone.now() - last_seen
+                user_online = delta.total_seconds() < 200  # 5 min threshold
+
+            if not user_online:
+                # 🔔 Send push/email notification
+                self._send_offline_notification(other_user, serializer.data)
+
+            # 3. Return serialized message
+            return Response(serializer.data, status=201)
 
             # 2. Since we already saved above, no need for async task
             # But if you want to keep async pattern, pass the saved message ID
@@ -97,6 +113,19 @@ class ProductMessageCreateView(APIView):
             except Exception as e:
                 print(f"WebSocket error: {str(e)}")
                 
+    def _send_offline_notification(self, user, message_data):
+        """
+        Send a notification to a user who is not online.
+        You can integrate FCM, OneSignal, or just send an email here.
+        """
+        print(f"📩 Sending offline notification to {user.email} -> {message_data}")
+        message = 'You have a new message regarding your product.'
+        send_push_notification.delay(
+                                token=user.device.all()[0].token,
+                                title="New Message",
+                                notification_type="Message Alert",
+                                data=message
+                            )
                 
 class StatusMessageCreateView(APIView):
     #authentication_classes = [SessionAuthentication, JWTAuthentication]
@@ -208,11 +237,23 @@ class DirectMessageCreateView(APIView):
         try:
             # 1. Send immediately via WebSocket
             self._send_ws_message_immediate(room_name, serializer.data)
+            # 2. Check if recipient is online
+            last_seen = get_user_last_seen(other_user.id)
+            user_online = False
+            if last_seen:
+                delta = timezone.now() - last_seen
+                user_online = delta.total_seconds() < 200  # 5 min threshold
 
-            # 2. Return serialized message
+            if not user_online:
+                # 🔔 Send push/email notification
+                print('Yeah')
+                self._send_offline_notification(other_user, serializer.data)
+
+            # 3. Return serialized message
             return Response(serializer.data, status=201)
 
         except Exception as e:
+            print(e)
             message.delete()  # Cleanup on failure
             return Response({"error": str(e)}, status=400)
 
@@ -232,6 +273,25 @@ class DirectMessageCreateView(APIView):
                 )
             except Exception as e:
                 print(f"WebSocket error: {str(e)}")
+                
+    def _send_offline_notification(self, user, message_data):
+        """
+        Send a notification to a user who is not online.
+        You can integrate FCM, OneSignal, or just send an email here.
+        """
+        if isinstance(user, Store):
+            user = user.owner
+            print("This is a Store object")
+        print(f"📩 Sending offline notification to {user.email} -> {message_data}")
+        message = 'You have a new message regarding your product.'
+        print(message)
+        print(user.device.all()[0].token)
+        send_push_notification.delay(
+                                token=user.device.all()[0].token,
+                                title="New Message",
+                                notification_type="Message Alert",
+                                data=message
+                            )
 
 # Your other views remain the same
 class ConversationView(APIView):

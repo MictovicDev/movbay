@@ -1036,7 +1036,7 @@ class VerifyOrderView(APIView):
                                 rider_wallet.total_deposit += amount
                                 rider_wallet.save()
 
-                                owner_wallet.balance += amount
+                                owner_wallet.balance += order.amount
                                 owner_wallet.total_deposit += order.amount
                                 owner_wallet.save()
                                 print(admin_wallet, rider_wallet, owner_wallet)
@@ -1065,8 +1065,8 @@ class VerifyOrderView(APIView):
                     otp = serializer.validated_data['otp']
                     print(otp)
                     delivery_secret = delivery.otp_secret
-                    print(request.user.user_type, delivery.order.store.owner)
-                    print(request.user)
+                    #print(request.user.user_type, delivery.order.store.owner)
+                    #print(request.user)
                     if request.user.user_type == 'Rider' and request.user == delivery.package_delivery.all()[0].rider:
                         print("Store Owner is trying to complete the Delivery")
                         # if OTPManager(delivery_secret).verify_otp(otp):
@@ -1092,9 +1092,9 @@ class VerifyOrderView(APIView):
                             rider_wallet.total_deposit += amount
                             rider_wallet.save()
 
-                            owner_wallet.balance += amount
-                            owner_wallet.total_deposit += order.amount
-                            owner_wallet.save()
+                            # owner_wallet.balance += amount
+                            # owner_wallet.total_deposit -= delivery.amount
+                            # owner_wallet.save()
                             print(admin_wallet, rider_wallet, owner_wallet)
 
                             print("Owner balance:", owner_wallet.balance)

@@ -29,18 +29,20 @@ def create_order_with_items(user, order_data, reference, method):
     print(amount)
     delivery_data = order_data['delivery']
     print(delivery_data)
-    
+
     if method == 'wallet':
         sender_wallet = user.wallet
-        print("BALANCE:", sender_wallet.balance, "AMOUNT:", amount, type(amount))
+        print("BALANCE:", sender_wallet.balance,
+              "AMOUNT:", amount, type(amount))
         print(user.wallet)
         if Decimal(sender_wallet.balance) < Decimal(amount):
             print(True)
             raise ValidationError({"wallet": "Insufficient Funds"})
         sender_wallet.balance -= amount
+        sender_wallet.total_withdrawal += amount
         sender_wallet.save()
-        #WalletTransactions.objects.create(content='Payment For Purchase Made Succesfully', type='Item-Purchase', wallet=sender_wallet, amount=amount, status='completed', reference_code=reference)
         platform_wallet.balance += amount
+        platform_wallet.total_deposit += amount
         platform_wallet.save()
 
     payment = Payment.objects.create(
@@ -57,7 +59,7 @@ def create_order_with_items(user, order_data, reference, method):
     created_deliveries = {}  # (store_id, delivery_method) -> delivery_instance
     cart_items = order_data.get('items')
     print(cart_items)
-    
+
     for item in cart_items:
         store_id = item.get("store")
         print(item)
@@ -70,13 +72,13 @@ def create_order_with_items(user, order_data, reference, method):
         print(quantity)
         print(item_amount)
         print(delivery_data.get('fullname'))
-        
+
         now = timezone.now()
         print(item.get('shiiping_amount'))
 
         # Create a unique key for delivery based on store and delivery method
         delivery_key = (store_id, delivery_method)
-        
+
         # Check if we already have a delivery with the same store and delivery method
         delivery = None
         if delivery_key in created_deliveries:
@@ -116,7 +118,7 @@ def create_order_with_items(user, order_data, reference, method):
             created_orders[store_id] = order_instance
         else:
             order_instance = created_orders[store_id]
-        
+
         # Add the delivery to the order's many-to-many field
         order_instance.delivery.add(delivery)
 
@@ -161,6 +163,5 @@ def create_order_with_items(user, order_data, reference, method):
             token=device.token, title='New Order Available', notification_type="New Order", data=data)
         print('Yeah')
         # get_shipping_rates.delay(order)
-    
-    
+
     return Response(response_data, status=status.HTTP_201_CREATED)
