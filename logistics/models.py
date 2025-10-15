@@ -247,3 +247,20 @@ class DeliveryImages(models.Model):
         return f"Image for Delivery {self.delivery.id}"
 
 
+#https://api.shipbubble.com/v1/shipping/address/validate
+
+
+class ValidateAddress(models.Model):
+    name = models.CharField(max_length=250, blank=True, null=True)
+    email = models.EmailField()
+    phone = models.CharField(max_length=250, blank=True, null=True)
+    address = models.CharField(max_length=250, blank=True, null=True)
+    postal_code = models.CharField(max_length=250, blank=True, null=True)
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    address_code = models.CharField(max_length=250, blank=True, null=True)
+    
+    
+    def __str__(self):
+        return f"Address {self.name}"
+    

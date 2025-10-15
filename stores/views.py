@@ -57,6 +57,8 @@ from wallet.models import Wallet
 from stores.utils.create_speedy_dispatch import handle_speedy_dispatch
 from stores.utils.render_to_string import render_to_new_string
 from stores.utils.generate_pdf import generate_receipt_pdf
+import requests
+from logistics.models import ValidateAddress
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -1044,6 +1046,8 @@ class VerifyOrderView(APIView):
                                 print("Owner balance:", owner_wallet.balance)
                                 print("Admin balance:", admin_wallet.balance)
                                 ride.completed = True
+                                order.completed = True
+                                order.save()
                                 ride.save()
                                 return Response({"message": "Ride Completed Succesfully"}, status=200)
                             except Exception as e:
@@ -1056,6 +1060,7 @@ class VerifyOrderView(APIView):
                 except Order.DoesNotExist:
                     return Response({'message': 'Order not found'}, status=404)
             elif query_param == 'package-delivery':
+                print('Entered Package Delivery')
                 try:
                     delivery = get_object_or_404(
                         PackageDelivery, id=pk)
@@ -1068,7 +1073,7 @@ class VerifyOrderView(APIView):
                     #print(request.user.user_type, delivery.order.store.owner)
                     #print(request.user)
                     if request.user.user_type == 'Rider' and request.user == delivery.package_delivery.all()[0].rider:
-                        print("Store Owner is trying to complete the Delivery")
+                        print("Rider Is is trying to complete the Delivery")
                         # if OTPManager(delivery_secret).verify_otp(otp):
                         try:
                             ride.completed = True
@@ -1078,10 +1083,6 @@ class VerifyOrderView(APIView):
                                 Wallet, owner=ride.rider)
                             admin_wallet = get_object_or_404(
                                 Wallet, owner__email='admin@mail.com')
-                            owner_wallet = get_object_or_404(
-                                Wallet, owner=order.store.owner)
-
-                            # Ensure order.amount is a valid number
                             amount = ride.fare_amount or 0
 
                             admin_wallet.balance -= amount
@@ -1091,13 +1092,6 @@ class VerifyOrderView(APIView):
                             rider_wallet.balance += amount
                             rider_wallet.total_deposit += amount
                             rider_wallet.save()
-
-                            # owner_wallet.balance += amount
-                            # owner_wallet.total_deposit -= delivery.amount
-                            # owner_wallet.save()
-                            print(admin_wallet, rider_wallet, owner_wallet)
-
-                            print("Owner balance:", owner_wallet.balance)
                             print("Admin balance:", admin_wallet.balance)
                             ride.completed = True
                             ride.save()
@@ -1180,102 +1174,158 @@ class ProductRatingView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
+def validate_address(payload):
+    url = "https://api.shipbubble.com/v1/shipping/address/validate"
+    print('Called')
+    API_KEY = "sb_sandbox_dd3534a4e9ec96843afddab0b0cdf408680fe6e7134b4ffb96e1b8f805084f7c"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {API_KEY}"  # remove if not required
+    }
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        print("response Status:", response.status_code)
+        print(json.dumps(data, indent=4))
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print("Request failed:", e)
+    
   
-
 
 class GetShippingRate(APIView):
     #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-
+    
     def post(self, request):
         try:
             user = request.user
             per_kg = 200
             delivery_details = request.data.get('delivery_details')
             order_items = request.data.get('items')
-
-            # Convert delivery address → coordinates
-            delivery_coordinates = get_coordinates_from_address(
-                delivery_details.get('delivery_address')
-            )
-            if not delivery_coordinates:
+            print(order_items)
+            print(delivery_details)
+            try:
+                address = delivery_details.get('delivery_address', None)
+                fullname = delivery_details.get('fullname', None)
+                phone_number = delivery_details.get('phone_number', None)
+                email_address = delivery_details.get('email_address', None)
+                print(address, fullname, phone_number, email_address)
+                payload = {
+                    "name": fullname,
+                    "email": email_address,
+                    "phone": phone_number,
+                    "address": address,
+                }
+                try:
+                    ValidateAddress.objects.get(address=address)
+                    
+                except ValidateAddress.DoesNotExist():
+                    result = validate_address(payload)
+                    if result.get('status') == 'success':
+                        result.get('data')['address_code']
+                            
+            except Exception as e:
+                print(e)
                 return Response(
                     {"error": "Invalid delivery address"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-
-            destination = (
-                delivery_coordinates.get('latitude'),
-                delivery_coordinates.get('longitude')
-            )
-
-            # Calculate weight-based cost
-            package_details = calculate_order_package(order_items=order_items)
-            weight_cost = package_details.get('weight') * per_kg
-
-            movbay_delivery_price = []
-            terminal_delivery = []
-            outside_stores = []
-            unique_store_ids = set()
-
-            for item in order_items:
-                store_id = item.get('store')
-                if not store_id:
-                    continue
-
-                # Skip store if already processed
-                if store_id in unique_store_ids:
-                    continue
-
-                store = get_object_or_404(Store, id=store_id)
-                print(store)
-                # Compare states safely
-                delivery_state = delivery_details.get(
-                    'state', '').strip().lower()
-                store_state = store.state.strip().lower()
-                print(delivery_state, store_state)
-
-                if store_state != delivery_state:
-                    print("Store is in another state")
-                    outside_stores.append(item)
-                    result = handle_speedy_dispatch_task(
-                        store_id=store.id, user_id=user.id,
-                        delivery_details=delivery_details,
-                        order_items_data=outside_stores)
-                    unique_store_ids.add(store_id)
-                    terminal_delivery.append(
-                        {"store_id": store.id, "delivery_type": "shiip_terminal", "details": result})
-                    continue  # skip fare calculation
-                # Same state → calculate fare
-                unique_store_ids.add(store_id)
-
-                store_coordinates = get_coordinates_from_address(
-                    store.address1)
-                print('Store Coordinates:', store_coordinates)
-                if not store_coordinates:
-                    continue  # skip if store address is invalid
-
-                origin = (
-                    store_coordinates.get('latitude'),
-                    store_coordinates.get('longitude')
-                )
-                print(store_state, origin, delivery_state)
-                summary = get_eta_distance_and_fare(origin, destination)
-                print(summary)
-                if summary and summary.get('fare_amount'):
-                    movbay_delivery_price.append({"store_id": store.id,
-                                                 "fare": summary.get('fare_amount') + 300 + weight_cost,
-                                                  "delivery_type": "movbay_dispatch"
-                                                  })
-            return Response({"movbay_delivery": movbay_delivery_price, "shiip_delivery": terminal_delivery}, status=200)
-
         except Exception as e:
-            logger.error(f"An Error Occurred: {str(e)}")
             return Response(
-                {"error": "Something went wrong while calculating shipping"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+                    {"error": "Error Occured"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+    # def post(self, request):
+    #     try:
+    #         user = request.user
+    #         per_kg = 200
+    #         delivery_details = request.data.get('delivery_details')
+    #         order_items = request.data.get('items')
+
+    #         # Convert delivery address → coordinates
+    #         delivery_coordinates = get_coordinates_from_address(
+    #             delivery_details.get('delivery_address')
+    #         )
+    #         if not delivery_coordinates:
+    #             return Response(
+    #                 {"error": "Invalid delivery address"},
+    #                 status=status.HTTP_400_BAD_REQUEST
+    #             )
+
+    #         destination = (
+    #             delivery_coordinates.get('latitude'),
+    #             delivery_coordinates.get('longitude')
+    #         )
+
+    #         # Calculate weight-based cost
+    #         package_details = calculate_order_package(order_items=order_items)
+    #         weight_cost = package_details.get('weight') * per_kg
+
+    #         movbay_delivery_price = []
+    #         terminal_delivery = []
+    #         outside_stores = []
+    #         unique_store_ids = set()
+
+    #         for item in order_items:
+    #             store_id = item.get('store')
+    #             if not store_id:
+    #                 continue
+
+    #             # Skip store if already processed
+    #             if store_id in unique_store_ids:
+    #                 continue
+
+    #             store = get_object_or_404(Store, id=store_id)
+    #             print(store)
+    #             # Compare states safely
+    #             delivery_state = delivery_details.get(
+    #                 'state', '').strip().lower()
+    #             store_state = store.state.strip().lower()
+    #             print(delivery_state, store_state)
+
+    #             if store_state != delivery_state:
+    #                 print("Store is in another state")
+    #                 outside_stores.append(item)
+    #                 result = handle_speedy_dispatch_task(
+    #                     store_id=store.id, user_id=user.id,
+    #                     delivery_details=delivery_details,
+    #                     order_items_data=outside_stores)
+    #                 unique_store_ids.add(store_id)
+    #                 terminal_delivery.append(
+    #                     {"store_id": store.id, "delivery_type": "shiip_terminal", "details": result})
+    #                 continue  # skip fare calculation
+    #             # Same state → calculate fare
+    #             unique_store_ids.add(store_id)
+
+    #             store_coordinates = get_coordinates_from_address(
+    #                 store.address1)
+    #             print('Store Coordinates:', store_coordinates)
+    #             if not store_coordinates:
+    #                 continue  # skip if store address is invalid
+
+    #             origin = (
+    #                 store_coordinates.get('latitude'),
+    #                 store_coordinates.get('longitude')
+    #             )
+    #             print(store_state, origin, delivery_state)
+    #             summary = get_eta_distance_and_fare(origin, destination)
+    #             print(summary)
+    #             if summary and summary.get('fare_amount'):
+    #                 movbay_delivery_price.append({"store_id": store.id,
+    #                                              "fare": summary.get('fare_amount') + 300 + weight_cost,
+    #                                               "delivery_type": "movbay_dispatch"
+    #                                               })
+    #         return Response({"movbay_delivery": movbay_delivery_price, "shiip_delivery": terminal_delivery}, status=200)
+
+    #     except Exception as e:
+    #         logger.error(f"An Error Occurred: {str(e)}")
+    #         return Response(
+    #             {"error": "Something went wrong while calculating shipping"},
+    #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+    #         )
 
 
 class GetShipMentRate(APIView):

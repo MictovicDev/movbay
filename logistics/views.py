@@ -725,9 +725,13 @@ class PaymentDeliveryAPIView(APIView):
                     result = handle_payment(
                         payment_method, provider_name, amount, user, package)
                     print(result)
-                    package.amount = amount
-                    package.save()
                     if result.get('status') == 'Completed':
+                        package.amount += amount
+                        wallet =  package.sender.user.wallet
+                        # wallet.balance -= amount
+                        # wallet.total_withdrawal += amount
+                        # wallet.save()
+                        package.save()
                         return Response({"message": "Created Succesfully"},
                                         status=status.HTTP_201_CREATED,
                                         )
@@ -773,6 +777,26 @@ class PaymentDeliveryAPIView(APIView):
             )
 
 
+
+class UserDeliveryHistory(APIView):
+    """
+    Handles retrieving the delivery history of the authenticated user.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        completed = request.query_params.get('completed', None)
+        if isinstance(completed, str):
+            completed = completed.capitalize()
+        print(completed)
+        if completed == 'True':
+            deliveries = PackageDelivery.objects.filter(sender=request.user.user_profile, completed=True).order_by('-created_at')
+            serializer = PackageDeliverySerializer(deliveries, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        deliveries = PackageDelivery.objects.filter(sender=request.user.user_profile, completed=False).order_by('-created_at')
+        serializer = PackageDeliverySerializer(deliveries, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 class PackageDeliveryDetailAPIView(APIView):
     """
     Handles retrieving, updating, and deleting a single delivery.
@@ -810,3 +834,10 @@ class CancelRideView(APIView):
             order.locked = False
             order.save()
         return Response({"message": "Ride cancelled successfully."}, status=200)
+
+
+
+
+
+
+

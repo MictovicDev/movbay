@@ -42,9 +42,7 @@ class PackageDeliverySerializer(serializers.ModelSerializer):
     package_images = PackageImages(many=True, required=False, read_only=True)
     package_images_list = serializers.ListField(required=False)
     rider_id = serializers.IntegerField(required=False, read_only=True)
-    # payment_method = serializers.CharField(required=False, default="wallet")
-    # provider_name = serializers.CharField(required=False, default="paystack")
-    #amount = serializers.IntegerField(required=False, default=0)
+    amount = serializers.IntegerField(required=False, default=0)
     class Meta:
         model = PackageDelivery
         exclude = ["created_at", "updated_at", "delivered_at"]

@@ -6,7 +6,7 @@ import os
 redis_client = redis.Redis.from_url(
     os.getenv('REDIS_URL', 'redis://localhost:6379'))
 
-def is_user_online(user_id, threshold_minutes=5):
+def is_user_online(user_id, threshold_minutes=2):
     """
     Check if a user is considered online based on their last_seen timestamp
     
