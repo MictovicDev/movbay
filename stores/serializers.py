@@ -9,7 +9,7 @@ from .models import (Store,
                      OrderItem,
                      OrderTracking
                      )
-from .tasks import upload_store_files, upload_video, upload_image
+from .tasks import upload_store_files, upload_video, upload_image, validate_store_address
 from base64 import b64encode
 from rest_framework.response import Response
 from rest_framework import status
@@ -24,7 +24,6 @@ from users.utils.otp import OTPManager
 # from logistics.serializers import RiderSerializer
 from users.models import RiderProfile
 from .models import ProductRating, DeliveryOption
-from .tasks import upload_status_files
 
 
 class ClientStoresSerializer(serializers.ModelSerializer):
@@ -150,8 +149,6 @@ class StoreSerializer(serializers.ModelSerializer):
             return value
         else:
             return value
-        
-    
 
     def create(self, validated_data):
         request = self.context.get('request')
@@ -165,8 +162,8 @@ class StoreSerializer(serializers.ModelSerializer):
                 except Exception as e:
                     print(str(e))
                 otp_m = OTPManager()
-                response = get_coordinates_from_address(
-                    validated_data.get('address1'))
+                # response = get_coordinates_from_address(
+                #     validated_data.get('address1'))
 
                 try:
                     files = {
@@ -179,13 +176,23 @@ class StoreSerializer(serializers.ModelSerializer):
                 validated_data['owner'] = user
                 try:
                     store = Store.objects.create(**validated_data)
-                    if response:
-                        store.latitude = response.get('latitude')
-                        store.longitude = response.get('longitude')
-                        store.save()
+                    # if response:
+                    #     store.latitude = response.get('latitude')
+                    #     store.longitude = response.get('longitude')
+                    #     store.save()
+
                 except Exception as e:
                     raise e
+                print(store.name, store.owner.email, store.owner.phone_number, store.address1)
                 try:
+                    store_payload = {
+                        "name": store.name,
+                        "email": store.owner.email,
+                        "phone": str(store.owner.phone_number),
+                        "address": store.address1,
+                        "owner": str(store.owner)
+                    }
+                    validate_store_address.delay(store_payload)
                     upload_store_files.delay(store.id, files)
                 except Exception as e:
                     print(str(e))
@@ -250,6 +257,7 @@ class ProductSerializer(serializers.ModelSerializer):
         format="%Y-%m-%d %H:%M", read_only=True)
     images = serializers.ListField(required=True, write_only=True)
     product_images = ProductImageSerializer(many=True, required=False)
+
     class Meta:
         model = Product
         fields = '__all__'
@@ -285,7 +293,8 @@ class ProductSerializer(serializers.ModelSerializer):
         try:
             product = Product.objects.create(store=store, **validated_data)
         except Exception as e:
-            raise serializers.ValidationError(f"Error creating product: {str(e)}")
+            raise serializers.ValidationError(
+                f"Error creating product: {str(e)}")
         serialized_images = [
             {
                 "file_content": b64encode(image.read()).decode("utf-8"),
@@ -310,7 +319,7 @@ class ProductDeliveryTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ['id', 'movbay_express', 'speed_dispatch', 'pickup']
-        
+
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(required=False)
@@ -346,7 +355,7 @@ class OrderTrackingSerializer(serializers.ModelSerializer):
 class DeliverySerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     delivery_method = serializers.CharField(read_only=True)
-    
+
     class Meta:
         model = Delivery
         fields = ['delivery_method', 'fullname', 'phone_number', 'email', 'user',
@@ -373,18 +382,21 @@ class OrderSerializer(serializers.ModelSerializer):
                   'buyer', 'order_id', 'store', 'assigned', 'ride']
 
 
-
-
 class ItemSerializer(serializers.Serializer):
     store = serializers.IntegerField()
     product = serializers.IntegerField()
     amount = serializers.IntegerField()
     quantity = serializers.IntegerField()
-    carrier_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    pickup_address_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    delivery_address_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    parcel_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    carrier_name = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True)
+    id = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True)
+    pickup_address_id = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True)
+    delivery_address_id = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True)
+    parcel_id = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True)
     shiiping_amount = serializers.FloatField(required=False, allow_null=True)
     delivery_method = serializers.CharField()
 
@@ -399,24 +411,27 @@ class ItemSerializer(serializers.Serializer):
             raise
 
     def validate(self, data):
-        print(f"Validating item with delivery_method: {data.get('delivery_method')}")
+        print(
+            f"Validating item with delivery_method: {data.get('delivery_method')}")
         delivery_method = data.get('delivery_method')
-        
+
         # Only require these fields for methods that are NOT movbay_delivery OR movbay_dispatch
         if delivery_method and delivery_method not in ['movbay_delivery', 'movbay_dispatch']:
-            required_fields = ['carrier_name', 'id', 'pickup_address_id', 'delivery_address_id', 'parcel_id']
+            required_fields = [
+                'carrier_name', 'id', 'pickup_address_id', 'delivery_address_id', 'parcel_id']
             errors = {}
-            
+
             for field in required_fields:
                 field_value = data.get(field)
                 print(f"Checking field {field}: {field_value}")
                 if not field_value or field_value == '':
-                    errors[field] = [f"This field is required for delivery method '{delivery_method}'."]
-            
+                    errors[field] = [
+                        f"This field is required for delivery method '{delivery_method}'."]
+
             if errors:
                 print(f"Validation errors: {errors}")
                 raise serializers.ValidationError(errors)
-        
+
         print("Item validation passed")
         return data
 
@@ -437,7 +452,8 @@ class ShopSerializer(serializers.Serializer):
         except Exception as e:
             print(f"Error in ShopSerializer.to_internal_value: {e}")
             raise
-  
+
+
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)
     store = serializers.PrimaryKeyRelatedField(read_only=True)

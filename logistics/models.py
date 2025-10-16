@@ -153,8 +153,8 @@ class Parcel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return f"{self.description} - {self.weight}kg"
+    # def __str__(self):
+    #     return f"{self.description} - {self.weight}kg"
 
 class ShippingRate(models.Model):
     terminal_rate_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
@@ -252,12 +252,13 @@ class DeliveryImages(models.Model):
 
 class ValidateAddress(models.Model):
     name = models.CharField(max_length=250, blank=True, null=True)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
     email = models.EmailField()
     phone = models.CharField(max_length=250, blank=True, null=True)
     address = models.CharField(max_length=250, blank=True, null=True)
     postal_code = models.CharField(max_length=250, blank=True, null=True)
-    latitude = models.FloatField()
-    longitude = models.FloatField()
+    latitude = models.FloatField(blank=True, null=True)
+    longitude = models.FloatField(blank=True, null=True)
     address_code = models.CharField(max_length=250, blank=True, null=True)
     
     

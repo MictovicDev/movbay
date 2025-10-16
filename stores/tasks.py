@@ -28,8 +28,13 @@ from stores.models import Product
 import logging
 from django.utils import timezone
 from logistics.utils import fetch_terminal_cities
-
+import json
 from users.utils.email import EmailManager
+from logistics.models import ValidateAddress
+from django.contrib.auth import get_user_model
+
+
+User = get_user_model()
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -462,28 +467,45 @@ def handle_speedy_dispatch_task(user_id: int = None, product_id: int = None, del
         return {"status": "error", "error": "An unexpected error occurred"}
 
 
-# @shared_task
-# def send_receipt_email(order_data, recipient_email):
-#     # Generate PDF
-#     pdf_content = generate_receipt_pdf(order_data)
+@shared_task
+def validate_store_address(store_payload):
 
-#     # Create email
-#     subject = f"Delivery Receipt - Order #{order_data['order_number']}"
-#     email = EmailManager(
-#         subject=subject,
-#         html_content=html_content,
-#         from_email='movbay.services@gmail.com',
-#         to=[recipient_email],
-#     )
-
-#     # Attach PDF
-#     email.attach(
-#         f"receipt_{order_data['order_number']}.pdf",
-#         pdf_content,
-#         'application/pdf'
-#     )
-
-#     # Send email
-#     email.send()
-
-#     return True
+    url = "https://api.shipbubble.com/v1/shipping/address/validate"
+    print('Called')
+    API_KEY = "sb_sandbox_dd3534a4e9ec96843afddab0b0cdf408680fe6e7134b4ffb96e1b8f805084f7c"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {API_KEY}"  # remove if not required
+    }
+    try:
+        payload = {
+            "name": store_payload.get('name'),
+            "email": store_payload.get('email'),
+            "phone": store_payload.get("phone"),
+            "address": store_payload.get('address')
+        }
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        print("response Status:", response.status_code)
+        print(json.dumps(data, indent=4))
+        address_code = data.get('data')['address_code']
+        latitude = data.get('data')['latitude']
+        email = data.get('data')['email']
+        name = data.get('data')['name']
+        address = data.get('data')['address']
+        phone = data.get('data')['phone']
+        longitude = data.get('data')['longitude']
+        postal_code = data.get('data')['postal_code']
+        print(latitude, longitude)
+        try:
+            user = User.objects.get(email=store_payload["email"])
+        except User.DoesNotExist():
+            logger.info("User Matching query does not exist")
+        if data.get('status') == 'success':
+            ValidateAddress.objects.create(name=name, email=email, phone=phone, address=address, postal_code=postal_code,
+                                           address_code=address_code, owner=user, latitude=latitude, longitude=longitude)
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(e)
+        print("Request failed:", e)

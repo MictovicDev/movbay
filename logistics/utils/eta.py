@@ -19,32 +19,44 @@ GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 
 def get_eta_distance_and_fare(origin, destination):
     url = "https://maps.googleapis.com/maps/api/distancematrix/json"
-    print(origin)
-    print(destination)
     params = {
-        "origins": f"{origin[0]},{origin[1]}",  # (lat, lng)
+        "origins": f"{origin[0]},{origin[1]}",
         "destinations": f"{destination[0]},{destination[1]}",
         "key": GOOGLE_MAPS_API_KEY
     }
 
     response = requests.get(url, params=params)
     data = response.json()
+    print(data)
 
     try:
         row = data["rows"][0]["elements"][0]
         distance_meters = row["distance"]["value"]
         duration_seconds = row["duration"]["value"]
 
-        # Convert to km and minutes
         distance_km = distance_meters / 1000
         duration_minutes = duration_seconds / 60
 
-        
-            
-        base_fare = 300  # Naira
-        rate_per_km = 200  # Naira per km
-        
+        base_fare = 300
+        print(distance_meters)
+        print(distance_km)
+        # Better local delivery scaling
+        if distance_km <= 5:
+            rate_per_km = 100
+        elif distance_km <= 20:
+            rate_per_km = 80
+        elif distance_km <= 100:
+            rate_per_km = 60
+        else:
+            rate_per_km = 40
+
         total_fare = base_fare + (rate_per_km * distance_km)
+        
+        # Cap for same-state deliveries
+        if distance_km <= 100:
+            total_fare = min(total_fare, 5000)
+        else:
+            total_fare = min(total_fare, 15000)
 
         return {
             "distance_km": round(distance_km, 2),

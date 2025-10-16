@@ -1,3 +1,5 @@
+from rest_framework import status, permissions
+from datetime import datetime, timedelta
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import render
 from rest_framework import generics, permissions
@@ -59,6 +61,10 @@ from stores.utils.render_to_string import render_to_new_string
 from stores.utils.generate_pdf import generate_receipt_pdf
 import requests
 from logistics.models import ValidateAddress
+from datetime import timedelta
+from collections import defaultdict
+import os
+from random import randint
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -70,7 +76,7 @@ class CustomAnonRateThrottle(AnonRateThrottle):
 
 class ClientViewStore(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
 
     def get(self, request, store_id):
         try:
@@ -83,7 +89,7 @@ class ClientViewStore(APIView):
 
 
 class StoreListCreateView(generics.ListCreateAPIView):
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
     try:
         queryset = store_qs = Store.objects.prefetch_related(
@@ -99,7 +105,7 @@ class StoreListCreateView(generics.ListCreateAPIView):
 
 class DeliveryDetailsCreateView(generics.CreateAPIView):
     serializer_class = DeliverySerializer
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
@@ -117,8 +123,7 @@ class DeliveryDetailsCreateView(generics.CreateAPIView):
 class OrderListCreateView(generics.ListCreateAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
-   
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
 
     def get_queryset(self):
         store = self.request.user.store
@@ -133,7 +138,7 @@ class OrderDetailView(generics.RetrieveDestroyAPIView):
 
 
 class GetUserOrder(APIView):
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated, IsStoreOwner]
 
     def get(self, request):
@@ -159,7 +164,7 @@ class GetUserOrder(APIView):
 
 
 class GetPastUserOrder(APIView):
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated, IsStoreOwner]
 
     def get(self, request):
@@ -174,7 +179,7 @@ class GetPastUserOrder(APIView):
 
 
 class MarkAsDelivered(APIView):
-    #authentication_classes = [SessionAuthentication, JWTAuthentication]
+    # authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -196,14 +201,14 @@ class MarkAsDelivered(APIView):
             print(html_content)
             print(buyer.email)
             send_order_complete_email_async.delay(from_email='noreply@movbay.com',
-                                                to_emails=buyer.email,
-                                                subject='Order Verification',
-                                                html_content=html_content)
+                                                  to_emails=buyer.email,
+                                                  subject='Order Verification',
+                                                  html_content=html_content)
             order.status = 'completed'
             order.order_tracking.all()[0].completed = True
             order.save()
             return Response({"message": "Order has been Completed"}, status=200)
-        
+
         elif d_type == 'package-delivery':
             print('Package Delivery Entered')
             package_delivery = get_object_or_404(PackageDelivery, id=pk)
@@ -220,17 +225,17 @@ class MarkAsDelivered(APIView):
             print(html_content)
             print(sender.user.email)
             send_order_complete_email_async.delay(from_email='noreply@movbay.com',
-                                                to_emails=sender.user.email,
-                                                subject='Order Verification',
-                                                html_content=html_content)
-            
+                                                  to_emails=sender.user.email,
+                                                  subject='Order Verification',
+                                                  html_content=html_content)
+
             return Response({"message": "Package Marked as Delivered"}, status=200)
         else:
             return Response({"message": "Invalid type parameter"}, status=400)
 
 
 class ConfirmOrder(APIView):
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -312,7 +317,7 @@ def notify_drivers(drivers, summary):
 
 
 class MarkForDeliveryView(APIView):
-    #authentication_class = [JWTAuthentication]
+    # authentication_class = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -511,7 +516,7 @@ class CustomProductPagination(PageNumberPagination):
 class ProductListCreateView(generics.ListCreateAPIView):
     serializer_class = ProductSerializer
     # pagination_class = CustomProductPagination
-    #authentication_classes = [JWTAuthentication]
+    # authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
@@ -562,14 +567,14 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
-    #authentication_classes = [SessionAuthentication, JWTAuthentication]
+    # authentication_classes = [SessionAuthentication, JWTAuthentication]
 
 
 class UserProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.AllowAny]
-    #authentication_classes = [SessionAuthentication, JWTAuthentication]
+    # authentication_classes = [SessionAuthentication, JWTAuthentication]
 
 
 class StoreFollowView(APIView):
@@ -595,7 +600,7 @@ class StoreFollowView(APIView):
 
 
 class StoreFollowers(APIView):
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -633,7 +638,7 @@ class StoreFollowers(APIView):
 
 
 class StoreUnfollowView(APIView):
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -674,7 +679,7 @@ class StoreUnfollowView(APIView):
 
 
 class StoreFollowingView(APIView):
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -709,7 +714,7 @@ class StoreFollowingView(APIView):
 
 class UserProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]  # login required
 
     def get_queryset(self):
@@ -719,7 +724,7 @@ class UserProductListView(generics.ListAPIView):
 
 class DashBoardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
 
     def get(self, request):
         try:
@@ -835,7 +840,7 @@ class HealthCheckView(APIView):
 
 
 class ReviewView(APIView):
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, store_id):
@@ -863,7 +868,7 @@ class ReviewView(APIView):
 
 
 class MoreFromSeller(APIView):
-    2#authentication_classes = [SessionAuthentication, JWTAuthentication]
+    2  # authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -874,7 +879,7 @@ class MoreFromSeller(APIView):
 
 
 class StatusView(APIView):
-    #authentication_classes = [SessionAuthentication, JWTAuthentication]
+    # authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
@@ -907,7 +912,7 @@ class StatusView(APIView):
 
 
 class ProductStatusView(APIView):
-    #authentication_classes = [SessionAuthentication, JWTAuthentication]
+    # authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -944,7 +949,7 @@ class ProductStatusView(APIView):
 
 class VerifyOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    #authentication_classes = [JWTAuthentication, SessionAuthentication]
+    # authentication_classes = [JWTAuthentication, SessionAuthentication]
 
     """
     Endpoint Used to Verify the completion of an Order, Either By a Seller or a Rider
@@ -1070,8 +1075,8 @@ class VerifyOrderView(APIView):
                     otp = serializer.validated_data['otp']
                     print(otp)
                     delivery_secret = delivery.otp_secret
-                    #print(request.user.user_type, delivery.order.store.owner)
-                    #print(request.user)
+                    # print(request.user.user_type, delivery.order.store.owner)
+                    # print(request.user)
                     if request.user.user_type == 'Rider' and request.user == delivery.package_delivery.all()[0].rider:
                         print("Rider Is is trying to complete the Delivery")
                         # if OTPManager(delivery_secret).verify_otp(otp):
@@ -1107,11 +1112,10 @@ class VerifyOrderView(APIView):
                         return Response({'message': 'Permission Denied'}, status=403)
                 except Delivery.DoesNotExist:
                     return Response({'message': 'Delivery not found'}, status=404)
-                
 
 
 class MoreFromSeller(APIView):
-    #authentication_classes = [SessionAuthentication, JWTAuthentication]
+    # authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
@@ -1142,7 +1146,7 @@ class MoreFromSeller(APIView):
 
 
 class ProductRatingView(APIView):
-    #authentication_classes = [SessionAuthentication, JWTAuthentication]
+    # authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
@@ -1177,7 +1181,7 @@ class ProductRatingView(APIView):
 def validate_address(payload):
     url = "https://api.shipbubble.com/v1/shipping/address/validate"
     print('Called')
-    API_KEY = "sb_sandbox_dd3534a4e9ec96843afddab0b0cdf408680fe6e7134b4ffb96e1b8f805084f7c"
+    API_KEY = os.getenv('API_KEY')
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {API_KEY}"  # remove if not required
@@ -1186,57 +1190,215 @@ def validate_address(payload):
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
         data = response.json()
-        print("response Status:", response.status_code)
-        print(json.dumps(data, indent=4))
+        # print("response Status:", response.status_code)
+        # print(json.dumps(data, indent=4))
         return response.json()
     except requests.exceptions.RequestException as e:
         print("Request failed:", e)
-    
-  
+
+
+def get_shiiping_rate(payload):
+    url = "https://api.shipbubble.com/v1/shipping/fetch_rates"
+    API_KEY = os.getenv('API_KEY')
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {API_KEY}"  # remove if not required
+    }
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        # print("response Status:", response.status_code)
+        # print(json.dumps(data, indent=4))
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print("Request failed:", e)
+
+
 
 class GetShippingRate(APIView):
-    #authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def post(self, request):
+        from datetime import datetime
+
         try:
             user = request.user
-            per_kg = 200
+            print(user)
             delivery_details = request.data.get('delivery_details')
             order_items = request.data.get('items')
-            print(order_items)
-            print(delivery_details)
+
+            # Validate receiver address
             try:
-                address = delivery_details.get('delivery_address', None)
-                fullname = delivery_details.get('fullname', None)
-                phone_number = delivery_details.get('phone_number', None)
-                email_address = delivery_details.get('email_address', None)
-                print(address, fullname, phone_number, email_address)
+                address = delivery_details.get('delivery_address')
+                fullname = delivery_details.get('fullname')
+                phone_number = delivery_details.get('phone_number')
+                email_address = delivery_details.get('email_address')
+                print(email_address)
+
                 payload = {
                     "name": fullname,
                     "email": email_address,
                     "phone": phone_number,
                     "address": address,
                 }
+
                 try:
-                    ValidateAddress.objects.get(address=address)
-                    
-                except ValidateAddress.DoesNotExist():
+                    validated_address = ValidateAddress.objects.get(address=address, email=email_address)
+                    delivery_address_code = validated_address.address_code
+                except ValidateAddress.DoesNotExist:
+                    print('Creating.............')
+                    print(payload)
                     result = validate_address(payload)
                     if result.get('status') == 'success':
-                        result.get('data')['address_code']
-                            
+                        data = result.get('data')
+                        ValidateAddress.objects.create(
+                            name=data['name'],
+                            email=data['email'],
+                            phone=data['phone'],
+                            address=data['address'],
+                            postal_code=data['postal_code'],
+                            address_code=data['address_code'],
+                            latitude=data['latitude'],
+                            longitude=data['longitude']
+                        )
+                        delivery_address_code = data['address_code']
+                    else:
+                        return Response({"error": "Error retrieving delivery address code"}, status=400)
+
             except Exception as e:
                 print(e)
-                return Response(
-                    {"error": "Invalid delivery address"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({"error": "Invalid delivery address"}, status=400)
+
+            grouped_items = defaultdict(list)
+            for item in order_items:
+                store_id = item["store"]
+                grouped_items[store_id].append(item)
+
+            cleaned_data_list = []
+
+            for store_id, items in grouped_items.items():
+                try:
+                    store = Store.objects.get(id=store_id)
+                except Store.DoesNotExist:
+                    return Response({"error": "Store does not exist"}, status=400)
+
+                # Validate or create store address
+                try:
+                    validated_address = ValidateAddress.objects.get(
+                        address=store.address1, owner=store.owner, email=store.owner.email
+                    )
+                    address_code = validated_address.address_code
+                    # print(address_code)
+                except ValidateAddress.DoesNotExist:
+                    payload = {
+                        'name': store.name,
+                        'email': store.owner.email,
+                        'address': store.address1,
+                        'phone': str(store.owner.phone_number),
+                    }
+                    result = validate_address(payload)
+                    # print(result)
+                    if result.get('status') == 'success':
+                        data = result.get('data')
+                        # print({'Successful': data})
+                        validated_address = ValidateAddress.objects.create(
+                            name=data['name'],
+                            email=data['email'],
+                            phone=data['phone'],
+                            address=data['address'],
+                            postal_code=data['postal_code'],
+                            address_code=data['address_code'],
+                            owner=store.owner,
+                            latitude=data['latitude'],
+                            longitude=data['longitude']
+                        )
+                        address_code = data['address_code']
+                    else:
+                        return Response({"error": f"Error retrieving address code for store {store.name}"}, status=400)
+
+                pickup_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+                result = calculate_order_package(items)
+
+                shipping_payload = {
+                    "sender_address_code": address_code,
+                    "reciever_address_code": delivery_address_code,
+                    "pickup_date": pickup_date,
+                    "category_id": result.get("package_items")[0].get('category_id'),
+                    "package_items": result.get("package_items"),
+                    "service_type": "pickup",
+                    "delivery_instructions": "Please I need the Item to be picked up and handled with care. Thank you, Movbay",
+                    "package_dimension": result.get("package_dimension")
+                }
+
+                response_data = get_shiiping_rate(shipping_payload)
+
+                # MOVBAY: internal distance-based pricing
+                destination = (validated_address.latitude, validated_address.longitude)
+                try:
+                    store_validated_address = ValidateAddress.objects.get(owner=store.owner)
+                except ValidateAddress.DoesNotExist:
+                    logger.info("Error Retrieving Address")
+                origin = (store_validated_address.latitude, store_validated_address.longitude)
+                summary = get_eta_distance_and_fare(origin, destination)
+
+                movbay_fare = None
+                if summary and summary.get('fare_amount'):
+                    weight_cost = result.get("package_dimension", {}).get("weight", 0) * 50
+                    movbay_fare = summary.get('fare_amount') + 300 + weight_cost
+
+                # Append MOVBAY courier as one of the options
+              
+                couriers = [
+                    {
+                        "courier_id": "movbay_dispatch",
+                        "service_code": "MOVBAY00" + str(randint(0,100)),
+                        "courier_image": "https://res.cloudinary.com/dpoidbzwa/image/upload/v1760614229/MovBay_app_icon_yd0laf.png",
+                        "discount": 0,
+                        "ratings": 4.9,
+                        "pickup_eta": "1 hour",
+                        "pickup_eta_time": "",
+                        "delivery_eta": "Same day" if summary and summary["distance_km"] < 50 else "Next day",
+                        "delivery_eta_time": "",
+                        "total": movbay_fare if movbay_fare else 0,
+                    }
+                ]
+
+                # Add third-party couriers
+                couriers.extend([
+                    {
+                        "courier_id": c.get("courier_id"),
+                        "service_code": c.get("service_code"),
+                        "courier_image": c.get("courier_image"),
+                        "discount": c.get("discount"),
+                        "ratings": c.get("ratings"),
+                        "pickup_eta": c.get("pickup_eta"),
+                        "pickup_eta_time": c.get("pickup_eta_time"),
+                        "delivery_eta": c.get("delivery_eta"),
+                        "delivery_eta_time": c.get("delivery_eta_time"),
+                        "total": c.get("total"),
+                    }
+                    for c in response_data["data"].get("couriers", [])
+                ])
+
+                cleaned_data = {
+                    "store": store.name,
+                    "status": response_data.get("status"),
+                    "message": response_data.get("message"),
+                    "data": {
+                        "request_token": response_data["data"].get("request_token"),
+                        "couriers": couriers,
+                    },
+                }
+
+                cleaned_data_list.append(cleaned_data)
+
+            return Response(cleaned_data_list, status=status.HTTP_200_OK)
+
         except Exception as e:
-            return Response(
-                    {"error": "Error Occured"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            print("Error:", e)
+            return Response({"error": "An error occurred"}, status=400)
+
 
     # def post(self, request):
     #     try:
@@ -1329,7 +1491,7 @@ class GetShippingRate(APIView):
 
 
 class GetShipMentRate(APIView):
-    #authentication_classes = [SessionAuthentication, JWTAuthentication]
+    # authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, product_id):
@@ -1354,7 +1516,7 @@ class GetShipMentRate(APIView):
 
 
 class TaskStatusView(APIView):
-    #authentication_classes = [SessionAuthentication, JWTAuthentication]
+    # authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     """API endpoint to check the status of a Celery task via GET request.

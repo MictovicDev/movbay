@@ -65,17 +65,18 @@ class DeliveryOption(models.Model):
 class Product(models.Model):
     
     CATEGORY = [
-        ('Electronics', 'Electronics'),
-        ('Fashion', 'Fashion'),
-        ('Furniture', 'Furniture'),
-        ('Beauty', 'Beauty'),
-        ('Car', 'Car'),
-        ('Sport', 'Sport'),
-        ('Shoes', 'Shoes'),
-        ('Bags', 'Bags'),
-        ('Home & Garden', 'Home & Garden'),
-        ('Books', 'Books'),
-        ('Others', 'Others')
+        ('Electronics_Gadgets', 'Electronics_Gadgets'),
+        ('Fashion_Wears', 'Fashion_Wears'),
+        ('Furniture_Fittings', 'Furniture_Fittings'),
+        ('Health_Beauty', 'Health_Beauty'),
+        ('Hot_Food', 'Hot_Food'),
+        ('Dry_Food_Supplements', 'Dry_Food_Supplements'),
+        ('Groceries', 'Groceries'),
+        ('Sensitive_Items', 'Sensitive_Items'),
+        ('Light_Weight_Items', 'Light_Weight_Items'),
+        ('Machinery', 'Machinery'),
+        ('Medical_Supplies', 'Medical_Supplies'),
+        
     ]
     
     PRODUCT_CONDITION = [
@@ -88,7 +89,7 @@ class Product(models.Model):
     #id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products', db_index=True)
     title = models.CharField(max_length=40, blank=True, null=True)
-    category = models.CharField(max_length=250, blank=True, null=True)
+    category = models.CharField(max_length=250, blank=True, null=True, choices=CATEGORY)
     brand = models.CharField(max_length=250, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     product_video = models.FileField('videos', blank=True, null=True)
