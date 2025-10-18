@@ -1177,24 +1177,51 @@ class ProductRatingView(APIView):
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 def validate_address(payload):
     url = "https://api.shipbubble.com/v1/shipping/address/validate"
     print('Called')
     API_KEY = os.getenv('API_KEY')
+    print(API_KEY)
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {API_KEY}"  # remove if not required
+        "Authorization": f"Bearer {API_KEY}",
     }
+
     try:
+        print("Payload being sent:")
+        print(json.dumps(payload, indent=4))
+
         response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        data = response.json()
-        # print("response Status:", response.status_code)
-        # print(json.dumps(data, indent=4))
-        return response.json()
+
+        print("Response status code:", response.status_code)
+        print("Response reason:", response.reason)
+
+        # Always print the response text before raising an error
+        try:
+            print("Raw response text:")
+            print(response.text)
+        except Exception as decode_error:
+            print("Could not decode response text:", decode_error)
+
+        response.raise_for_status()  # Raises 400/500 errors
+
+        # Try to parse JSON response safely
+        try:
+            data = response.json()
+            print("Parsed response JSON:")
+            print(json.dumps(data, indent=4))
+            return data
+        except ValueError:
+            print("Response was not valid JSON.")
+            return None
+
+    except requests.exceptions.HTTPError as e:
+        print("HTTP Error:", e)
+        print("Response content:", response.text if response else "No response body")
     except requests.exceptions.RequestException as e:
-        print("Request failed:", e)
+        print("Request Exception:", e)
+    except Exception as e:
+        print("Unexpected error:", e)
 
 
 def get_shiiping_rate(payload):
@@ -1208,8 +1235,8 @@ def get_shiiping_rate(payload):
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
         data = response.json()
-        # print("response Status:", response.status_code)
-        # print(json.dumps(data, indent=4))
+        print("response Status:", response.status_code)
+        print(json.dumps(data, indent=4))
         return response.json()
     except requests.exceptions.RequestException as e:
         print("Request failed:", e)
@@ -1242,7 +1269,7 @@ class GetShippingRate(APIView):
                     "phone": phone_number,
                     "address": address,
                 }
-
+                print(fullname, email_address, phone_number, address)
                 try:
                     validated_address = ValidateAddress.objects.get(address=address, email=email_address)
                     delivery_address_code = validated_address.address_code
@@ -1250,6 +1277,7 @@ class GetShippingRate(APIView):
                     print('Creating.............')
                     print(payload)
                     result = validate_address(payload)
+                    print(result)
                     if result.get('status') == 'success':
                         data = result.get('data')
                         ValidateAddress.objects.create(
@@ -1263,9 +1291,9 @@ class GetShippingRate(APIView):
                             longitude=data['longitude']
                         )
                         delivery_address_code = data['address_code']
+                        print('Created_successfully')
                     else:
                         return Response({"error": "Error retrieving delivery address code"}, status=400)
-
             except Exception as e:
                 print(e)
                 return Response({"error": "Invalid delivery address"}, status=400)

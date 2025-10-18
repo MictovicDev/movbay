@@ -5,6 +5,8 @@ from .models import UserProfile, RiderProfile
 import cloudinary.uploader
 import os
 
+
+
 @shared_task
 def send_welcome_email_async(from_email, to_emails, subject, html_content):
     sender = EmailManager(from_email, to_emails, subject, html_content)

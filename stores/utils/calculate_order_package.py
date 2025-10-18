@@ -177,7 +177,7 @@ def calculate_order_package(order_items):
             dims = categories[product.category.lower()][product.size]
             category_id = categories[product.category.lower()]['category_id']
         except Exception as e:
-            print(f"Category error for {product.name}: {e}")
+            print(f"Category error for {product.title}: {e}")
             dims = categories['others'][product.size]
             category_id = categories['others']['category_id']
 

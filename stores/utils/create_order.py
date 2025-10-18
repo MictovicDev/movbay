@@ -38,13 +38,14 @@ def create_order_with_items(user, order_data, reference, method):
         if Decimal(sender_wallet.balance) < Decimal(amount):
             print(True)
             raise ValidationError({"wallet": "Insufficient Funds"})
+        
         sender_wallet.balance -= amount
         sender_wallet.total_withdrawal += amount
         sender_wallet.save()
         platform_wallet.balance += amount
         platform_wallet.total_deposit += amount
         platform_wallet.save()
-
+        
     payment = Payment.objects.create(
         user=user,
         amount=amount,
@@ -69,12 +70,9 @@ def create_order_with_items(user, order_data, reference, method):
         quantity = item.get("quantity")
         item_amount = item.get("amount")
         delivery_method = item.get('delivery_method')
-        print(quantity)
-        print(item_amount)
-        print(delivery_data.get('fullname'))
-
+        
         now = timezone.now()
-        print(item.get('shiiping_amount'))
+       
 
         # Create a unique key for delivery based on store and delivery method
         delivery_key = (store_id, delivery_method)
