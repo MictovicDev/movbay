@@ -175,7 +175,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
                     print(attr, value)
                     setattr(user, attr, value)
             user.save()
-            
+     
         if profile_picture:
             # Get raw file bytes and name
             file_data = profile_picture.read()

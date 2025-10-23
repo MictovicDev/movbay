@@ -1,3 +1,4 @@
+from rest_framework import permissions, status
 from rest_framework import status, permissions
 from datetime import datetime, timedelta
 from rest_framework.pagination import PageNumberPagination
@@ -65,6 +66,8 @@ from datetime import timedelta
 from collections import defaultdict
 import os
 from random import randint
+from stores.utils.shipping_request import shipping_request
+
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -318,6 +321,7 @@ def notify_drivers(drivers, summary):
 
 class MarkForDeliveryView(APIView):
     # authentication_class = [JWTAuthentication]
+
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -472,39 +476,42 @@ class MarkForDeliveryView(APIView):
 
     def _process_speedy_dispatch(self, delivery):
         """Process speedy dispatch delivery"""
-        try:
-            # Validate required fields
-            required_fields = ['parcel_id',
-                               'pickup_address_id', 'delivery_address_id']
-            missing_fields = [
-                field for field in required_fields if not getattr(delivery, field, None)]
+        result = shipping_request(delivery)
+        return result
 
-            if missing_fields:
-                raise ValueError(
-                    f"Missing required fields: {', '.join(missing_fields)}")
+        # try:
+        #     # Validate required fields
+        #     required_fields = ['parcel_id',
+        #                        'pickup_address_id', 'delivery_address_id']
+        #     missing_fields = [
+        #         field for field in required_fields if not getattr(delivery, field, None)]
 
-            # Create shipment
-            dispatch = SpeedyDispatch()
-            result = dispatch.create_shipment(
-                address_from=delivery.pickup_address_id,
-                address_to=delivery.delivery_address_id,
-                parcel=delivery.parcel_id
-            )
-            print(result)
+        #     if missing_fields:
+        #         raise ValueError(
+        #             f"Missing required fields: {', '.join(missing_fields)}")
 
-            return {
-                'success': True,
-                'delivery_id': delivery.id,
-                'shipment_result': result
-            }
+        #     # Create shipment
+        #     dispatch = SpeedyDispatch()
+        #     result = dispatch.create_shipment(
+        #         address_from=delivery.pickup_address_id,
+        #         address_to=delivery.delivery_address_id,
+        #         parcel=delivery.parcel_id
+        #     )
+        #     print(result)
 
-        except Exception as e:
-            logger.error(f"Speedy dispatch processing failed: {str(e)}")
-            return {
-                'success': False,
-                'delivery_id': delivery.id,
-                'error': str(e)
-            }
+        #     return {
+        #         'success': True,
+        #         'delivery_id': delivery.id,
+        #         'shipment_result': result
+        #     }
+
+        # except Exception as e:
+        #     logger.error(f"Speedy dispatch processing failed: {str(e)}")
+        #     return {
+        #         'success': False,
+        #         'delivery_id': delivery.id,
+        #         'error': str(e)
+        #     }
 
 
 class CustomProductPagination(PageNumberPagination):
@@ -1177,6 +1184,10 @@ class ProductRatingView(APIView):
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+logger = logging.getLogger(__name__)
+
+
 def validate_address(payload):
     url = "https://api.shipbubble.com/v1/shipping/address/validate"
     print('Called')
@@ -1218,29 +1229,41 @@ def validate_address(payload):
     except requests.exceptions.HTTPError as e:
         print("HTTP Error:", e)
         print("Response content:", response.text if response else "No response body")
+        return None
     except requests.exceptions.RequestException as e:
         print("Request Exception:", e)
+        return None
     except Exception as e:
         print("Unexpected error:", e)
+        return None
 
 
 def get_shiiping_rate(payload):
     url = "https://api.shipbubble.com/v1/shipping/fetch_rates"
     API_KEY = os.getenv('API_KEY')
+    print(API_KEY)
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {API_KEY}"  # remove if not required
+        "Authorization": f"Bearer {API_KEY}"
     }
     try:
+        print("Shipping rate payload:")
+        print(json.dumps(payload, indent=4))
+
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
         data = response.json()
         print("response Status:", response.status_code)
         print(json.dumps(data, indent=4))
-        return response.json()
+        return data
     except requests.exceptions.RequestException as e:
         print("Request failed:", e)
-
+        if hasattr(e, 'response') and e.response is not None:
+            print("Error response:", e.response.text)
+        return None
+    except Exception as e:
+        print("Unexpected error in get_shiiping_rate:", e)
+        return None
 
 
 class GetShippingRate(APIView):
@@ -1248,10 +1271,8 @@ class GetShippingRate(APIView):
 
     def post(self, request):
         from datetime import datetime
-
         try:
             user = request.user
-            print(user)
             delivery_details = request.data.get('delivery_details')
             order_items = request.data.get('items')
 
@@ -1261,7 +1282,6 @@ class GetShippingRate(APIView):
                 fullname = delivery_details.get('fullname')
                 phone_number = delivery_details.get('phone_number')
                 email_address = delivery_details.get('email_address')
-                print(email_address)
 
                 payload = {
                     "name": fullname,
@@ -1269,16 +1289,14 @@ class GetShippingRate(APIView):
                     "phone": phone_number,
                     "address": address,
                 }
-                print(fullname, email_address, phone_number, address)
+
                 try:
-                    validated_address = ValidateAddress.objects.get(address=address, email=email_address)
+                    validated_address = ValidateAddress.objects.get(
+                        address=address)
                     delivery_address_code = validated_address.address_code
                 except ValidateAddress.DoesNotExist:
-                    print('Creating.............')
-                    print(payload)
                     result = validate_address(payload)
-                    print(result)
-                    if result.get('status') == 'success':
+                    if result and result.get('status') == 'success':
                         data = result.get('data')
                         ValidateAddress.objects.create(
                             name=data['name'],
@@ -1291,13 +1309,13 @@ class GetShippingRate(APIView):
                             longitude=data['longitude']
                         )
                         delivery_address_code = data['address_code']
-                        print('Created_successfully')
                     else:
                         return Response({"error": "Error retrieving delivery address code"}, status=400)
             except Exception as e:
-                print(e)
+                logger.error(f"Address validation error: {str(e)}")
                 return Response({"error": "Invalid delivery address"}, status=400)
 
+            # Group items by store
             grouped_items = defaultdict(list)
             for item in order_items:
                 store_id = item["store"]
@@ -1305,6 +1323,7 @@ class GetShippingRate(APIView):
 
             cleaned_data_list = []
 
+            # Process each store group
             for store_id, items in grouped_items.items():
                 try:
                     store = Store.objects.get(id=store_id)
@@ -1317,7 +1336,6 @@ class GetShippingRate(APIView):
                         address=store.address1, owner=store.owner, email=store.owner.email
                     )
                     address_code = validated_address.address_code
-                    # print(address_code)
                 except ValidateAddress.DoesNotExist:
                     payload = {
                         'name': store.name,
@@ -1326,10 +1344,8 @@ class GetShippingRate(APIView):
                         'phone': str(store.owner.phone_number),
                     }
                     result = validate_address(payload)
-                    # print(result)
-                    if result.get('status') == 'success':
+                    if result and result.get('status') == 'success':
                         data = result.get('data')
-                        # print({'Successful': data})
                         validated_address = ValidateAddress.objects.create(
                             name=data['name'],
                             email=data['email'],
@@ -1345,7 +1361,26 @@ class GetShippingRate(APIView):
                     else:
                         return Response({"error": f"Error retrieving address code for store {store.name}"}, status=400)
 
-                pickup_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+                # Check for free delivery items
+                free_delivery_products = []
+                free_delivery = False
+
+                for item in items:
+                    try:
+                        product_obj = Product.objects.get(id=item["product"])
+                        if getattr(product_obj, "free_delivery", False):
+                            free_delivery = True
+                            free_delivery_products.append({
+                                "product_id": product_obj.id,
+                                "product_name": product_obj.title
+                            })
+                    except Product.DoesNotExist:
+                        logger.warning(
+                            f"Product with ID {item['product']} not found")
+
+                # Calculate package info
+                pickup_date = (datetime.now() + timedelta(days=1)
+                               ).strftime("%Y-%m-%d")
                 result = calculate_order_package(items)
 
                 shipping_payload = {
@@ -1355,167 +1390,111 @@ class GetShippingRate(APIView):
                     "category_id": result.get("package_items")[0].get('category_id'),
                     "package_items": result.get("package_items"),
                     "service_type": "pickup",
-                    "delivery_instructions": "Please I need the Item to be picked up and handled with care. Thank you, Movbay",
+                    "delivery_instructions": "Please handle the package with care. Thank you, Movbay.",
                     "package_dimension": result.get("package_dimension")
                 }
 
+                # Third-party shipping rates
                 response_data = get_shiiping_rate(shipping_payload)
 
-                # MOVBAY: internal distance-based pricing
-                destination = (validated_address.latitude, validated_address.longitude)
+                # MOVBAY internal pricing
                 try:
-                    store_validated_address = ValidateAddress.objects.get(owner=store.owner)
+                    delivery_validated_address = ValidateAddress.objects.get(
+                        address=address, email=email_address)
+                    destination = (delivery_validated_address.latitude,
+                                   delivery_validated_address.longitude)
                 except ValidateAddress.DoesNotExist:
-                    logger.info("Error Retrieving Address")
-                origin = (store_validated_address.latitude, store_validated_address.longitude)
-                summary = get_eta_distance_and_fare(origin, destination)
+                    destination = None
 
-                movbay_fare = None
-                if summary and summary.get('fare_amount'):
-                    weight_cost = result.get("package_dimension", {}).get("weight", 0) * 50
-                    movbay_fare = summary.get('fare_amount') + 300 + weight_cost
+                try:
+                    store_validated_address = ValidateAddress.objects.get(
+                        owner=store.owner)
+                    origin = (store_validated_address.latitude,
+                              store_validated_address.longitude)
+                except ValidateAddress.DoesNotExist:
+                    origin = None
 
-                # Append MOVBAY courier as one of the options
-              
+                summary = None
+                movbay_fare = 1000
+
+                if origin and destination:
+                    summary = get_eta_distance_and_fare(origin, destination)
+                    if summary and summary.get('fare_amount'):
+                        weight_cost = result.get(
+                            "package_dimension", {}).get("weight", 0) * 50
+                        movbay_fare = summary.get(
+                            'fare_amount') + 300 + weight_cost
+
+                # Override fare for free delivery
+                if free_delivery:
+                    movbay_fare = 0
+
+                # MOVBAY courier
                 couriers = [
                     {
                         "courier_id": "movbay_dispatch",
-                        "service_code": "MOVBAY00" + str(randint(0,100)),
+                        "service_code": "MOVBAY00" + str(randint(0, 100)),
                         "courier_image": "https://res.cloudinary.com/dpoidbzwa/image/upload/v1760614229/MovBay_app_icon_yd0laf.png",
                         "discount": 0,
                         "ratings": 4.9,
                         "pickup_eta": "1 hour",
-                        "pickup_eta_time": "",
-                        "delivery_eta": "Same day" if summary and summary["distance_km"] < 50 else "Next day",
-                        "delivery_eta_time": "",
-                        "total": movbay_fare if movbay_fare else 0,
+                        "delivery_eta": "Same day" if summary and summary.get("distance_km", 0) < 50 else "Next day",
+                        "total": movbay_fare,
+                        "free_delivery": free_delivery,
+                        "free_delivery_products": free_delivery_products
                     }
                 ]
 
-                # Add third-party couriers
-                couriers.extend([
-                    {
-                        "courier_id": c.get("courier_id"),
-                        "service_code": c.get("service_code"),
-                        "courier_image": c.get("courier_image"),
-                        "discount": c.get("discount"),
-                        "ratings": c.get("ratings"),
-                        "pickup_eta": c.get("pickup_eta"),
-                        "pickup_eta_time": c.get("pickup_eta_time"),
-                        "delivery_eta": c.get("delivery_eta"),
-                        "delivery_eta_time": c.get("delivery_eta_time"),
-                        "total": c.get("total"),
-                    }
-                    for c in response_data["data"].get("couriers", [])
-                ])
+                # Add third-party couriers if API call succeeds
+                if response_data and response_data.get('status') == 'success':
+                    third_party_couriers = response_data.get(
+                        "data", {}).get("couriers", [])
+                    couriers.extend([
+                        {
+                            "courier_id": c.get("courier_id"),
+                            "service_code": c.get("service_code"),
+                            "courier_image": c.get("courier_image"),
+                            "discount": c.get("discount"),
+                            "ratings": c.get("ratings"),
+                            "pickup_eta": c.get("pickup_eta"),
+                            "pickup_eta_time": c.get("pickup_eta_time"),
+                            "delivery_eta": c.get("delivery_eta"),
+                            "delivery_eta_time": c.get("delivery_eta_time"),
+                            "total": 0 if free_delivery else c.get("total"),
+                            "free_delivery": free_delivery,
+                            "free_delivery_products": free_delivery_products
+                        }
+                        for c in third_party_couriers
+                    ])
 
-                cleaned_data = {
-                    "store": store.name,
-                    "status": response_data.get("status"),
-                    "message": response_data.get("message"),
-                    "data": {
-                        "request_token": response_data["data"].get("request_token"),
-                        "couriers": couriers,
-                    },
-                }
+                    cleaned_data = {
+                        "store": store.name,
+                        "status": response_data.get("status"),
+                        "message": response_data.get("message"),
+                        "data": {
+                            "request_token": response_data.get("data", {}).get("request_token"),
+                            "couriers": couriers,
+                        },
+                    }
+                else:
+                    # Return only MOVBAY if third-party failed
+                    cleaned_data = {
+                        "store": store.name,
+                        "status": "success",
+                        "message": "MOVBAY courier available (third-party rates unavailable)",
+                        "data": {
+                            "request_token": None,
+                            "couriers": couriers,
+                        },
+                    }
 
                 cleaned_data_list.append(cleaned_data)
 
             return Response(cleaned_data_list, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print("Error:", e)
-            return Response({"error": "An error occurred"}, status=400)
-
-
-    # def post(self, request):
-    #     try:
-    #         user = request.user
-    #         per_kg = 200
-    #         delivery_details = request.data.get('delivery_details')
-    #         order_items = request.data.get('items')
-
-    #         # Convert delivery address → coordinates
-    #         delivery_coordinates = get_coordinates_from_address(
-    #             delivery_details.get('delivery_address')
-    #         )
-    #         if not delivery_coordinates:
-    #             return Response(
-    #                 {"error": "Invalid delivery address"},
-    #                 status=status.HTTP_400_BAD_REQUEST
-    #             )
-
-    #         destination = (
-    #             delivery_coordinates.get('latitude'),
-    #             delivery_coordinates.get('longitude')
-    #         )
-
-    #         # Calculate weight-based cost
-    #         package_details = calculate_order_package(order_items=order_items)
-    #         weight_cost = package_details.get('weight') * per_kg
-
-    #         movbay_delivery_price = []
-    #         terminal_delivery = []
-    #         outside_stores = []
-    #         unique_store_ids = set()
-
-    #         for item in order_items:
-    #             store_id = item.get('store')
-    #             if not store_id:
-    #                 continue
-
-    #             # Skip store if already processed
-    #             if store_id in unique_store_ids:
-    #                 continue
-
-    #             store = get_object_or_404(Store, id=store_id)
-    #             print(store)
-    #             # Compare states safely
-    #             delivery_state = delivery_details.get(
-    #                 'state', '').strip().lower()
-    #             store_state = store.state.strip().lower()
-    #             print(delivery_state, store_state)
-
-    #             if store_state != delivery_state:
-    #                 print("Store is in another state")
-    #                 outside_stores.append(item)
-    #                 result = handle_speedy_dispatch_task(
-    #                     store_id=store.id, user_id=user.id,
-    #                     delivery_details=delivery_details,
-    #                     order_items_data=outside_stores)
-    #                 unique_store_ids.add(store_id)
-    #                 terminal_delivery.append(
-    #                     {"store_id": store.id, "delivery_type": "shiip_terminal", "details": result})
-    #                 continue  # skip fare calculation
-    #             # Same state → calculate fare
-    #             unique_store_ids.add(store_id)
-
-    #             store_coordinates = get_coordinates_from_address(
-    #                 store.address1)
-    #             print('Store Coordinates:', store_coordinates)
-    #             if not store_coordinates:
-    #                 continue  # skip if store address is invalid
-
-    #             origin = (
-    #                 store_coordinates.get('latitude'),
-    #                 store_coordinates.get('longitude')
-    #             )
-    #             print(store_state, origin, delivery_state)
-    #             summary = get_eta_distance_and_fare(origin, destination)
-    #             print(summary)
-    #             if summary and summary.get('fare_amount'):
-    #                 movbay_delivery_price.append({"store_id": store.id,
-    #                                              "fare": summary.get('fare_amount') + 300 + weight_cost,
-    #                                               "delivery_type": "movbay_dispatch"
-    #                                               })
-    #         return Response({"movbay_delivery": movbay_delivery_price, "shiip_delivery": terminal_delivery}, status=200)
-
-    #     except Exception as e:
-    #         logger.error(f"An Error Occurred: {str(e)}")
-    #         return Response(
-    #             {"error": "Something went wrong while calculating shipping"},
-    #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
-    #         )
+            logger.error(f"Error in GetShippingRate: {str(e)}", exc_info=True)
+            return Response({"error": "An error occurred while calculating shipping rates"}, status=400)
 
 
 class GetShipMentRate(APIView):

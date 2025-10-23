@@ -222,18 +222,10 @@ class PurchasePaymentView(APIView):
     def post(self, request):
         try:
             order_data = request.data
-            print("=== VIEW ENTERED ===")
-            print(f"Request data: {request.data}")
-            print(f"Request method: {request.method}")
-            print(f"Original request data: {order_data}")
-
             serializer = ShopSerializer(data=order_data)
-            print(f"Serializer created")
 
             if serializer.is_valid():
-                print("Serializer is valid!")
                 validated_data = serializer.validated_data
-                print(validated_data)
 
                 # Rest of your existing code...
                 transaction_data = {
@@ -261,7 +253,6 @@ class PurchasePaymentView(APIView):
                         print(str(e))
                         return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
                 else:
-                    # Your existing paystack code...
                     print(validated_data)
                     provider_name = validated_data['provider_name']
                     payment_method = validated_data['payment_method']

@@ -245,8 +245,8 @@ def generate_order_id(size=8, prefix="MOV"):
 
 class Delivery(models.Model):
     DELIVERY_CHOICES = [
-    ('movbay_dispatch', 'MovBay_Dispatch'),
-    ('speedy_dispatch', 'Speedy_Dispatch'),
+    ('movbay', 'MovBay'),
+    ('ship_bubble', 'Ship_Bubble'),
     ('pickup_hub', 'Pickup_Hub'),
     ]
 
@@ -270,14 +270,14 @@ class Delivery(models.Model):
         db_index=True,
         validators=[EmailValidator(message="Enter a valid email address")], blank=True, null=True
     )
-    postal_code = models.PositiveBigIntegerField()
-    courier_name = models.CharField(max_length=250, blank=True, null=True)
-    tracking_number = models.CharField(max_length=250, blank=True, null=True)
+    # postal_code = models.PositiveBigIntegerField()
+    courier_id = models.CharField(max_length=250, blank=True, null=True)
+    # tracking_number = models.CharField(max_length=250, blank=True, null=True)
     shiiping_amount = models.PositiveBigIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    delivery_address_id = models.CharField(max_length=250, blank=True, null=True)
-    pickup_address_id = models.CharField(max_length=250, blank=True, null=True)
-    parcel_id = models.CharField(max_length=250, blank=True, null=True)
+    # delivery_address_id = models.CharField(max_length=250, blank=True, null=True)
+    # pickup_address_id = models.CharField(max_length=250, blank=True, null=True)
+    # parcel_id = models.CharField(max_length=250, blank=True, null=True)
 
     # def __str__(self):
     #     return f"{self.user} Delivery" 
