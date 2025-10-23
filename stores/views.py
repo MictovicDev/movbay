@@ -1468,7 +1468,8 @@ class GetShippingRate(APIView):
                             "delivery_eta_time": c.get("delivery_eta_time"),
                             "total": 0 if free_delivery else c.get("total"),
                             "free_delivery": free_delivery,
-                            "free_delivery_products": free_delivery_products
+                            "free_delivery_products": free_delivery_products,
+                            "products": products
                         }
                         for c in third_party_couriers
                     ])
