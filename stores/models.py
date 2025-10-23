@@ -272,6 +272,7 @@ class Delivery(models.Model):
     )
     # postal_code = models.PositiveBigIntegerField()
     courier_id = models.CharField(max_length=250, blank=True, null=True)
+    postal_code = models.CharField(max_length=250, blank=True, null=True)
     # tracking_number = models.CharField(max_length=250, blank=True, null=True)
     shiiping_amount = models.PositiveBigIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
