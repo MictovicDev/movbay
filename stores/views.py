@@ -1469,6 +1469,7 @@ class GetShippingRate(APIView):
 
                     cleaned_data = {
                         "store": store.name,
+                        "store_image": store.store_image_url,
                         "status": response_data.get("status"),
                         "message": response_data.get("message"),
                         "data": {
