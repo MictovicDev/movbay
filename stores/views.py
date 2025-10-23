@@ -1363,11 +1363,16 @@ class GetShippingRate(APIView):
 
                 # Check for free delivery items
                 free_delivery_products = []
+                products = []
                 free_delivery = False
 
                 for item in items:
                     try:
                         product_obj = Product.objects.get(id=item["product"])
+                        products.append({
+                            "product_id": product_obj.id,
+                            "product_name": product_obj.title
+                        })
                         if getattr(product_obj, "free_delivery", False):
                             free_delivery = True
                             free_delivery_products.append({
@@ -1441,7 +1446,8 @@ class GetShippingRate(APIView):
                         "delivery_eta": "Same day" if summary and summary.get("distance_km", 0) < 50 else "Next day",
                         "total": movbay_fare,
                         "free_delivery": free_delivery,
-                        "free_delivery_products": free_delivery_products
+                        "free_delivery_products": free_delivery_products,
+                        "products": products
                     }
                 ]
 
