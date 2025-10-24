@@ -144,7 +144,7 @@ class ShipmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shipment
         fields = '__all__'
-        read_only_fields = ['id', 'user', 'terminal_shipment_id', 'tracking_number',
+        read_only_fields = ['id', 'user', 'terminal_shipment_id',
                            'current_location', 'status', 'created_at', 'updated_at']
 
 class GetRatesSerializer(serializers.Serializer):

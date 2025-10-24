@@ -227,7 +227,7 @@ class Shipment(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Shipment {self.terminal_shipment_id or self.id} - {self.status}"
+        return f"Shipment {self.order_id or self.id} - {self.status}"
 
 
 class ShipmentTracking(models.Model):

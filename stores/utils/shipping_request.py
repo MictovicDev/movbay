@@ -5,6 +5,7 @@ from logistics.models import Shipment
 
 
 def create_shipment_model(response):
+    print('creating shipment model')
     data = response.json()
     try:
         ship_to = data.get('data')['ship_to']
@@ -30,7 +31,7 @@ def shipping_request(delivery):
         "Authorization": f"Bearer {API_KEY}"
     }
     payload = {
-        'request_token': delivery.request.token,
+        'request_token': delivery.request_token,
         'service_code': delivery.service_code,
         'courier_id': delivery.courier_id,
     }
@@ -41,7 +42,7 @@ def shipping_request(delivery):
         data = response.json()
         print("response Status:", response.status_code)
         print(json.dumps(data, indent=4))
-        if response.status_code == '200':
+        if response.status_code == 200:
              create_shipment_model(response)
         else:
             print('Response Data Not 200')

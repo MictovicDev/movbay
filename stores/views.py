@@ -320,8 +320,6 @@ def notify_drivers(drivers, summary):
 
 
 class MarkForDeliveryView(APIView):
-    # authentication_class = [JWTAuthentication]
-
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -341,7 +339,7 @@ class MarkForDeliveryView(APIView):
                     order=order)
                 for delivery in deliveries:
                     try:
-                        if delivery.delivery_method == 'movbay_dispatch':
+                        if delivery.delivery_method == 'movbay':
                             result = self._process_movbay_dispatch(
                                 delivery, order)
                             # processing_results.append(result)
@@ -368,7 +366,7 @@ class MarkForDeliveryView(APIView):
                                     'success': False,
                                     'delivery_id': delivery.id, })
 
-                        elif delivery.delivery_method == 'speedy_dispatch':
+                        elif delivery.delivery_method == 'ship_bubble':
                             print(True)
                             result = self._process_speedy_dispatch(delivery)
                             html_content = render_to_new_string(
@@ -476,7 +474,9 @@ class MarkForDeliveryView(APIView):
 
     def _process_speedy_dispatch(self, delivery):
         """Process speedy dispatch delivery"""
+        print('Enterered')
         result = shipping_request(delivery)
+        
         return result
 
         # try:

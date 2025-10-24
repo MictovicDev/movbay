@@ -4,9 +4,10 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
-from .models import Device
+from .models import Device, Notification
 from .serializers import DeviceSerializer
 from django.shortcuts import get_object_or_404
+from .serializers import NotificationSerializer
 
 
 class RegisterFcmToken(APIView):
@@ -38,3 +39,17 @@ class RegisterFcmToken(APIView):
             return Response({"message": "Token created successfully",
                              "token": device.token
                              }, status=200)
+
+
+
+class NotificationView(APIView):
+     permission_classes = [IsAuthenticated]
+     
+     def get(self, request):
+        notification = Notification.objects.filter(user=request.user)
+        serializer = NotificationSerializer(notification, many=True)
+        return Response({
+            "status": "True",
+            "data": serializer.data
+        })
+        

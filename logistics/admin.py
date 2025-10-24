@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Ride, KYC, BankDetail, DeliveryPreference, Address, ShippingRate, PackageDelivery, DeliveryImages, ValidateAddress
+from .models import Ride, KYC, BankDetail, DeliveryPreference, Address, ShippingRate, PackageDelivery, DeliveryImages, ValidateAddress, Shipment
 # Register your models here.
 
 
@@ -12,3 +12,4 @@ admin.site.register(ShippingRate)
 admin.site.register(PackageDelivery)
 admin.site.register(DeliveryImages)
 admin.site.register(ValidateAddress)
+admin.site.register(Shipment)

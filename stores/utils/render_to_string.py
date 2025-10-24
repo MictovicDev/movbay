@@ -4,7 +4,7 @@ def render_to_new_string(order_data, delivery):
         'company_name': 'Your Company Name',
         'seller_name': order_data.store.owner.username,
         'buyer_name': order_data.buyer.username,
-        'shipping_id': delivery.tracking_number if order_data.delivery else 'N/A',
+        'order_id': delivery.order_id if order_data.delivery else 'N/A',
         "delivery_amount": delivery.shiiping_amount if order_data.delivery else 'N/A',
         'parcel_id': delivery.parcel_id,
         'delivery_rider_name': delivery.courier_name if order_data.delivery else 'N/A',
