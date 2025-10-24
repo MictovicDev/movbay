@@ -67,6 +67,8 @@ from collections import defaultdict
 import os
 from random import randint
 from stores.utils.shipping_request import shipping_request
+import base64
+from .tasks import upload_single_image, upload_video
 
 
 logger = logging.getLogger(__name__)
@@ -476,7 +478,7 @@ class MarkForDeliveryView(APIView):
         """Process speedy dispatch delivery"""
         print('Enterered')
         result = shipping_request(delivery)
-        
+
         return result
 
         # try:
@@ -572,12 +574,35 @@ class ProductDeliveryTypesView(APIView):
 
 class DeleteProduct(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def delete(self, request, pk):
         try:
             product = Product.objects.get(pk=pk)
+
+            # Ensure only the store owner can delete the product
+            if product.store.owner != request.user:
+                return Response(
+                    {"error": "Permission denied"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Delete the product
+            product.delete()
+            return Response(
+                {"message": "Product deleted successfully"},
+                status=status.HTTP_204_NO_CONTENT
+            )
+
         except Product.DoesNotExist:
-            return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Product not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -727,6 +752,58 @@ class StoreFollowingView(APIView):
 
         except Exception as e:
             return Response(str(e), status=400)
+
+
+class UpdateProduct(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request, pk):
+        try:
+            # Get the product
+            product = Product.objects.get(pk=pk)
+
+            # Permission check
+            if product.store.owner != request.user:
+                return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Pass data to serializer
+            serializer = UpdateProductSerializer(
+                product, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            file_data = {}
+            video_data = None
+
+            # Handle multiple image uploads
+            if 'images' in request.FILES:
+                images = request.FILES.getlist('images')
+                for image in images:
+                    file_content = base64.b64encode(
+                        image.read()).decode('utf-8')
+                    image_data = {
+                        'file_content': file_content,
+                        'filename': image.name,
+                        'product_id': product.id
+                    }
+                    upload_single_image.delay(image_data)
+
+            # Handle product video upload
+            if 'product_video' in request.FILES:
+                video_file = request.FILES['product_video']
+                video_content = base64.b64encode(
+                    video_file.read()).decode('utf-8')
+                upload_video.delay(video_content, product.id)
+
+            return Response({
+                'message': 'Product updated successfully',
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+
+        except Product.DoesNotExist:
+            return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserProductListView(generics.ListAPIView):
