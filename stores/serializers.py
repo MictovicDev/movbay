@@ -383,10 +383,6 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 
-# "store": 2,
-#       "courier_id": "DHL Express",
-#       "request_token": "request_token",
-#       "service_code": "service_id",
       
 class ItemSerializer(serializers.Serializer):
     store = serializers.IntegerField()

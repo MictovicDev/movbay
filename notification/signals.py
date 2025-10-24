@@ -71,3 +71,26 @@ def notify_order_tracking_update(sender, instance, created, **kwargs):
                 message=f"Tracking for your order {instance.order.order_id} changed from {old_status} → {instance.status}.",
                 link=f"/orders/{instance.order.pk}/tracking/"
             )
+            
+     
+@receiver(post_save, sender=OrderTracking)
+def notify_order_tracking_update(sender, instance, created, **kwargs):
+    if created:
+        Notification.objects.create(
+            user=instance.order.buyer,
+            title="Order Tracking Update",
+            message=f"Your order {instance.order.order_id} has a new tracking update: {instance.status}.",
+            link=f"/orders/{instance.order.pk}/tracking/"
+        )
+        
+    else:
+        old_status = getattr(instance, "_old_status", None)
+        if old_status and old_status != instance.status:
+            Notification.objects.create(
+                user=instance.order.buyer,
+                title="Order Tracking Status Changed",
+                message=f"Tracking for your order {instance.order.order_id} changed from {old_status} → {instance.status}.",
+                link=f"/orders/{instance.order.pk}/tracking/"
+            )
+            
+

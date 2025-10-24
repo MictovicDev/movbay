@@ -570,6 +570,16 @@ class ProductDeliveryTypesView(APIView):
         )
 
 
+class DeleteProduct(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def delete(self, request, pk):
+        try:
+            product = Product.objects.get(pk=pk)
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
