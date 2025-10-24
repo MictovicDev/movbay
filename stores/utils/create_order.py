@@ -38,14 +38,14 @@ def create_order_with_items(user, order_data, reference, method):
         if Decimal(sender_wallet.balance) < Decimal(amount):
             print(True)
             raise ValidationError({"wallet": "Insufficient Funds"})
-        
+
         sender_wallet.balance -= amount
         sender_wallet.total_withdrawal += amount
         sender_wallet.save()
         platform_wallet.balance += amount
         platform_wallet.total_deposit += amount
         platform_wallet.save()
-        
+
     payment = Payment.objects.create(
         user=user,
         amount=amount,
@@ -70,9 +70,8 @@ def create_order_with_items(user, order_data, reference, method):
         quantity = item.get("quantity")
         item_amount = item.get("amount")
         delivery_method = item.get('delivery_method')
-        
+
         now = timezone.now()
-       
 
         # Create a unique key for delivery based on store and delivery method
         delivery_key = (store_id, delivery_method)
@@ -85,7 +84,6 @@ def create_order_with_items(user, order_data, reference, method):
             # Create new delivery
             delivery = Delivery.objects.create(
                 user=user,
-                delivery_method=delivery_method,
                 fullname=delivery_data.get('fullname'),
                 phone_number=delivery_data.get('phone_number'),
                 email=delivery_data.get('email'),
@@ -96,12 +94,11 @@ def create_order_with_items(user, order_data, reference, method):
                 city=delivery_data.get('city'),
                 state=delivery_data.get('state'),
                 postal_code=delivery_data.get('postal_code'),
-                courier_name=item.get('carrier_name'),
-                tracking_number=item.get('id'),
+                delivery_method=item.get('delivery_method'),
+                courier_id=item.get('courier_id'),
+                service_code=item.get('service_code'),
                 shiiping_amount=item.get('shiiping_amount'),
-                pickup_address_id=item.get("pickup_address_id"),
-                delivery_address_id=item.get("delivery_address_id"),
-                parcel_id=item.get('parcel_id'),
+                request_token = item.get('request_token')
             )
             created_deliveries[delivery_key] = delivery
 

@@ -272,14 +272,11 @@ class Delivery(models.Model):
     )
     # postal_code = models.PositiveBigIntegerField()
     courier_id = models.CharField(max_length=250, blank=True, null=True)
+    request_token = models.CharField(max_length=250, blank=True, null=True)
     postal_code = models.CharField(max_length=250, blank=True, null=True)
-    # tracking_number = models.CharField(max_length=250, blank=True, null=True)
     shiiping_amount = models.PositiveBigIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    # delivery_address_id = models.CharField(max_length=250, blank=True, null=True)
-    # pickup_address_id = models.CharField(max_length=250, blank=True, null=True)
-    # parcel_id = models.CharField(max_length=250, blank=True, null=True)
-
+    service_code = models.CharField(max_length=250, blank=True, null=True)
     # def __str__(self):
     #     return f"{self.user} Delivery" 
 

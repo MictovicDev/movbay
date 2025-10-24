@@ -382,22 +382,23 @@ class OrderSerializer(serializers.ModelSerializer):
                   'buyer', 'order_id', 'store', 'assigned', 'ride']
 
 
+
+# "store": 2,
+#       "courier_id": "DHL Express",
+#       "request_token": "request_token",
+#       "service_code": "service_id",
+      
 class ItemSerializer(serializers.Serializer):
     store = serializers.IntegerField()
     product = serializers.IntegerField()
     amount = serializers.IntegerField()
     quantity = serializers.IntegerField()
-    carrier_name = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True)
     id = serializers.CharField(
         required=False, allow_blank=True, allow_null=True)
-    pickup_address_id = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True)
-    delivery_address_id = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True)
-    parcel_id = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True)
     shiiping_amount = serializers.FloatField(required=False, allow_null=True)
+    courier_id = serializers.CharField()
+    request_token = serializers.CharField()
+    service_code = serializers.CharField()
     delivery_method = serializers.CharField()
 
     def to_internal_value(self, data):
@@ -418,7 +419,7 @@ class ItemSerializer(serializers.Serializer):
         # Only require these fields for methods that are NOT movbay_delivery OR movbay_dispatch
         if delivery_method and delivery_method not in ['movbay_delivery', 'movbay_dispatch']:
             required_fields = [
-                'carrier_name', 'id', 'pickup_address_id', 'delivery_address_id', 'parcel_id']
+                'courier_id','service_code', 'request_token']
             errors = {}
 
             for field in required_fields:
