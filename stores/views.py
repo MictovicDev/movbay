@@ -580,6 +580,7 @@ class DeleteProduct(APIView):
             product = Product.objects.get(pk=pk)
 
             # Ensure only the store owner can delete the product
+
             if product.store.owner != request.user:
                 return Response(
                     {"error": "Permission denied"},
@@ -609,15 +610,12 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
-    # authentication_classes = [SessionAuthentication, JWTAuthentication]
-
 
 class UserProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.AllowAny]
-    # authentication_classes = [SessionAuthentication, JWTAuthentication]
-
+    
 
 class StoreFollowView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -642,7 +640,6 @@ class StoreFollowView(APIView):
 
 
 class StoreFollowers(APIView):
-    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -680,7 +677,6 @@ class StoreFollowers(APIView):
 
 
 class StoreUnfollowView(APIView):
-    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
@@ -705,39 +701,23 @@ class StoreUnfollowView(APIView):
         }, status=200)
 
 
-# class StoreFollowing(APIView):
-#     authentication_classes = [JWTAuthentication, SessionAuthentication]
-#     permission_classes = [permissions.IsAuthenticated]
 
-#     def get(self, request):
-#         store = get_object_or_404(Store, owner=request.user)
-#         #storefollow = get_list_or_404(StoreFollow.objects.filter(following=store))
-#         try:
-#             storefollow = StoreFollow.objects.filter(following=store, follow=True)
-#             serializer = StoreFollowSerializer(storefollow, many=True)
-#         except Exception as e:
-#             print(str(e))
-#         return Response(serializer.data, status=200)
 
 
 class StoreFollowingView(APIView):
-    # authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         from django.db.models import Exists, OuterRef
         try:
-            profile = request.user.user_profile  # ✅ get UserProfile of current user
+            profile = request.user.user_profile 
 
-            # all stores this profile is following
             following = (
                 StoreFollow.objects
                 .filter(follower=profile)
                 # load related
                 .select_related('followed_store', 'followed_store__owner')
             )
-
-            # subquery: check if that store owner also follows me back
             they_follow_back_qs = StoreFollow.objects.filter(
                 follower=OuterRef('followed_store__owner__user_profile'),
                 followed_store__owner=profile.user
@@ -804,6 +784,7 @@ class UpdateProduct(APIView):
             return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class UserProductListView(generics.ListAPIView):
@@ -921,6 +902,7 @@ class StoreDetailView(APIView):
             return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class HealthCheckView(APIView):

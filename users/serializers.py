@@ -6,10 +6,11 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.hashers import check_password
 from phonenumber_field.serializerfields import PhoneNumberField
 from django.contrib.auth import get_user_model
-from .models import LoginAttempt, UserProfile, RiderProfile
+from .models import LoginAttempt, UserProfile, RiderProfile, Referral
 from django.contrib.auth import authenticate
 from .tasks import save_profile_picture, save_rider_profile_picture
 from rest_framework.response import Response
+
 
 
 
@@ -18,6 +19,8 @@ User = get_user_model()
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True)
+    referral_code = serializers.CharField(required=False, allow_blank=True)
+
 
     class Meta:
         model = User
@@ -91,9 +94,11 @@ class ActivateAccountSerializer(serializers.Serializer):
     
 class UserSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(read_only=True)
+    referral_code = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = User
-        fields = ('id','username', 'fullname', 'phone_number')
+        fields = ('id','username', 'fullname', 'phone_number', 'referral_code')
         
 
 class RiderSerializer(serializers.ModelSerializer):
@@ -185,3 +190,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
         instance.refresh_from_db()
         instance.user.refresh_from_db()
         return instance
+
+
+class ReferralSerializer(serializers.ModelSerializer):
+    referrer = UserSerializer()
+    referred_user = UserSerializer()
+    class Meta:
+        model = Referral
+        fields = '__all__'

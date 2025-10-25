@@ -4,7 +4,7 @@ from rest_framework import status
 from .serializers import RegisterSerializer, ActivateAccountSerializer
 from django.contrib.auth import get_user_model
 from .serializers import (
-    UserTokenObtainPairSerializer, UserProfileSerializer, RiderSerializer
+    UserTokenObtainPairSerializer, UserProfileSerializer, RiderSerializer, ReferralSerializer
 )
 from rest_framework_simplejwt.views import TokenObtainPairView
 from users.utils.otp import OTPManager
@@ -15,11 +15,10 @@ from django.template.loader import render_to_string
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from .tasks import send_welcome_email_async
-from .models import LoginAttempt
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework import permissions
-from .models import UserProfile, RiderProfile
+from .models import UserProfile, RiderProfile, LoginAttempt, Referral
 from django.contrib.auth.hashers import check_password
 import logging
 from .utils.redis_cli import redis_client
@@ -112,10 +111,15 @@ class RegisterView(generics.ListCreateAPIView):
         if serializer.is_valid():
             try:
                 otp_m = OTPManager()
+                referral_code = serializer.validated_data['code']
                 secret = otp_m.get_secret()
                 otp = otp_m.generate_otp()
                 user = serializer.save()
                 user.secret = secret
+                referrer = get_object_or_404(User, referral_code=referral_code_code)
+                user.save()
+                if code:
+                    Referral.objects.create(referrer=referrer, referred_user=user)
                 user.save()
                 html_content = render_to_string('emails/welcome.html', {'user': user, 'otp': otp})
                 send_welcome_email_async.delay(from_email='noreply@movbay.com',
@@ -174,6 +178,24 @@ class ActivateAccountView(generics.GenericAPIView):
         except User.DoesNotExist:
             return Response({'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
+
+
+class GetReferral(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            referral = Referral.objects.filter(referrer=request.user)
+            serializer = ReferralSerializer(referral, many=True)
+            return Response({
+                "status": "success",
+                "data": serializer.data
+            }, status=200)
+        except Exception as e:
+            return Response({
+                "status": "failed",
+                "data": str(e)
+            }, status=400)
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     queryset = UserProfile.objects.select_related('user') 

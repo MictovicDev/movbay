@@ -67,6 +67,33 @@ class User(AbstractBaseUser,PermissionsMixin):
         return self.is_admin
     
     
+# Create your models here.
+class Referral(models.Model):
+    """Track referral bonuses"""
+    referrer = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='referral'
+    )
+    referred_user = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='referral_bonus_received_from'
+    )
+    
+    bonus = models.PositiveBigIntegerField()
+    
+    is_verified_bonus_claimed = models.BooleanField(default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    verified_bonus_claimed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ['referrer', 'referred_user']
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.referrer.username} referred {self.referred_user.username}"
     
     
 
