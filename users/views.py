@@ -4,7 +4,7 @@ from rest_framework import status
 from .serializers import RegisterSerializer, ActivateAccountSerializer
 from django.contrib.auth import get_user_model
 from .serializers import (
-    UserTokenObtainPairSerializer, UserProfileSerializer, RiderSerializer, ReferralSerializer
+    UserTokenObtainPairSerializer, UserProfileSerializer, RiderSerializer, ReferralSerializer, RateMovbaySerializer
 )
 from rest_framework_simplejwt.views import TokenObtainPairView
 from users.utils.otp import OTPManager
@@ -18,7 +18,7 @@ from .tasks import send_welcome_email_async
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from rest_framework import permissions
-from .models import UserProfile, RiderProfile, LoginAttempt, Referral
+from .models import UserProfile, RiderProfile, LoginAttempt, Referral, Rating
 from django.contrib.auth.hashers import check_password
 import logging
 from .utils.redis_cli import redis_client
@@ -35,7 +35,7 @@ from django.contrib.auth import authenticate
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
-    
+
 
 class UserTokenView(APIView):
     permission_classes = [AllowAny]
@@ -84,12 +84,10 @@ class UserTokenView(APIView):
             )
 
 
-
-
 class DeleteAccountView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def post(self, request):
         try:
             user = request.user
@@ -98,14 +96,14 @@ class DeleteAccountView(APIView):
             return Response({"Message": "Account Deleted Successfully"}, status=200)
         except Exception as e:
             return Response({"Message": "Error Deleting Account"}, status=400)
-        
+
 
 class RegisterView(generics.ListCreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = RegisterSerializer
     queryset = User.objects.all()
-    
+
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
@@ -116,18 +114,21 @@ class RegisterView(generics.ListCreateAPIView):
                 otp = otp_m.generate_otp()
                 user = serializer.save()
                 user.secret = secret
-                referrer = get_object_or_404(User, referral_code=referral_code_code)
+                referrer = get_object_or_404(
+                    User, referral_code=referral_code_code)
                 user.save()
                 if code:
-                    Referral.objects.create(referrer=referrer, referred_user=user)
+                    Referral.objects.create(
+                        referrer=referrer, referred_user=user)
                 user.save()
-                html_content = render_to_string('emails/welcome.html', {'user': user, 'otp': otp})
+                html_content = render_to_string(
+                    'emails/welcome.html', {'user': user, 'otp': otp})
                 send_welcome_email_async.delay(from_email='noreply@movbay.com',
-                                            to_emails=user.email,
-                                            subject='Welcome TO MovBay',
-                                            html_content=html_content)
+                                               to_emails=user.email,
+                                               subject='Welcome TO MovBay',
+                                               html_content=html_content)
                 token = UserTokenObtainPairSerializer().get_token(user)
-                
+
                 return Response({
                     "message": "Registration successful",
                     "user": {
@@ -140,9 +141,8 @@ class RegisterView(generics.ListCreateAPIView):
             except Exception as e:
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-    
-    
+
+
 class ActivateAccountView(generics.GenericAPIView):
     permission_classes = [AllowAny]
     serializer_class = ActivateAccountSerializer
@@ -173,11 +173,10 @@ class ActivateAccountView(generics.GenericAPIView):
                 else:
                     return Response({'message': 'Invalid or expired OTP'}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                    return Response({'message': 'Already Verified, Login'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message': 'Already Verified, Login'}, status=status.HTTP_400_BAD_REQUEST)
 
         except User.DoesNotExist:
             return Response({'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-
 
 
 class GetReferral(APIView):
@@ -197,15 +196,16 @@ class GetReferral(APIView):
                 "data": str(e)
             }, status=400)
 
+
 class ProfileView(generics.RetrieveUpdateAPIView):
-    queryset = UserProfile.objects.select_related('user') 
+    queryset = UserProfile.objects.select_related('user')
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserProfileSerializer
-    
+
     def get_object(self):
         return self.queryset.get(user=self.request.user)
-    
+
     def retrieve(self, request, *args, **kwargs):
         import json
         try:
@@ -217,11 +217,10 @@ class ProfileView(generics.RetrieveUpdateAPIView):
             return Response(serializer.data)
         except Exception as e:
             return Response(str(e))
-        
-        
+
 
 class RiderProfileAPIView(APIView):
-    
+
     def get(self, request):
         try:
             rider = RiderProfile.objects.get(user=request.user)
@@ -229,8 +228,7 @@ class RiderProfileAPIView(APIView):
             return Response(serializer.data, status=200)
         except RiderProfile.DoesNotExist:
             return Response({"Message": "No Rider Matching Profile"})
-            
-    
+
     def put(self, request):
         rider = RiderProfile.objects.get(user=request.user)
         if not rider:
@@ -248,9 +246,9 @@ class RiderProfileAPIView(APIView):
             serializer.save(rider=rider)
             return Response(serializer.data)
         print(serializer.errors)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)   
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            
+
 class ForgotPassword(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -270,10 +268,6 @@ class ForgotPassword(APIView):
         user.set_password(new_password)
         user.save()
         return Response({"detail": "Password updated successfully"}, status=status.HTTP_200_OK)
-        
-        
-        
-    
 
 
 class ChangePasswordView(APIView):
@@ -295,6 +289,23 @@ class ChangePasswordView(APIView):
         user.set_password(new_password)
         user.save()
         return Response({"detail": "Password updated successfully"}, status=status.HTTP_200_OK)
-        
-        
-        
+
+
+class RateMovbay(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        data = request.data
+        serializer = RateMovbaySerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response({
+                "success": "True",
+                "data": serializer.data}, status=200
+            )
+            
+        else:
+            return Response({
+                "success": "False",
+                "error": serializer.errors
+            }, status=400)

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .views import (
-    RegisterView, ActivateAccountView, ProfileView, UserTokenView, GetReferral, RiderProfileAPIView, DeleteAccountView, ChangePasswordView)
+    RegisterView, ActivateAccountView, ProfileView, UserTokenView, GetReferral, RiderProfileAPIView, DeleteAccountView, ChangePasswordView, RateMovbay)
 from django.urls import path
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
@@ -15,7 +15,8 @@ urlpatterns = [
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('activate/', ActivateAccountView.as_view(), name='activate-account'),
     path('profile/', ProfileView.as_view(), name='profile'),
-    path('referrals/', GetReferral.as_views(), name='referral'),
+    path('referrals/', GetReferral.as_view(), name='referral'),
+    path('rate-movbay/', RateMovbay.as_view(), name='rate-movbay'),
     path('riderprofile/', RiderProfileAPIView.as_view(), name='riderprofile')
 
 ]

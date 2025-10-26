@@ -178,3 +178,22 @@ class RiderProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - Driver Profile"
+    
+    
+    
+from django.db import models
+from django.contrib.auth import get_user_model
+
+
+
+
+class Rating(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
+    rating = models.PositiveIntegerField()
+    comment = models.TextField()
+    
+    
+    
+    def __str__(self):
+        return f"{self.user.username} Rating on Movbay"
+    
