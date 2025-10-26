@@ -26,7 +26,6 @@ def create_order_notification(sender, instance, created, **kwargs):
             user=instance.store.owner,
             title="New Order Received",
             message=f"Order {instance.order_id} has been placed.",
-            link=f"/orders/{instance.pk}/"
         )
     else:
         # Status update notification for buyer
@@ -48,7 +47,6 @@ def notify_store_follow(sender, instance, created, **kwargs):
             user=instance.store.owner,
             title="New Follower",
             message=f"{instance.follower.username} started following your store {instance.store.name}.",
-            link=f"/stores/{instance.store.id}/followers/"
         )
     
         
@@ -59,7 +57,6 @@ def notify_order_tracking_update(sender, instance, created, **kwargs):
             user=instance.order.buyer,
             title="Order Tracking Update",
             message=f"Your order {instance.order.order_id} has a new tracking update: {instance.status}.",
-            link=f"/orders/{instance.order.pk}/tracking/"
         )
         
     else:
@@ -69,7 +66,6 @@ def notify_order_tracking_update(sender, instance, created, **kwargs):
                 user=instance.order.buyer,
                 title="Order Tracking Status Changed",
                 message=f"Tracking for your order {instance.order.order_id} changed from {old_status} → {instance.status}.",
-                link=f"/orders/{instance.order.pk}/tracking/"
             )
             
      
@@ -80,7 +76,6 @@ def notify_order_tracking_update(sender, instance, created, **kwargs):
             user=instance.order.buyer,
             title="Order Tracking Update",
             message=f"Your order {instance.order.order_id} has a new tracking update: {instance.status}.",
-            link=f"/orders/{instance.order.pk}/tracking/"
         )
         
     else:
@@ -90,7 +85,6 @@ def notify_order_tracking_update(sender, instance, created, **kwargs):
                 user=instance.order.buyer,
                 title="Order Tracking Status Changed",
                 message=f"Tracking for your order {instance.order.order_id} changed from {old_status} → {instance.status}.",
-                link=f"/orders/{instance.order.pk}/tracking/"
             )
             
 
