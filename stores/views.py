@@ -278,6 +278,46 @@ class ConfirmOrder(APIView):
             return Response({"Message": f"Something went wrong - {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+
+
+
+class CancelOrder(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        # Debug 1
+        print(f"DEBUG: CancelOrder POST request received for pk: {pk}")
+
+        try:
+            with transaction.atomic():
+                # Lock the row to prevent concurrent updates
+                order = Order.objects.select_for_update().get(order_id=pk)
+                if order.store.owner != request.user:
+                    # Debug 3a
+                    print("DEBUG: You can't Cancel the Order.")
+                    return Response({"Message": "You don't have the permission."}, status=status.HTTP_400_BAD_REQUEST)
+
+                order.status = 'cancelled'
+                order.save()
+                # You could use transaction.on_commit here to trigger the push only after DB is committed
+                data = 'Your Order has cancelled.'
+
+                transaction.on_commit(lambda: send_push_notification.delay(
+                    token=order.buyer.device.all()[0].token,
+                    title='Your Order has been Cancelled',
+                    notification_type="Order Cancellation",
+                    data=data
+                ))
+
+            return Response({"Message": "Order Cancelled Successfully"}, status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response({"Message": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            print(f"DEBUG: An exception occurred: {e}")  # Debug 6
+            return Response({"Message": f"Something went wrong - {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class TrackOrder(APIView):
     serializer_class = OrderTrackingSerializer
 

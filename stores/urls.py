@@ -33,6 +33,8 @@ urlpatterns = [
     path('status/', views.StatusView.as_view(), name='status-creation'),
     path('order/<str:pk>/confirm',
          views.ConfirmOrder.as_view(), name='confirm-order'),
+    path('order/<str:pk>/confirm',
+         views.CancelOrder.as_view(), name='cancel-order'),
     path('order/<str:pk>/mark-for-delivery',
          views.MarkForDeliveryView.as_view(), name='mark-as-delivered'),
     path('order/user/', views.GetUserOrder.as_view(), name='order-history'),
