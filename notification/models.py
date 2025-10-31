@@ -18,7 +18,8 @@ class Device(models.Model):
     
     
 class Notification(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notification_sender', blank=True, null=True)
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notification_receiver', null=True, blank=True)
     title = models.CharField(max_length=255)
     message = models.TextField()
     is_read = models.BooleanField(default=False)
@@ -28,15 +29,14 @@ class Notification(models.Model):
     
     class Meta:
         indexes = [
-            models.Index(fields=['user']),
+            models.Index(fields=['sender']),
+            models.Index(fields=['receiver']),
             models.Index(fields=['is_read']),
-            models.Index(fields=['created_at']),
-            models.Index(fields=['user', 'is_read']),
-            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['created_at'])
         ]
     
     def __str__(self):
-        return f"Notification for {self.user.username} - {self.title}"
+        return f"Notification for {self.sender.username} - {self.title}"
     
     
 

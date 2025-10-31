@@ -23,7 +23,7 @@ def create_order_notification(sender, instance, created, **kwargs):
     if created:
         # New order notification for store owner
         Notification.objects.create(
-            user=instance.store.owner,
+            sender=instance.store.owner,
             title="New Order Received",
             message=f"Order {instance.order_id} has been placed.",
         )
@@ -43,7 +43,7 @@ def create_order_notification(sender, instance, created, **kwargs):
 def notify_store_follow(sender, instance, created, **kwargs):
     if created:
         Notification.objects.create(
-            user=instance.store.owner,
+            sender=instance.store.owner,
             title="New Follower",
             message=f"{instance.follower.username} started following your store {instance.store.name}.",
         )
@@ -53,7 +53,8 @@ def notify_store_follow(sender, instance, created, **kwargs):
 def notify_order_tracking_update(sender, instance, created, **kwargs):
     if created:
         Notification.objects.create(
-            user=instance.order.buyer,
+            sender=instance.order.buyer,
+            receiver=instance.order.store.owner,
             title="Order Tracking Update",
             message=f"Your order {instance.order.order_id} has a new tracking update: {instance.status}.",
         )
@@ -62,7 +63,8 @@ def notify_order_tracking_update(sender, instance, created, **kwargs):
         old_status = getattr(instance, "_old_status", None)
         if old_status and old_status != instance.status:
             Notification.objects.create(
-                user=instance.order.buyer,
+                sender=instance.order.buyer,
+                receiver = instance.order.store.owner,
                 title="Order Tracking Status Changed",
                 message=f"Tracking for your order {instance.order.order_id} changed from {old_status} → {instance.status}.",
             )
@@ -72,16 +74,18 @@ def notify_order_tracking_update(sender, instance, created, **kwargs):
 def notify_order_tracking_update(sender, instance, created, **kwargs):
     if created:
         Notification.objects.create(
-            user=instance.order.buyer,
+            sender=instance.order.buyer,
+            receiver=instance.order.store.owner,
             title="Order Tracking Update",
-            message=f"Your order {instance.order.order_id} has a new tracking update: {instance.status}.",
+            message=f"Your order {instance.order.order_id} has a new tracking update: {instance.order.status}.",
         )
         
     else:
         old_status = getattr(instance, "_old_status", None)
         if old_status and old_status != instance.status:
             Notification.objects.create(
-                user=instance.order.buyer,
+                sender=instance.order.buyer,
+                receiver=instance.order.store.owner,
                 title="Order Tracking Status Changed",
                 message=f"Tracking for your order {instance.order.order_id} changed from {old_status} → {instance.status}.",
             )
