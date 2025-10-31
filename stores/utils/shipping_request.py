@@ -4,7 +4,7 @@ from logistics.models import Shipment
 
 
 
-def create_shipment_model(response):
+def create_shipment_model(response, delivery):
     print('creating shipment model')
     data = response.json()
     try:
@@ -15,8 +15,10 @@ def create_shipment_model(response):
         items = data.get('data')['items']
         tracking_url = data.get('data')['tracking_url']
         order_id = data.get('data')['order_id']
+        delivery_order = delivery.orders.all()[0]
+        print(delivery_order)
         shipment = Shipment.objects.create(
-            ship_to=ship_to, ship_from=ship_from, courier=courier, payment=payment, items=items, tracking_url=tracking_url, order_id=order_id)
+            ship_to=ship_to, ship_from=ship_from, courier=courier, payment=payment, items=items, tracking_url=tracking_url, order_id=order_id, order=delivery_order)
         return shipment
     except Exception as e:
         return {"message": f"Error {e}"}
@@ -43,7 +45,7 @@ def shipping_request(delivery):
         print("response Status:", response.status_code)
         print(json.dumps(data, indent=4))
         if response.status_code == 200:
-             create_shipment_model(response)
+             create_shipment_model(response, delivery)
         else:
             print('Response Data Not 200')
         return data

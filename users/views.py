@@ -31,10 +31,105 @@ from rest_framework.response import Response
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth import authenticate
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import get_user_model
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from django.conf import settings
+import logging
 
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+
+
+
+class GoogleLoginView(APIView):
+    """
+    Google Sign-In endpoint for React Native
+    Request body: { "token": "google_id_token" }
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        google_token = request.data.get('token')
+
+        if not google_token:
+            return Response(
+                {"error": "Google token is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Verify the Google ID token
+            idinfo = id_token.verify_oauth2_token(
+                google_token,
+                requests.Request(),
+                settings.GOOGLE_CLIENT_ID
+            )
+
+            # Extract user information from Google
+            email = idinfo.get('email')
+            first_name = idinfo.get('given_name', '')
+            last_name = idinfo.get('family_name', '')
+            google_id = idinfo.get('sub')
+            picture = idinfo.get('picture', '')
+
+            if not email:
+                return Response(
+                    {"error": "Email not provided by Google"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            logger.info(f"Google login attempt for email: {email}")
+
+            # Get or create user
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    'username': email,  # or generate a unique username
+                    'first_name': first_name,
+                    'last_name': last_name,
+                }
+            )
+
+            if created:
+                logger.info(f"New user created via Google: {email}")
+                # Set unusable password for Google users
+                user.set_unusable_password()
+                user.save()
+
+            # Generate JWT tokens (same as your existing flow)
+            refresh = RefreshToken.for_user(user)
+
+            return Response({
+                "id": str(user.id),
+                "email": user.email,
+                "user_type": getattr(user, 'user_type', None),
+                "token": {
+                    "refresh": str(refresh),
+                    "access": str(refresh.access_token),
+                },
+                "created": created,  # Indicates if this is a new user
+            }, status=status.HTTP_200_OK)
+
+        except ValueError as e:
+            logger.error(f"Invalid Google token: {str(e)}")
+            return Response(
+                {"error": "Invalid Google token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        except Exception as e:
+            logger.error(f"Google login error: {str(e)}")
+            return Response(
+                {"error": "Google authentication failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class UserTokenView(APIView):

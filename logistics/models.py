@@ -207,8 +207,7 @@ class Shipment(models.Model):
         ('evening', 'Evening (5PM - 8PM)'),
     ]
 
-    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shipments')
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, blank=True, null=True)
     ship_to = models.JSONField(blank=True, null=True)
     ship_from = models.JSONField(blank=True, null=True)
     payment = models.JSONField(blank=True, null=True)
@@ -216,7 +215,7 @@ class Shipment(models.Model):
     items = models.JSONField(blank=True, null=True)
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default='draft')
-    order_id = models.CharField(max_length=250, blank=True, null=True)
+    external_order_id = models.CharField(max_length=250, blank=True, null=True)
     courier = models.JSONField(blank=True, null=True)
     # Tracking information
     tracking_url = models.URLField(blank=True, null=True)

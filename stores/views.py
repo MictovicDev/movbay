@@ -318,18 +318,22 @@ class CancelOrder(APIView):
             print(f"DEBUG: An exception occurred: {e}")  # Debug 6
             return Response({"Message": f"Something went wrong - {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
 class TrackOrder(APIView):
     serializer_class = OrderTrackingSerializer
 
     def get(self, request, pk):
         try:
             order = get_object_or_404(Order, order_id=pk)
+            
             order_tracking = order.order_tracking.all()[0]
             serializer = OrderTrackingSerializer(order_tracking)
             return Response(serializer.data, status=200)
         except Exception as e:
             logger.info("Error Occured During Product Tracking")
             return Response({"Message": "Error Tracking Order"}, status=400)
+
 
 
 def notify_drivers(drivers, summary):
@@ -377,8 +381,8 @@ class MarkForDeliveryView(APIView):
 
             processing_results = []
             with transaction.atomic():
-                order_tracking, _ = OrderTracking.objects.get_or_create(
-                    order=order)
+                # order_tracking, _ = OrderTracking.objects.get_or_create(
+                #     order=order)
                 for delivery in deliveries:
                     try:
                         if delivery.delivery_method == 'movbay':
@@ -520,40 +524,6 @@ class MarkForDeliveryView(APIView):
         result = shipping_request(delivery)
 
         return result
-
-        # try:
-        #     # Validate required fields
-        #     required_fields = ['parcel_id',
-        #                        'pickup_address_id', 'delivery_address_id']
-        #     missing_fields = [
-        #         field for field in required_fields if not getattr(delivery, field, None)]
-
-        #     if missing_fields:
-        #         raise ValueError(
-        #             f"Missing required fields: {', '.join(missing_fields)}")
-
-        #     # Create shipment
-        #     dispatch = SpeedyDispatch()
-        #     result = dispatch.create_shipment(
-        #         address_from=delivery.pickup_address_id,
-        #         address_to=delivery.delivery_address_id,
-        #         parcel=delivery.parcel_id
-        #     )
-        #     print(result)
-
-        #     return {
-        #         'success': True,
-        #         'delivery_id': delivery.id,
-        #         'shipment_result': result
-        #     }
-
-        # except Exception as e:
-        #     logger.error(f"Speedy dispatch processing failed: {str(e)}")
-        #     return {
-        #         'success': False,
-        #         'delivery_id': delivery.id,
-        #         'error': str(e)
-        #     }
 
 
 class CustomProductPagination(PageNumberPagination):

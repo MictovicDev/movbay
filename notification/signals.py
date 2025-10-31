@@ -35,7 +35,6 @@ def create_order_notification(sender, instance, created, **kwargs):
                 user=instance.buyer,
                 title="Order Status Updated",
                 message=f"Your order {instance.order_id} changed from {old_status} → {instance.status}.",
-                link=f"/orders/{instance.pk}/"
             )
             
 

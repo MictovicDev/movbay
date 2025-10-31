@@ -291,8 +291,7 @@ class Order(models.Model):
     ]
     buyer = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, related_name='owner')
     confirmed = models.BooleanField(default=False)
-    delivery = models.CharField(max_length=250, blank=True, null=True)
-    delivery = models.ManyToManyField(Delivery)
+    delivery = models.ManyToManyField(Delivery,  related_name="orders")
     status = models.CharField(max_length=250, choices=STATUS_CHOICES, default='new')
     order_id = models.CharField(max_length=20, unique=True, blank=True)
     amount = models.PositiveBigIntegerField(default=0, blank=True, null=True)
