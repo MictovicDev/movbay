@@ -278,9 +278,6 @@ class ConfirmOrder(APIView):
             return Response({"Message": f"Something went wrong - {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
-
-
 class CancelOrder(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -319,21 +316,19 @@ class CancelOrder(APIView):
             return Response({"Message": f"Something went wrong - {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
 class TrackOrder(APIView):
     serializer_class = OrderTrackingSerializer
 
     def get(self, request, pk):
         try:
             order = get_object_or_404(Order, order_id=pk)
-            
+
             order_tracking = order.order_tracking.all()[0]
             serializer = OrderTrackingSerializer(order_tracking)
             return Response(serializer.data, status=200)
         except Exception as e:
             logger.info("Error Occured During Product Tracking")
             return Response({"Message": "Error Tracking Order"}, status=400)
-
 
 
 def notify_drivers(drivers, summary):
@@ -621,11 +616,12 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+
 class UserProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.AllowAny]
-    
+
 
 class StoreFollowView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -642,6 +638,9 @@ class StoreFollowView(APIView):
                 follower=profile, followed_store=store)
         except Exception as e:
             print(str(e))
+        if created:
+            store_follow = StoreFollow.objects.get(
+                follower=profile, followed_store=store)
         serializer = StoreFollowSerializer(store_follow)
         return Response({
             "message": "Follow Successful",
@@ -711,16 +710,13 @@ class StoreUnfollowView(APIView):
         }, status=200)
 
 
-
-
-
 class StoreFollowingView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         from django.db.models import Exists, OuterRef
         try:
-            profile = request.user.user_profile 
+            profile = request.user.user_profile
 
             following = (
                 StoreFollow.objects
@@ -794,7 +790,6 @@ class UpdateProduct(APIView):
             return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class UserProductListView(generics.ListAPIView):
@@ -912,7 +907,6 @@ class StoreDetailView(APIView):
             return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class HealthCheckView(APIView):
