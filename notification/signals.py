@@ -43,9 +43,9 @@ def create_order_notification(sender, instance, created, **kwargs):
 def notify_store_follow(sender, instance, created, **kwargs):
     if created:
         Notification.objects.create(
-            sender=instance.store.owner,
+            sender=instance.followed_store.owner,
             title="New Follower",
-            message=f"{instance.follower.username} started following your store {instance.store.name}.",
+            message=f"{instance.follower.user.username} started following your store {instance.followed_store.name}.",
         )
     
         
