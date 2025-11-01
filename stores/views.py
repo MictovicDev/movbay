@@ -635,18 +635,33 @@ class StoreFollowView(APIView):
         try:
             store = Store.objects.get(id=pk)
         except Store.DoesNotExist:
-            return Response({"Message": "User Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Store does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        profile = request.user.user_profile
+
         try:
-            profile = request.user.user_profile
             store_follow, created = StoreFollow.objects.get_or_create(
-                follower=profile, followed_store=store)
+                follower=profile, followed_store=store
+            )
+
+            if not created:
+                # Already following → unfollow
+                store_follow.delete()
+                return Response({"message": "Unfollowed successfully"}, status=status.HTTP_200_OK)
+
             serializer = StoreFollowSerializer(store_follow)
+            return Response({
+                "message": "Followed successfully",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+
         except Exception as e:
-            print(str(e))
-        return Response({
-            "message": "Follow Successful",
-            "data": serializer.data
-        }, status=200)
+            return Response({
+                "message": "An error occurred while processing your request",
+                "error": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        
 
 
 class StoreFollowers(APIView):
