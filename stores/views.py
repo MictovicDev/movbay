@@ -656,6 +656,7 @@ class StoreFollowView(APIView):
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
+            print(e)
             return Response({
                 "message": "An error occurred while processing your request",
                 "error": str(e)
