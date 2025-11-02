@@ -32,7 +32,7 @@ def create_order_notification(sender, instance, created, **kwargs):
         old_status = getattr(instance, "_old_status", None)
         if old_status and old_status != instance.status:
             Notification.objects.create(
-                user=instance.buyer,
+                sender=instance.buyer,
                 title="Order Status Updated",
                 message=f"Your order {instance.order_id} changed from {old_status} → {instance.status}.",
             )

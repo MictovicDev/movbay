@@ -17,7 +17,7 @@ class User(AbstractBaseUser,PermissionsMixin):
         ("User","User"),
         ("Rider","Rider")
     )
-    referral_code = models.CharField(max_length=50, unique=True,null=True)
+    referral_code = models.CharField(max_length=50, unique=True,blank=True, null=True)
     referred_by = models.ForeignKey(
         'self', null=True, blank=True, on_delete=models.SET_NULL, related_name='referrals'
     )

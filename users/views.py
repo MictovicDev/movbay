@@ -41,12 +41,11 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 from django.conf import settings
 import logging
+from django.shortcuts import get_object_or_404
 
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
-
-
 
 
 class GoogleLoginView(APIView):
@@ -202,19 +201,25 @@ class RegisterView(generics.ListCreateAPIView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
+            print('Valid')
             try:
                 otp_m = OTPManager()
-                referral_code = serializer.validated_data['code']
+            
+                referral_code = serializer.validated_data.get('referral_code', None)
+                print(referral_code)
                 secret = otp_m.get_secret()
                 otp = otp_m.generate_otp()
                 user = serializer.save()
                 user.secret = secret
-                referrer = get_object_or_404(
-                    User, referral_code=referral_code_code)
-                user.save()
-                if code:
-                    Referral.objects.create(
+                if referral_code:
+                    try:
+                        referrer = User.objects.get(referral_code=referral_code)
+                        Referral.objects.create(
                         referrer=referrer, referred_user=user)
+                    except User.DoesNotExist:
+                        logger.info("User with Code Doesn't exist")
+                        return Response({"error":"User with Code Doesn't exist" }, status=status.HTTP_400_BAD_REQUEST)
+                    
                 user.save()
                 html_content = render_to_string(
                     'emails/welcome.html', {'user': user, 'otp': otp})
@@ -234,6 +239,7 @@ class RegisterView(generics.ListCreateAPIView):
                     },
                 }, status=status.HTTP_201_CREATED)
             except Exception as e:
+                print(e)
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -398,7 +404,7 @@ class RateMovbay(APIView):
                 "success": "True",
                 "data": serializer.data}, status=200
             )
-            
+
         else:
             return Response({
                 "success": "False",
