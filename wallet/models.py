@@ -6,11 +6,11 @@ User = get_user_model()
 
 
 class Wallet(models.Model):
-    balance = models.PositiveBigIntegerField(default=0)
+    balance = models.IntegerField(default=0)
     owner = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='wallet')
-    total_deposit = models.PositiveBigIntegerField(default=0)
-    total_withdrawal = models.PositiveBigIntegerField(default=0)
+    total_deposit = models.IntegerField(default=0)
+    total_withdrawal = models.IntegerField(default=0)
     reference_code = models.CharField(max_length=250, blank=True, null=True)
     recipient_code = models.CharField(max_length=250, blank=True, null=True)
 

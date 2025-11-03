@@ -24,18 +24,18 @@ def update_order_tracking_model(sender, instance, created, **kwargs):
     """
     if not created:
         try:
-            # print(instance)
-            # print(dir(instance))
             status = instance.status
+            print(instance)
             print(status)
             order_tracking, _ = OrderTracking.objects.get_or_create(
                 order=instance)
             if status == 'processing':
+                print('Entered')
                 try:
                     order_tracking.order_accepted = True
                     order_tracking.save()
-                except OrderTracking.DoesNotExist:
-                    logger.info("Error Tracking Order")
+                except Exception as e:
+                    logger.info(str(e))
             elif status == 'out_for_delivery':
                order_tracking.item_picked = True
                order_tracking.save()

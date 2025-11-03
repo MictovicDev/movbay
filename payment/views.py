@@ -223,10 +223,10 @@ class PurchasePaymentView(APIView):
         try:
             order_data = request.data
             serializer = ShopSerializer(data=order_data)
-
+            print(order_data)
             if serializer.is_valid():
                 validated_data = serializer.validated_data
-
+                print(validated_data)
                 # Rest of your existing code...
                 transaction_data = {
                     "email": request.user.email,
@@ -253,19 +253,15 @@ class PurchasePaymentView(APIView):
                         print(str(e))
                         return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
                 else:
-                    print(validated_data)
                     provider_name = validated_data['provider_name']
                     payment_method = validated_data['payment_method']
                     provider = PaymentProviderFactory.create_provider(
                         provider_name=provider_name)
-                    print(provider)
                     method = PaymentMethodFactory.create_method(
                         method_name=payment_method)
-                    print(method)
                     transaction_data = method.prepare_payment_data(
                         transaction_data)
                     response = provider.initialize_payment(transaction_data)
-                    print(response)
                     return Response(response, status=status.HTTP_200_OK)
             else:
                 print("Serializer validation failed!")

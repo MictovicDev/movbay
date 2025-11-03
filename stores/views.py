@@ -257,6 +257,7 @@ class ConfirmOrder(APIView):
                     return Response({"Message": "Order is already being processed."}, status=status.HTTP_400_BAD_REQUEST)
 
                 order.status = 'processing'
+                print('Yeah Order saving')
                 order.save()
                 # You could use transaction.on_commit here to trigger the push only after DB is committed
                 data = 'Your Order has been confirmed, start tracking it.'
@@ -276,9 +277,6 @@ class ConfirmOrder(APIView):
         except Exception as e:
             print(f"DEBUG: An exception occurred: {e}")  # Debug 6
             return Response({"Message": f"Something went wrong - {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
 
 
 class CancelOrder(APIView):
@@ -319,21 +317,19 @@ class CancelOrder(APIView):
             return Response({"Message": f"Something went wrong - {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
 class TrackOrder(APIView):
     serializer_class = OrderTrackingSerializer
 
     def get(self, request, pk):
         try:
             order = get_object_or_404(Order, order_id=pk)
-            
+
             order_tracking = order.order_tracking.all()[0]
             serializer = OrderTrackingSerializer(order_tracking)
             return Response(serializer.data, status=200)
         except Exception as e:
-            logger.info("Error Occured During Product Tracking")
+            logger.info(str(e))
             return Response({"Message": "Error Tracking Order"}, status=400)
-
 
 
 def notify_drivers(drivers, summary):
@@ -621,11 +617,12 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+
 class UserProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.AllowAny]
-    
+
 
 class StoreFollowView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -661,8 +658,6 @@ class StoreFollowView(APIView):
                 "message": "An error occurred while processing your request",
                 "error": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
-
-        
 
 
 class StoreFollowers(APIView):
@@ -727,16 +722,13 @@ class StoreUnfollowView(APIView):
         }, status=200)
 
 
-
-
-
 class StoreFollowingView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         from django.db.models import Exists, OuterRef
         try:
-            profile = request.user.user_profile 
+            profile = request.user.user_profile
 
             following = (
                 StoreFollow.objects
@@ -810,7 +802,6 @@ class UpdateProduct(APIView):
             return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class UserProductListView(generics.ListAPIView):
@@ -928,7 +919,6 @@ class StoreDetailView(APIView):
             return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class HealthCheckView(APIView):
@@ -1070,50 +1060,54 @@ class VerifyOrderView(APIView):
                     if order.completed == True:
                         return Response({"message": "Order Already Completed Succesfully"}, status=200)
                     otp = serializer.validated_data['otp']
-                    print(otp)
                     ride = order.ride.all()
-                    print(ride)
                     order_secret = order.otp_secret
-                    print(request.user.user_type, order.store.owner)
-                    print(request.user)
                     if request.user.user_type == 'User' and request.user == order.store.owner:
                         print("Store Owner is trying to complete the order")
                         if ride:
                             if not ride[0].completed:
                                 return Response({"message": "Ride is Ongoing"})
-                        if OTPManager(order_secret).verify_otp(otp):
-                            try:
-                                order_tracking = get_object_or_404(
-                                    OrderTracking, order=order)
-                                order_tracking.completed = True
-                                order_tracking.save()
+                        # if OTPManager(order_secret).verify_otp(otp):
+                        try:
+                            order_tracking = get_object_or_404(
+                                OrderTracking, order=order)
+                            order_tracking.completed = True
+                            order_tracking.save()
+                            order_items = order.order_items.all()
+                            free_delivery = [
+                                item.product.free_delivery for item in order_items]
+                            print(order.delivery.first().shiiping_amount)
+                            if True in free_delivery:
+                                delivery_fee = order.delivery.first().shiiping_amount
+                                wallet = get_object_or_404(Wallet, owner=order.store.owner)
+                                wallet.balance -= delivery_fee
+                                wallet.save()
+                            admin_wallet = get_object_or_404(
+                                Wallet, owner__email='admin@mail.com')
+                            owner_wallet = get_object_or_404(
+                                Wallet, owner=order.store.owner)
+                            # Ensure order.amount is a valid number
+                            amount = order.amount or 0
+                            print(amount)
+                            # print(delivery_fee)
+                            admin_wallet.balance -= amount
+                            admin_wallet.total_withdrawal += amount
+                            admin_wallet.save()
 
-                                owner_wallet = get_object_or_404(
-                                    Wallet, owner=order.store.owner)
-                                admin_wallet = get_object_or_404(
-                                    Wallet, owner__email='admin@mail.com')
+                            owner_wallet.balance += amount
+                            owner_wallet.total_deposit += amount
+                            owner_wallet.save()
 
-                                # Ensure order.amount is a valid number
-                                amount = order.amount or 0
-
-                                admin_wallet.balance -= amount
-                                admin_wallet.total_withdrawal += amount
-                                admin_wallet.save()
-
-                                owner_wallet.balance += amount
-                                owner_wallet.total_deposit += amount
-                                owner_wallet.save()
-
-                                print("Owner balance:", owner_wallet.balance)
-                                print("Admin balance:", admin_wallet.balance)
-                                order.completed = True
-                                order.save()
-                                return Response({"message": "Order Completed Succesfully"}, status=200)
-                            except Exception as e:
-                                logger.info(str(e))
-                                return Response({"message": "Error Completing Order"}, status=400)
-                        else:
-                            return Response({'message': 'Invalid or expired OTP'}, status=400)
+                            print("Owner balance:", owner_wallet.balance)
+                            print("Admin balance:", admin_wallet.balance)
+                            order.completed = True
+                            order.save()
+                            return Response({"message": "Order Completed Succesfully"}, status=200)
+                        except Exception as e:
+                            logger.info(str(e))
+                            return Response({"message": "Error Completing Order"}, status=400)
+                        # else:
+                        #     return Response({'message': 'Invalid or expired OTP'}, status=400)
                     elif request.user.user_type == 'Rider' and request.user == ride[0].rider:
                         logger.info("Rider is trying to complete the ride")
                         if OTPManager(order_secret).verify_otp(otp):

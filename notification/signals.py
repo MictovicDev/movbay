@@ -56,7 +56,7 @@ def notify_order_tracking_update(sender, instance, created, **kwargs):
             sender=instance.order.buyer,
             receiver=instance.order.store.owner,
             title="Order Tracking Update",
-            message=f"Your order {instance.order.order_id} has a new tracking update: {instance.status}.",
+            message=f"Your order {instance.order.order_id} has a new tracking update: {instance.order.status}.",
         )
         
     else:
