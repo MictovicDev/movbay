@@ -1564,6 +1564,7 @@ class GetShippingRate(APIView):
                     ])
 
                     cleaned_data = {
+                        "store_id": store.id,
                         "store": store.name,
                         "store_image": store.store_image_url,
                         "status": response_data.get("status"),
@@ -1576,6 +1577,7 @@ class GetShippingRate(APIView):
                 else:
                     # Return only MOVBAY if third-party failed
                     cleaned_data = {
+                        "store_id": store.id,
                         "store": store.name,
                         "status": "success",
                         "message": "MOVBAY courier available (third-party rates unavailable)",
