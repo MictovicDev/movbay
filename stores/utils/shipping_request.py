@@ -1,7 +1,7 @@
-import requests, json, os
+import requests
+import json
+import os
 from logistics.models import Shipment
-
-
 
 
 def create_shipment_model(response, delivery):
@@ -16,13 +16,16 @@ def create_shipment_model(response, delivery):
         tracking_url = data.get('data')['tracking_url']
         order_id = data.get('data')['order_id']
         delivery_order = delivery.orders.all()[0]
-        print(delivery_order)
+        print(ship_to, ship_from, courier, payment, items,
+              tracking_url, order_id, delivery_order)
         shipment = Shipment.objects.create(
-            ship_to=ship_to, ship_from=ship_from, courier=courier, payment=payment, items=items, tracking_url=tracking_url, order_id=order_id, order=delivery_order)
+            ship_to=ship_to, ship_from=ship_from, courier=courier, payment=payment, items=items, tracking_url=tracking_url, external_order_id=order_id, order=delivery_order)
+        delivery_order.assigned = True
+        delivery_order.save()
         return shipment
     except Exception as e:
+        print(e)
         return {"message": f"Error {e}"}
-
 
 
 def shipping_request(delivery):
@@ -45,7 +48,7 @@ def shipping_request(delivery):
         print("response Status:", response.status_code)
         print(json.dumps(data, indent=4))
         if response.status_code == 200:
-             create_shipment_model(response, delivery)
+            create_shipment_model(response, delivery)
         else:
             print('Response Data Not 200')
         return data

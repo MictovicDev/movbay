@@ -207,7 +207,7 @@ class Shipment(models.Model):
         ('evening', 'Evening (5PM - 8PM)'),
     ]
 
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, blank=True, null=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, blank=True, null=True, related_name='shipment')
     ship_to = models.JSONField(blank=True, null=True)
     ship_from = models.JSONField(blank=True, null=True)
     payment = models.JSONField(blank=True, null=True)
