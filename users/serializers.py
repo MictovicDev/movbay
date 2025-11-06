@@ -147,12 +147,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', required=False)
     fullname = serializers.CharField(source='user.fullname', required=False)
     phone_number = serializers.CharField(source='user.phone_number', required=False)
+    referral_code = serializers.CharField(source='user.referral_code', required=False)
     address = serializers.CharField(required=False)
     profile_picture = serializers.ImageField(required=False)
 
     class Meta:
         model = UserProfile
-        fields = ['username', 'fullname', 'phone_number', 'address', 'profile_picture']
+        fields = ['username', 'fullname', 'phone_number', 'address', 'profile_picture', 'referral_code']
         
         
     def update(self, instance, validated_data):

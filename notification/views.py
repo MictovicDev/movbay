@@ -8,6 +8,7 @@ from .models import Device, Notification
 from .serializers import DeviceSerializer
 from django.shortcuts import get_object_or_404
 from .serializers import NotificationSerializer
+from django.db.models import Q
 
 
 class RegisterFcmToken(APIView):
@@ -41,15 +42,27 @@ class RegisterFcmToken(APIView):
                              }, status=200)
 
 
-
 class NotificationView(APIView):
-     permission_classes = [IsAuthenticated]
-     
-     def get(self, request):
-        notification = Notification.objects.filter(user=request.user)
-        serializer = NotificationSerializer(notification, many=True)
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        notifications = Notification.objects.filter(
+            Q(sender=request.user) | Q(receiver=request.user)
+        )
+        serializer = NotificationSerializer(notifications, many=True)
         return Response({
             "status": "True",
             "data": serializer.data
         })
         
+        
+class DeleteNotificationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        notification =get_object_or_404(Notification, id=pk)
+        notification.delete()
+        return Response({
+            "status": "True",
+            "data": "Deleted Succesfully"
+        }, status=204)

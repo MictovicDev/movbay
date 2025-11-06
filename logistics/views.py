@@ -44,10 +44,15 @@ from logistics.utils.eta import get_eta_distance_and_fare
 from stores.utils.get_store_cordinate import get_coordinates_from_address
 from rest_framework.exceptions import ValidationError, NotFound
 from decimal import Decimal
-import os
+import os, json, hmac, hashlib
 from payment.utils.helper import generate_tx_ref
 from logistics.utils.handle_payment_package import handle_payment
 from geopy.distance import geodesic
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.utils.decorators import method_decorator
+from django.views import View
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -841,3 +846,50 @@ class CancelRideView(APIView):
 
 
 
+class ShipWebHook(View):
+    @method_decorator(csrf_exempt)
+    @method_decorator(require_http_methods(["POST"]))
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+
+    def post(self, request):
+        body = request.body
+        # Verify webhook signature
+        if not self.verify_signature(body, request.META.get('x-ship-signature')):
+            logger.warning("Invalid webhook signature")
+            return HttpResponse("Invalid signature", status=400)
+        try:
+            # Parse webhook data
+            data = json.loads(body.decode('utf-8'))
+            event = data.get('event')
+
+            logger.info(f"Received Paystack webhook: {event}")
+
+            # Handle different webhook events
+            if event == 'shipment.status.changed':
+                print(data)
+                self.handle_successful_payment(data)
+                return HttpResponse("Webhook received", status=200)
+
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON in webhook")
+            return HttpResponse("Invalid JSON", status=400)
+        except Exception as e:
+            logger.error(f"Webhook processing error: {str(e)}")
+            return HttpResponse("Processing error", status=500)
+
+    def verify_signature(self, body, signature):
+        """Verify Paystack webhook signature"""
+        if not signature:
+            print('Error')
+            return False
+
+        # Your Paystack secret key
+        secret = os.getenv('API_KEY').encode('utf-8')
+        computed_hash = hmac.new(
+            secret,
+            body,
+            hashlib.sha512
+        ).hexdigest()
+
+        return hmac.compare_digest(computed_hash, signature)
