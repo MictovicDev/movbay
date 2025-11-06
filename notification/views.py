@@ -55,6 +55,17 @@ class NotificationView(APIView):
             "data": serializer.data
         })
         
+    def delete(self, request):
+        notifications = Notification.objects.filter(
+            Q(sender=request.user) | Q(receiver=request.user)
+        )
+        notifications.delete()
+        return Response({
+            "status": "True",
+            "data": "Deleted Succesfully"
+        }, status=204)
+        
+        
         
 class DeleteNotificationView(APIView):
     permission_classes = [IsAuthenticated]

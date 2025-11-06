@@ -820,27 +820,21 @@ class PackageDeliveryDetailAPIView(APIView):
 class CancelRideView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request, pk):
+    def delete(self, request, pk):
         ride = get_object_or_404(Ride, id=pk, rider=request.user)
         if ride.completed:
             return Response({"message": "Cannot cancel a completed ride."}, status=400)
         if ride.cancelled:
             return Response({"message": "Ride is already cancelled."}, status=400)
-
-        ride.accepted = False
-        ride.locked = False  # Unlock the ride for others
-        ride.save()
-
-        # If linked to an order, update order status
+          # If linked to an order, update order status
         if ride.order:
             order = ride.order
             order.ride_accepted = False
             order.assigned = False
             order.locked = False
             order.save()
+        ride.delete()
         return Response({"message": "Ride cancelled successfully."}, status=200)
-
-
 
 
 
@@ -854,42 +848,65 @@ class ShipWebHook(View):
 
     def post(self, request):
         body = request.body
-        # Verify webhook signature
-        if not self.verify_signature(body, request.META.get('x-ship-signature')):
-            logger.warning("Invalid webhook signature")
+        signature = request.headers.get('x-ship-signature')
+
+        if not self.verify_signature(body, signature):
+            logger.warning("Invalid Shipbubble webhook signature")
             return HttpResponse("Invalid signature", status=400)
+
         try:
-            # Parse webhook data
             data = json.loads(body.decode('utf-8'))
             event = data.get('event')
+            logger.info(f"✅ Received Shipbubble webhook event: {event}")
 
-            logger.info(f"Received Paystack webhook: {event}")
-
-            # Handle different webhook events
             if event == 'shipment.status.changed':
-                print(data)
-                self.handle_successful_payment(data)
-                return HttpResponse("Webhook received", status=200)
+                # Handle status change logic here
+                self.handle_status_change(data)
+
+            elif event == 'shipment.label.created':
+                # Handle label creation logic here
+                self.handle_label_created(data)
+
+            elif event == 'shipment.cancelled':
+                # Handle cancellation
+                self.handle_cancellation(data)
+
+            elif event == 'shipment.cod.remitted':
+                # Handle COD remittance
+                self.handle_cod_remittance(data)
+
+            return HttpResponse("Webhook received", status=200)
 
         except json.JSONDecodeError:
-            logger.error("Invalid JSON in webhook")
+            logger.error("Invalid JSON in Shipbubble webhook")
             return HttpResponse("Invalid JSON", status=400)
         except Exception as e:
-            logger.error(f"Webhook processing error: {str(e)}")
+            logger.exception(f"Error processing Shipbubble webhook: {e}")
             return HttpResponse("Processing error", status=500)
 
     def verify_signature(self, body, signature):
-        """Verify Paystack webhook signature"""
+        """Verify Shipbubble webhook signature"""
         if not signature:
-            print('Error')
             return False
 
-        # Your Paystack secret key
-        secret = os.getenv('API_KEY').encode('utf-8')
-        computed_hash = hmac.new(
-            secret,
-            body,
-            hashlib.sha512
-        ).hexdigest()
+        secret = os.getenv('SHIPBUBBLE_SECRET_KEY', '').encode('utf-8')
+        computed_hash = hmac.new(secret, body, hashlib.sha512).hexdigest()
 
         return hmac.compare_digest(computed_hash, signature)
+
+    def handle_status_change(self, data):
+        order_id = data.get('order_id')
+        new_status = data.get('status')
+        logger.info(f"Shipment {order_id} changed status to {new_status}")
+        # Update your database or order model here
+
+    def handle_label_created(self, data):
+        logger.info(f"Label created: {data.get('order_id')}")
+        # Handle label creation logic
+
+    def handle_cancellation(self, data):
+        logger.info(f"Shipment cancelled: {data.get('order_id')}")
+
+    def handle_cod_remittance(self, data):
+        logger.info(f"COD remitted: {data.get('order_id')}")
+

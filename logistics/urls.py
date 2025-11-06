@@ -27,5 +27,6 @@ urlpatterns = [
          views.PaymentDeliveryAPIView.as_view(), name='package-delivery-detail'),
     path('cancel-ride/<str:pk>/', views.CancelRideView.as_view(), name='cancel-ride'),
     path('user-delivery-history/', views.UserDeliveryHistory.as_view(), name='user-delivery-history'),
-    path('ship-webhook', views.ShipWebHook.as_view(), name='ship-webhook')
+    path('ship-webhook', views.ShipWebHook.as_view(), name='ship-webhook'),
+    path('')
 ]
