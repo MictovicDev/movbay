@@ -326,7 +326,7 @@ class TrackOrder(APIView):
             if order.delivery.first().delivery_method == 'ship_bubble':
                 print(True)
                 url = order.shipment.first().tracking_url
-                return Response({"success": True, "data": url})
+                return Response({"success": True, "type": "ship_bubble", "data": url})
             order_tracking = order.order_tracking.all()[0]
             serializer = OrderTrackingSerializer(order_tracking)
             return Response(serializer.data, status=200)
