@@ -105,6 +105,7 @@ class PaystackWebhookView(View):
         user = User.objects.get(email=email)
         data = calculate_wallet_fee(amount)
         amount = data.get('wallet_credit')
+        
         if payment_type == 'fund-wallet':
             with transaction.atomic():
                 Payment.objects.create(

@@ -56,6 +56,8 @@ class PackagePaymentDeliverySerializer(serializers.Serializer):
     provider_name = serializers.CharField(max_length=100, default='paystack')
     # amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
 
+
+
 class RideSerializer(serializers.ModelSerializer):
     package_delivery = PackageDeliverySerializer(required=False)
     order = OrderSerializer(required=False)

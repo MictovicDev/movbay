@@ -72,7 +72,7 @@ class Ride(models.Model):
     order = models.ForeignKey(
         Order, on_delete=models.CASCADE, blank=True, null=True, related_name='ride')
     package_delivery = models.ForeignKey(
-        PackageDelivery, on_delete=models.CASCADE, blank=True, null=True, related_name='package_delivery')
+        PackageDelivery, on_delete=models.CASCADE, blank=True, null=True, related_name='package_ride')
     duration_minutes = models.IntegerField(null=True)
     fare_amount = models.DecimalField(
         max_digits=8, decimal_places=2, null=True)
@@ -81,6 +81,7 @@ class Ride(models.Model):
     locked = models.BooleanField(default=False)
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
+    paid = models.BooleanField(default=False, blank=True, null=True)
     out_for_delivery = models.BooleanField(default=False)
     courier_type = models.CharField(max_length=250, blank=True, null=True)
     completed = models.BooleanField(default=False)

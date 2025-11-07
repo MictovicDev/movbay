@@ -68,6 +68,9 @@ def handle_payment(payment_method, provider_name, amount, user, package):
                 return {"status": "Completed"}
 
             elif payment_method == 'package_delivery':
+                ride = package.package_ride.first()
+                ride.paid = True
+                ride.save()
                 Payment.objects.create(
                     user=user,
                     amount=Decimal(amount),

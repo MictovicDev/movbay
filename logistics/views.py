@@ -732,10 +732,10 @@ class PaymentDeliveryAPIView(APIView):
                     print(result)
                     if result.get('status') == 'Completed':
                         package.amount += amount
+                        ride = package.package_ride.first()
+                        ride.paid = True
+                        ride.save()
                         wallet =  package.sender.user.wallet
-                        # wallet.balance -= amount
-                        # wallet.total_withdrawal += amount
-                        # wallet.save()
                         package.save()
                         return Response({"message": "Created Succesfully"},
                                         status=status.HTTP_201_CREATED,
@@ -817,24 +817,33 @@ class PackageDeliveryDetailAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+
+
 class CancelRideView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request, pk):
-        ride = get_object_or_404(Ride, id=pk, rider=request.user)
-        if ride.completed:
-            return Response({"message": "Cannot cancel a completed ride."}, status=400)
-        if ride.cancelled:
-            return Response({"message": "Ride is already cancelled."}, status=400)
-          # If linked to an order, update order status
+        rider_profile = get_object_or_404(RiderProfile, id=pk)
+
+        ride = get_object_or_404(
+            Ride,
+            rider=rider_profile.user,  
+            package_delivery__sender=request.user.userprofile,
+            completed=False
+        )
+
         if ride.order:
             order = ride.order
             order.ride_accepted = False
             order.assigned = False
             order.locked = False
             order.save()
+
         ride.delete()
+
         return Response({"message": "Ride cancelled successfully."}, status=200)
+
+  
 
 
 
