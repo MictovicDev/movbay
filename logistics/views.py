@@ -737,6 +737,14 @@ class PaymentDeliveryAPIView(APIView):
                         ride.save()
                         wallet =  package.sender.user.wallet
                         package.save()
+                        devices = ride.rider.device.first()
+                        device_token = devices.token
+                        send_push_notification.delay(
+                            token=device_token,
+                            title='Payment Made Succesfully',
+                            notification_type="Payment",
+                            data='Payment made succesfully proceed to pickup'
+                        )
                         return Response({"message": "Created Succesfully"},
                                         status=status.HTTP_201_CREATED,
                                         )

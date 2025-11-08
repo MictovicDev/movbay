@@ -42,7 +42,8 @@ def handle_payment(payment_method, provider_name, amount, user, package):
                 # Deduct from sender
                 sender_wallet.balance -= Decimal(amount)
                 print(sender_wallet.balance)
-                sender_wallet.total_withdrawal += Decimal(amount)  # ✅ should be +=, not -=
+                # ✅ should be +=, not -=
+                sender_wallet.total_withdrawal += Decimal(amount)
                 sender_wallet.save()
 
                 # Credit platform wallet
@@ -71,6 +72,14 @@ def handle_payment(payment_method, provider_name, amount, user, package):
                 ride = package.package_ride.first()
                 ride.paid = True
                 ride.save()
+                devices = ride.rider.device.first()
+                device_token = devices.token
+                send_push_notification.delay(
+                    token=device_token,
+                    title='Payment Made Succesfully',
+                    notification_type="Payment",
+                    data='Payment made succesfully proceed to pickup'
+                )
                 Payment.objects.create(
                     user=user,
                     amount=Decimal(amount),
