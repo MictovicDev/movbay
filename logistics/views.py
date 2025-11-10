@@ -842,7 +842,7 @@ class CancelRideView(APIView):
             ride = get_object_or_404(
                 Ride,
                 rider=rider_profile.user,
-                package_delivery__sender=request.user.userprofile,
+                package_delivery__sender=request.user.user_profile,
                 completed=False
             )
 
