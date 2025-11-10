@@ -76,7 +76,7 @@ def handle_payment(payment_method, provider_name, amount, user, package):
                 device_token = devices.token
                 send_push_notification.delay(
                     token=device_token,
-                    title='Payment Made Succesfully',
+                    title="Sender's has made payment",
                     notification_type="Payment",
                     data='Payment made succesfully proceed to pickup'
                 )
