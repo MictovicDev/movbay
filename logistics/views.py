@@ -855,6 +855,7 @@ class CancelRideView(APIView):
 
             ride.delete()
             device_token = ride.package_delivery.sender.user.device.first()
+            print(device_token)
             send_push_notification.delay(
                 token=device_token,
                 title="Ride has been canceled by sender",
