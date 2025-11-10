@@ -44,7 +44,10 @@ from logistics.utils.eta import get_eta_distance_and_fare
 from stores.utils.get_store_cordinate import get_coordinates_from_address
 from rest_framework.exceptions import ValidationError, NotFound
 from decimal import Decimal
-import os, json, hmac, hashlib
+import os
+import json
+import hmac
+import hashlib
 from payment.utils.helper import generate_tx_ref
 from logistics.utils.handle_payment_package import handle_payment
 from geopy.distance import geodesic
@@ -735,7 +738,7 @@ class PaymentDeliveryAPIView(APIView):
                         ride = package.package_ride.first()
                         ride.paid = True
                         ride.save()
-                        wallet =  package.sender.user.wallet
+                        wallet = package.sender.user.wallet
                         package.save()
                         devices = ride.rider.device.first()
                         device_token = devices.token
@@ -790,25 +793,27 @@ class PaymentDeliveryAPIView(APIView):
             )
 
 
-
 class UserDeliveryHistory(APIView):
     """
     Handles retrieving the delivery history of the authenticated user.
     """
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get(self, request):
         completed = request.query_params.get('completed', None)
         if isinstance(completed, str):
             completed = completed.capitalize()
         print(completed)
         if completed == 'True':
-            deliveries = PackageDelivery.objects.filter(sender=request.user.user_profile, completed=True).order_by('-created_at')
+            deliveries = PackageDelivery.objects.filter(
+                sender=request.user.user_profile, completed=True).order_by('-created_at')
             serializer = PackageDeliverySerializer(deliveries, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
-        deliveries = PackageDelivery.objects.filter(sender=request.user.user_profile, completed=False).order_by('-created_at')
+        deliveries = PackageDelivery.objects.filter(
+            sender=request.user.user_profile, completed=False).order_by('-created_at')
         serializer = PackageDeliverySerializer(deliveries, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class PackageDeliveryDetailAPIView(APIView):
     """
@@ -825,7 +830,7 @@ class PackageDeliveryDetailAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-
+from django.db import transaction
 
 class CancelRideView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -833,27 +838,31 @@ class CancelRideView(APIView):
     def delete(self, request, pk):
         rider_profile = get_object_or_404(RiderProfile, id=pk)
 
-        ride = get_object_or_404(
-            Ride,
-            rider=rider_profile.user,  
-            package_delivery__sender=request.user.userprofile,
-            completed=False
-        )
+        with transaction.atomic():
+            ride = get_object_or_404(
+                Ride,
+                rider=rider_profile.user,
+                package_delivery__sender=request.user.userprofile,
+                completed=False
+            )
 
-        if ride.order:
-            order = ride.order
-            order.ride_accepted = False
-            order.assigned = False
-            order.locked = False
-            order.save()
+            if ride.order:
+                order = ride.order
+                order.ride_accepted = False
+                order.assigned = False
+                order.locked = False
+                order.save()
 
-        ride.delete()
+            ride.delete()
+            device_token = ride.package_delivery.sender.user.device.first()
+            send_push_notification.delay(
+                token=device_token,
+                title="Ride has been canceled by sender",
+                notification_type="Ride-Cancelation",
+                data= "Ride was canceled bu sender"
+            )
 
         return Response({"message": "Ride cancelled successfully."}, status=200)
-
-  
-
-
 
 
 
@@ -926,4 +935,3 @@ class ShipWebHook(View):
 
     def handle_cod_remittance(self, data):
         logger.info(f"COD remitted: {data.get('order_id')}")
-
