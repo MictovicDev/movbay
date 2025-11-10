@@ -1168,7 +1168,7 @@ class VerifyOrderView(APIView):
                 try:
                     delivery = get_object_or_404(
                         PackageDelivery, id=pk)
-                    # ride = delivery.package_ride.all()[0]
+                    ride = delivery.package_ride.all()[0]
                     if delivery.completed == True:
                         return Response({"message": "Delivery Already Completed Succesfully"}, status=200)
                     otp = serializer.validated_data['otp']
