@@ -1168,7 +1168,7 @@ class VerifyOrderView(APIView):
                 try:
                     delivery = get_object_or_404(
                         PackageDelivery, id=pk)
-                    # ride = delivery.package_delivery.all()[0]
+                    # ride = delivery.package_ride.all()[0]
                     if delivery.completed == True:
                         return Response({"message": "Delivery Already Completed Succesfully"}, status=200)
                     otp = serializer.validated_data['otp']
@@ -1176,7 +1176,7 @@ class VerifyOrderView(APIView):
                     delivery_secret = delivery.otp_secret
                     # print(request.user.user_type, delivery.order.store.owner)
                     # print(request.user)
-                    if request.user.user_type == 'Rider' and request.user == delivery.package_delivery.all()[0].rider:
+                    if request.user.user_type == 'Rider' and request.user == delivery.package_ride.all()[0].rider:
                         print("Rider Is is trying to complete the Delivery")
                         # if OTPManager(delivery_secret).verify_otp(otp):
                         try:
