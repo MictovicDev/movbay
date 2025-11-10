@@ -859,7 +859,7 @@ class CancelRideView(APIView):
                 token=device_token,
                 title="Ride has been canceled by sender",
                 notification_type="Ride-Cancelation",
-                data= "Ride was canceled bu sender"
+                data= "Ride was canceled by sender"
             )
 
         return Response({"message": "Ride cancelled successfully."}, status=200)
