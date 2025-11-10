@@ -16,7 +16,7 @@ from rest_framework import status
 from django.db.models import Count
 from .permissions import IsProductOwner, IsStoreOwner
 from django.contrib.auth import get_user_model
-from .serializers import (StoreFollowSerializer,
+from .serializers import (
                           UserSerializer,
                           DashboardSerializer,
                           StatusSerializer,
@@ -69,6 +69,7 @@ from random import randint
 from stores.utils.shipping_request import shipping_request
 import base64
 from .tasks import upload_single_image, upload_video
+from users.serializers import UserProfileSerializer
 
 
 logger = logging.getLogger(__name__)
@@ -639,20 +640,31 @@ class StoreFollowView(APIView):
 
         profile = request.user.user_profile
 
+        # Prevent users from following their own store
+        if store.owner == request.user:
+            return Response({"message": "You cannot follow your own store"}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             store_follow, created = StoreFollow.objects.get_or_create(
                 follower=profile, followed_store=store
             )
 
             if not created:
-                # Already following → unfollow
+                # Already following, unfollow
                 store_follow.delete()
-                return Response({"message": "Unfollowed successfully"}, status=status.HTTP_200_OK)
+                return Response({
+                    "message": "Unfollowed successfully",
+                    "is_following": False
+                }, status=status.HTTP_200_OK)
 
-            serializer = StoreFollowSerializer(store_follow)
+            # Successfully followed
+            store_data = StoreSerializer(store).data
+            store_data['followed_at'] = store_follow.followed_at
+
             return Response({
                 "message": "Followed successfully",
-                "data": serializer.data
+                "is_following": True,
+                "store": store_data
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
@@ -661,7 +673,6 @@ class StoreFollowView(APIView):
                 "message": "An error occurred while processing your request",
                 "error": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
-
 
 class StoreFollowers(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -675,54 +686,33 @@ class StoreFollowers(APIView):
         except Store.DoesNotExist:
             return Response({"message": "You don't own a store"}, status=404)
 
-        followers = (
-            StoreFollow.objects
-            .filter(followed_store=my_store)
-            .select_related("follower__user")   # ✅ ensures serializer has data
-        )
-
+        # Check if I follow them back
         follow_back_qs = StoreFollow.objects.filter(
             follower=profile,
-            followed_store__owner__profile=OuterRef(
-                "follower")  # compare profile to profile
+            followed_store__owner__user_profile=OuterRef("follower")
         )
 
         followers = (
             StoreFollow.objects
             .filter(followed_store=my_store)
-            .annotate(
-                is_followed_back=Exists(follow_back_qs)
-            )
+            .annotate(is_following_back=Exists(follow_back_qs))
             .select_related("follower__user")
         )
 
-        serializer = StoreFollowSerializer(followers, many=True)
-        return Response(serializer.data, status=200)
+        # Build the followers list
+        followers_list = []
+        for follow in followers:
+            follower_data = UserProfileSerializer(follow.follower).data
+            follower_data['followed_at'] = follow.followed_at
+            follower_data['is_following_back'] = follow.is_following_back
+            followers_list.append(follower_data)
 
-
-class StoreUnfollowView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
-        try:
-            store = Store.objects.get(id=pk)
-        except Store.DoesNotExist:
-            return Response({"Message": "Store Does not Exist"}, status=status.HTTP_404_NOT_FOUND)
-        try:
-            profile = request.user.user_profile
-            store_follow = StoreFollow.objects.get(
-                followed_store=store, follower=profile)
-            store_follow.delete()
-        except Exception as e:
-            return Response(str(e), status=400)
-        try:
-            serializer = StoreFollowSerializer(store_follow)
-        except Exception as e:
-            return Response(str(e), status=400)
         return Response({
-            "message": "UnFollow Successful",
-            "data": serializer.data
+            'store': my_store.id,
+            'followers_count': len(followers_list),
+            'followers': followers_list
         }, status=200)
+
 
 
 class StoreFollowingView(APIView):
@@ -733,26 +723,34 @@ class StoreFollowingView(APIView):
         try:
             profile = request.user.user_profile
 
-            following = (
-                StoreFollow.objects
-                .filter(follower=profile)
-                # load related
-                .select_related('followed_store', 'followed_store__owner')
-            )
+            # Check if they follow me back
             they_follow_back_qs = StoreFollow.objects.filter(
                 follower=OuterRef('followed_store__owner__user_profile'),
                 followed_store__owner=profile.user
             )
 
-            # annotate boolean field
-            following = following.annotate(
-                they_follow_me_back=Exists(they_follow_back_qs))
+            following = (
+                StoreFollow.objects
+                .filter(follower=profile)
+                .annotate(they_follow_me_back=Exists(they_follow_back_qs))
+                .select_related('followed_store', 'followed_store__owner')
+            )
 
-            serializer = StoreFollowSerializer(following, many=True)
-            return Response(serializer.data, status=200)
+            # Build the following list
+            following_list = []
+            for follow in following:
+                store_data = StoreSerializer(follow.followed_store).data
+                store_data['followed_at'] = follow.followed_at
+                store_data['they_follow_me_back'] = follow.they_follow_me_back
+                following_list.append(store_data)
+
+            return Response({
+                'following_count': len(following_list),
+                'following': following_list
+            }, status=200)
 
         except Exception as e:
-            return Response(str(e), status=400)
+            return Response({"error": str(e)}, status=400)
 
 
 class UpdateProduct(APIView):

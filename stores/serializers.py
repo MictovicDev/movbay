@@ -9,7 +9,7 @@ from .models import (Store,
                      OrderItem,
                      OrderTracking
                      )
-from .tasks import upload_store_files, upload_video, upload_image, validate_store_address
+from .tasks import upload_store_files, upload_video, upload_image, validate_store_address, upload_status_files
 from base64 import b64encode
 from rest_framework.response import Response
 from rest_framework import status
@@ -34,25 +34,6 @@ class ClientStoresSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'category', 'description', 'address1',
                   'store_image', 'address2', 'owner', 'store_image_url')
 
-
-class StoreFollowSerializer(serializers.ModelSerializer):
-    follower = UserProfileSerializer()
-    followed_store = ClientStoresSerializer(read_only=True)
-    # followed_store = serializers.PrimaryKeyRelatedField(read_only=True)
-    is_following_back = serializers.BooleanField(
-        default=False)  # for followers endpoint
-    they_follow_me_back = serializers.BooleanField(
-        default=False)  # for following endpoint
-
-    class Meta:
-        model = StoreFollow
-        fields = [
-            'follower',
-            'followed_store',
-            'followed_at',
-            'is_following_back',
-            'they_follow_me_back'
-        ]
 
 
 class StatusSerializer(serializers.ModelSerializer):
