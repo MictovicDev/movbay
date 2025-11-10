@@ -854,7 +854,7 @@ class CancelRideView(APIView):
                 order.save()
 
             ride.delete()
-            device_token = ride.package_delivery.sender.user.device.first()
+            device_token = rider_profile.user.device.first().token
             print(device_token)
             send_push_notification.delay(
                 token=device_token,

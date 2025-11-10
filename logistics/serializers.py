@@ -37,8 +37,16 @@ class PackageImages(serializers.ModelSerializer):
         fields = ['delivery', 'image', 'image_url', 'uploaded_at']
 
 
+
+
+class PackageRideSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ride
+        fields = '__all__'
+
 class PackageDeliverySerializer(serializers.ModelSerializer):
     sender = UserProfileSerializer(required=False, read_only=False)
+    package_ride = PackageRideSerializer(required=False, read_only=False)
     package_images = PackageImages(many=True, required=False, read_only=True)
     package_images_list = serializers.ListField(required=False)
     rider_id = serializers.IntegerField(required=False, read_only=True)
