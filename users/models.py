@@ -35,6 +35,8 @@ class User(AbstractBaseUser,PermissionsMixin):
     user_type = models.CharField(choices=roles, max_length=5, blank=True, null=True)
     secret = models.CharField(max_length=500, blank=True, null=True)
     last_seen = models.DateTimeField(null=True, blank=True)
+    successful_referrals = models.PositiveIntegerField(blank=True, null=True)
+    referral_earnings = models.PositiveBigIntegerField(blank=True, null=True)
 
     
     
@@ -94,6 +96,7 @@ class Referral(models.Model):
 
     def __str__(self):
         return f"{self.referrer.username} referred {self.referred_user.username}"
+    
     
     
 

@@ -219,7 +219,10 @@ class RegisterView(generics.ListCreateAPIView):
                     except User.DoesNotExist:
                         logger.info("User with Code Doesn't exist")
                         return Response({"error":"User with Code Doesn't exist" }, status=status.HTTP_400_BAD_REQUEST)
-                    
+                referrer.successful_referrals += 1
+                referrer.referral_earnings += 1000
+                referrer.wallet.balance += 1000
+                referrer.save()
                 user.save()
                 html_content = render_to_string(
                     'emails/welcome.html', {'user': user, 'otp': otp})
@@ -243,6 +246,14 @@ class RegisterView(generics.ListCreateAPIView):
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+class ReferralDetails(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    
+    def post(self, request):
+        pass
 
 class ActivateAccountView(generics.GenericAPIView):
     permission_classes = [AllowAny]
