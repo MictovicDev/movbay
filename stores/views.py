@@ -17,15 +17,16 @@ from django.db.models import Count
 from .permissions import IsProductOwner, IsStoreOwner
 from django.contrib.auth import get_user_model
 from .serializers import (
-                          UserSerializer,
-                          DashboardSerializer,
-                          StatusSerializer,
-                          OrderTrackingSerializer,
-                          StoreUpdateSerializer,
-                          ReviewSerializer,
-                          UpdateProductSerializer,
-                          ProductRatingSerializer,
-                          ProductDeliveryTypeSerializer)
+    UserSerializer,
+    DashboardSerializer,
+    StatusSerializer,
+    OrderTrackingSerializer,
+    StoreUpdateSerializer,
+    ReviewSerializer,
+    UpdateProductSerializer,
+    ProductRatingSerializer,
+    StoreFollowSerializer,
+    ProductDeliveryTypeSerializer)
 from .models import Status
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -70,6 +71,7 @@ from stores.utils.shipping_request import shipping_request
 import base64
 from .tasks import upload_single_image, upload_video
 from users.serializers import UserProfileSerializer
+from rest_framework import serializers
 
 
 logger = logging.getLogger(__name__)
@@ -627,7 +629,6 @@ class UserProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ProductSerializer
     permission_classes = [permissions.AllowAny]
 
-
 class StoreFollowView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [SessionAuthentication, JWTAuthentication]
@@ -638,41 +639,31 @@ class StoreFollowView(APIView):
         except Store.DoesNotExist:
             return Response({"message": "Store does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
-        profile = request.user.user_profile
+        serializer = StoreFollowSerializer(
+            data={'followed_store': store.id},
+            context={'request': request}
+        )
 
-        # Prevent users from following their own store
-        if store.owner == request.user:
-            return Response({"message": "You cannot follow your own store"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            store_follow, created = StoreFollow.objects.get_or_create(
-                follower=profile, followed_store=store
-            )
-
-            if not created:
-                # Already following, unfollow
-                store_follow.delete()
+        if serializer.is_valid():
+            try:
+                follow = serializer.save()
+                store_data = StoreSerializer(store, context={'request': request}).data
+                store_data['followed_at'] = follow.followed_at
                 return Response({
-                    "message": "Unfollowed successfully",
+                    "message": "Followed successfully",
+                    "is_following": True,
+                    "store": store_data
+                }, status=status.HTTP_201_CREATED)
+            except serializers.ValidationError as e:
+                # Handles the “Unfollowed successfully” case
+                return Response({
+                    "message": str(e.detail[0]),
                     "is_following": False
                 }, status=status.HTTP_200_OK)
 
-            # Successfully followed
-            store_data = StoreSerializer(store).data
-            store_data['followed_at'] = store_follow.followed_at
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            return Response({
-                "message": "Followed successfully",
-                "is_following": True,
-                "store": store_data
-            }, status=status.HTTP_201_CREATED)
 
-        except Exception as e:
-            print(e)
-            return Response({
-                "message": "An error occurred while processing your request",
-                "error": str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
 
 class StoreFollowers(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -712,7 +703,6 @@ class StoreFollowers(APIView):
             'followers_count': len(followers_list),
             'followers': followers_list
         }, status=200)
-
 
 
 class StoreFollowingView(APIView):
@@ -1080,7 +1070,8 @@ class VerifyOrderView(APIView):
                             print(order.delivery.first().shiiping_amount)
                             if True in free_delivery:
                                 delivery_fee = order.delivery.first().shiiping_amount
-                                wallet = get_object_or_404(Wallet, owner=order.store.owner)
+                                wallet = get_object_or_404(
+                                    Wallet, owner=order.store.owner)
                                 wallet.balance -= delivery_fee
                                 wallet.save()
                             admin_wallet = get_object_or_404(

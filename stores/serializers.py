@@ -89,6 +89,47 @@ class StoreUpdateSerializer(serializers.ModelSerializer):
             return value
 
 
+
+
+class StoreFollowSerializer(serializers.ModelSerializer):
+    follower = UserProfileSerializer(read_only=True)
+    followed_store = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all())
+    followed_at = serializers.DateTimeField(read_only=True)
+    is_following_back = serializers.BooleanField(read_only=True)
+    they_follow_me_back = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = StoreFollow
+        fields = [
+            'id',
+            'follower',
+            'followed_store',
+            'followed_at',
+            'is_following_back',
+            'they_follow_me_back'
+        ]
+
+    def create(self, validated_data):
+        """Handles follow/unfollow toggle logic."""
+        request = self.context.get('request')
+        profile = request.user.user_profile
+        store = validated_data.get('followed_store')
+
+        if store.owner == request.user:
+            raise serializers.ValidationError("You cannot follow your own store.")
+
+        instance, created = StoreFollow.objects.get_or_create(
+            follower=profile,
+            followed_store=store
+        )
+
+        # Toggle unfollow
+        if not created:
+            instance.delete()
+            raise serializers.ValidationError("Unfollowed successfully")
+
+        return instance
+
 class StoreSerializer(serializers.ModelSerializer):
     cac = serializers.FileField(required=False)
     nin = serializers.FileField(required=False)
@@ -99,12 +140,26 @@ class StoreSerializer(serializers.ModelSerializer):
     state = serializers.CharField(required=False)
     address2 = serializers.CharField(required=False)
     country = serializers.CharField(required=False)
+    is_following = serializers.SerializerMethodField()
+
 
     class Meta:
         model = Store
         fields = ('id', 'name', 'category', 'description', 'address1',
-                  'store_image', 'address2', 'country', 'city', 'state', 'cac', 'nin', 'statuses', 'owner')
+                  'store_image', 'address2', 'country', 'city', 'state', 'cac', 'nin', 'statuses', 'owner', 'is_following')
 
+
+    def get_is_following(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            profile = request.user.user_profile
+            return StoreFollow.objects.filter(
+                follower=profile,
+                followed_store=obj
+            ).exists()
+        return False
+    
+    
     def validate_cac(self, value):
         if value:
             # Alternatively, check file extension if content_type is not reliable
