@@ -194,7 +194,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class ReferralSerializer(serializers.ModelSerializer):
-    referrer = UserSerializer()
+    # referrer = UserSerializer()
     referred_user = UserSerializer()
     class Meta:
         model = Referral

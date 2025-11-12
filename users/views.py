@@ -204,25 +204,29 @@ class RegisterView(generics.ListCreateAPIView):
             print('Valid')
             try:
                 otp_m = OTPManager()
-            
-                referral_code = serializer.validated_data.get('referral_code', None)
+
+                referral_code = serializer.validated_data.get(
+                    'referral_code', None)
                 print(referral_code)
                 secret = otp_m.get_secret()
                 otp = otp_m.generate_otp()
                 user = serializer.save()
                 user.secret = secret
                 if referral_code:
+                    print(True)
                     try:
                         referrer = User.objects.get(referral_code=referral_code)
-                        Referral.objects.create(
-                        referrer=referrer, referred_user=user)
+                        Referral.objects.create(referrer=referrer, referred_user=user)
+                        
+                        # Remove the first save() and update fields before saving
+                        referrer.successful_referrals = (referrer.successful_referrals or 0) + 1
+                        referrer.referral_earnings = (referrer.referral_earnings or 0) + 1000
+                        referrer.wallet.balance = (referrer.wallet.balance or 0) + 1000
+                        referrer.save()
+                        
                     except User.DoesNotExist:
                         logger.info("User with Code Doesn't exist")
-                        return Response({"error":"User with Code Doesn't exist" }, status=status.HTTP_400_BAD_REQUEST)
-                referrer.successful_referrals += 1
-                referrer.referral_earnings += 1000
-                referrer.wallet.balance += 1000
-                referrer.save()
+                        return Response({"error": "User with Code Doesn't exist"}, status=status.HTTP_400_BAD_REQUEST)
                 user.save()
                 html_content = render_to_string(
                     'emails/welcome.html', {'user': user, 'otp': otp})
@@ -247,13 +251,12 @@ class RegisterView(generics.ListCreateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 class ReferralDetails(APIView):
     permission_classes = [IsAuthenticated]
-    
-    
+
     def post(self, request):
         pass
+
 
 class ActivateAccountView(generics.GenericAPIView):
     permission_classes = [AllowAny]

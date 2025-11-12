@@ -35,8 +35,8 @@ class User(AbstractBaseUser,PermissionsMixin):
     user_type = models.CharField(choices=roles, max_length=5, blank=True, null=True)
     secret = models.CharField(max_length=500, blank=True, null=True)
     last_seen = models.DateTimeField(null=True, blank=True)
-    successful_referrals = models.PositiveIntegerField(blank=True, null=True)
-    referral_earnings = models.PositiveBigIntegerField(blank=True, null=True)
+    successful_referrals = models.PositiveIntegerField(blank=True, null=True, default=0)
+    referral_earnings = models.PositiveBigIntegerField(blank=True, null=True, default=0)
 
     
     
@@ -60,7 +60,7 @@ class User(AbstractBaseUser,PermissionsMixin):
     
     def save(self, *args, **kwargs):
         if not self.referral_code:
-            self.referral_code = str(uuid.uuid4()).replace('-', '')[:10]
+            self.referral_code = str(uuid.uuid4()).replace('-', '')[:6]
         super().save(*args, **kwargs)
 
     
@@ -83,7 +83,7 @@ class Referral(models.Model):
         related_name='referral_bonus_received_from'
     )
     
-    bonus = models.PositiveBigIntegerField()
+    bonus = models.PositiveBigIntegerField(default=1000)
     
     is_verified_bonus_claimed = models.BooleanField(default=False)
     
